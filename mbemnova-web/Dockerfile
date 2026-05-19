@@ -31,7 +31,7 @@ RUN rm -f /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copie du build Angular (outputPath dans angular.json : dist/immocam-frontend)
-COPY --from=builder /app/dist/immocam-frontend /usr/share/nginx/html
+COPY --from=builder /app/dist/immocam-frontend/browser /usr/share/nginx/html
 
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
     chmod -R 755 /usr/share/nginx/html
