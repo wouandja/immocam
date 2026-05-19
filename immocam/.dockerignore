@@ -1,0 +1,17 @@
+target/
+!.gitignore
+.idea/
+.vscode/
+*.md
+setup_*.sh
+deploy-*.sh
+.env
+.env.*
+logs/
+uploads/
+src/test/
+.git/
+*.bat
+*.ps1
+test_*.sh
+test_*.ps1

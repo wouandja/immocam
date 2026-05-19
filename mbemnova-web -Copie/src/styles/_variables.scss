@@ -1,0 +1,59 @@
+// =============================================================================
+// IMMOCAM — Variables SCSS centralisées (blue foncé ImmoCam)
+// =============================================================================
+
+// Couleurs principales
+$color-immocam:       #0F2A5E;
+$color-immocam-light: #1A3F8F;
+$color-immocam-dark:  #081A3D;
+
+// Palette blue complète
+$blue-50:  #EFF6FF; $blue-100: #DBEAFE; $blue-200: #BFDBFE;
+$blue-300: #93C5FD; $blue-400: #60A5FA; $blue-500: #3B82F6;
+$blue-600: #2563EB; $blue-700: #1D4ED8; $blue-800: #1E40AF;
+$blue-900: #1E3A8A; $blue-950: #172554;
+
+// Palette slate complète
+$slate-50:  #F8FAFC; $slate-100: #F1F5F9; $slate-200: #E2E8F0;
+$slate-300: #CBD5E1; $slate-400: #94A3B8; $slate-500: #64748B;
+$slate-600: #475569; $slate-700: #334155; $slate-800: #1E293B;
+$slate-900: #0F172A; $slate-950: #020617;
+
+// Statuts annonces
+$color-active:   #10B981;
+$color-pause:    #F59E0B;
+$color-expired:  #EF4444;
+$color-archived: #6B7280;
+$color-deleted:  #DC2626;
+
+// Feedback
+$color-success:  #10B981;
+$color-warning:  #F59E0B;
+$color-error:    #EF4444;
+$color-info:     #3B82F6;
+$color-whatsapp: #25D366;
+
+// Typographie
+$font-display: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+$font-body:    'Inter', 'Segoe UI', system-ui, sans-serif;
+$font-mono:    'JetBrains Mono', monospace;
+
+// Breakpoints
+$bp-xs: 375px; $bp-sm: 640px; $bp-md: 768px;
+$bp-lg: 1024px; $bp-xl: 1280px; $bp-2xl: 1536px;
+
+// Layout
+$header-h:     64px;
+$mobile-nav-h: 64px;
+$sidebar-w:    256px;
+
+// Mixins utiles
+@mixin mobile-only  { @media (max-width: #{$bp-sm - 1}) { @content; } }
+@mixin tablet-up    { @media (min-width: $bp-sm)         { @content; } }
+@mixin desktop-up   { @media (min-width: $bp-lg)         { @content; } }
+@mixin hover        { @media (hover: hover)               { &:hover { @content; } } }
+@mixin touch        { @media (hover: none)                { @content; } }
+
+// Z-index
+$z-dropdown: 40; $z-sticky: 41; $z-overlay: 50;
+$z-modal: 60; $z-toast: 70; $z-max: 9999;

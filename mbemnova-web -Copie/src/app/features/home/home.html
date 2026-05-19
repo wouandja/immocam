@@ -1,0 +1,397 @@
+<section class="hero-wrap" style="position:relative;min-height:520px;display:flex;align-items:center;overflow:hidden;">
+
+  <!-- <div class="hero-img" style="position:absolute;inset:0;background-size:cover;background-position:center;background-image:var(--hero-bg, url('/assets/hero.jpg'));"></div> -->
+    <div
+    class="absolute inset-0 bg-cover bg-center"
+    style="background-image:url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1800&q=80&auto=format&fit=crop');"
+  ></div>
+  <div class="hero-overlay" style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(5,20,45,0.72) 0%, rgba(5,20,45,0.55) 50%, rgba(5,20,45,0.75) 80%);"></div>
+
+  <div style="position:relative;z-index:2;width:100%;padding:8px 16px 40px;">
+    <div style="max-width:720px;margin:0 auto;">
+
+      <!-- HEADLINE -->
+      <div style="text-align:center;margin-bottom:28px;" class="fade-up">
+        <h1 style="color:#fff;font-size:clamp(1.6rem,4vw,3rem);font-weight:700;line-height:1.2;letter-spacing:-0.025em;padding-top:29px; font-family:'Playfair Display',Georgia,serif;">
+          Trouvez votre prochain<br/>chez-vous
+        </h1>
+        <p style="color:rgba(255,255,255,0.6);margin:10px 0 0;font-size:clamp(13px,2vw,15px);font-family:'DM Sans',sans-serif;font-weight:400;">
+          Douala, Yaoundé et 18 autres villes au Cameroun
+        </p>
+      </div>
+
+      <!-- SEARCH CARD -->
+      <div class="fade-up" style="animation-delay:80ms;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(5,20,45,0.35);">
+
+        <!-- TYPE DE BIEN PILLS -->
+        <div style="padding:14px 16px 0;border-bottom:1px solid #f1f5f9;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;">
+          <div style="display:flex;gap:6px;flex-wrap:nowrap;padding-bottom:12px;min-width:max-content;">
+
+            <button
+              (click)="selectType(null)"
+              style="flex-shrink:0;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:500;border:1.5px solid;cursor:pointer;transition:all 0.15s;white-space:nowrap;font-family:'DM Sans',sans-serif;line-height:1.4;"
+              [style.background]="selectedTypeBienId() === null ? '#1e3a5f' : 'transparent'"
+              [style.color]="selectedTypeBienId() === null ? '#fff' : '#64748b'"
+              [style.borderColor]="selectedTypeBienId() === null ? '#1e3a5f' : '#e2e8f0'"
+            >Tout</button>
+
+            @if (loadingTypesBiens()) {
+              @for (i of [1,2,3,4,5]; track i) {
+                <div style="flex-shrink:0;width:72px;height:28px;border-radius:20px;background:#f1f5f9;" class="animate-pulse"></div>
+              }
+            } @else {
+              @for (t of typesBiens(); track t.id) {
+                <button
+                  (click)="selectType(t.id)"
+                  style="flex-shrink:0;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:500;border:1.5px solid;cursor:pointer;transition:all 0.15s;white-space:nowrap;font-family:'DM Sans',sans-serif;line-height:1.4;"
+                  [style.background]="selectedTypeBienId() === t.id ? '#1e3a5f' : 'transparent'"
+                  [style.color]="selectedTypeBienId() === t.id ? '#fff' : '#64748b'"
+                  [style.borderColor]="selectedTypeBienId() === t.id ? '#1e3a5f' : '#e2e8f0'"
+                >{{ t.libelle  }}</button>
+              }
+            }
+          </div>
+        </div>
+
+        <!-- CHAMPS RECHERCHE -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+
+          <!-- VILLE -->
+          <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;border-right:1px solid #f1f5f9;">
+            <label style="display:block;font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.18em;color:#94a3b8;margin-bottom:6px;font-family:'DM Sans',sans-serif;">Ville</label>
+            <div style="position:relative;">
+              <select
+                [(ngModel)]="searchVille"
+                (ngModelChange)="onVilleChange($event)"
+                style="width:100%;font-size:13px;color:#1e293b;background:transparent;border:none;outline:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;appearance:none;padding-right:20px;"
+              >
+                <option value="">Toutes les villes</option>
+                @for (v of villes(); track v) {
+                  <option [value]="v">{{ v }}</option>
+                }
+              </select>
+              <svg style="position:absolute;right:0;top:50%;transform:translateY(-50%);width:12px;height:12px;color:#94a3b8;pointer-events:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+          </div>
+
+          <!-- QUARTIER -->
+          <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;">
+            <label
+              style="display:block;font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.18em;margin-bottom:6px;font-family:'DM Sans',sans-serif;transition:color 0.15s;"
+              [style.color]="searchVille ? '#94a3b8' : '#cbd5e1'"
+            >Quartier</label>
+
+            @if (loadingQuartiers()) {
+              <div style="display:flex;align-items:center;gap:6px;">
+                <svg style="width:12px;height:12px;color:#3b82f6;animation:spin 0.8s linear infinite;" viewBox="0 0 24 24" fill="none">
+                  <circle style="opacity:0.2;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/>
+                  <path style="opacity:0.8;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <span style="font-size:13px;color:#94a3b8;font-family:'DM Sans',sans-serif;">Chargement…</span>
+              </div>
+            } @else if (!searchVille) {
+              <span style="font-size:13px;color:#cbd5e1;font-family:'DM Sans',sans-serif;user-select:none;">Choisissez une ville</span>
+            } @else if (quartiers().length === 0) {
+              <span style="font-size:13px;color:#94a3b8;font-style:italic;font-family:'DM Sans',sans-serif;">Aucun quartier</span>
+           } @else {
+  <div style="position:relative;">
+    <select
+      [(ngModel)]="searchQuartier"
+      style="width:100%;font-size:13px;color:#1e293b;background:transparent;border:none;outline:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;appearance:none;padding-right:20px;"
+    >
+      <option value="">Tous les quartiers</option>
+      @for (q of quartiers(); track q) {
+        <option [value]="q">{{ q }}</option>
+      }
+    </select>
+    <svg style="position:absolute;right:0;top:50%;transform:translateY(-50%);width:12px;height:12px;color:#94a3b8;pointer-events:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+}
+          </div>
+
+          <!-- PRIX MIN -->
+          <div style="padding:14px 16px;border-right:1px solid #f1f5f9;">
+            <label style="display:block;font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.18em;color:#94a3b8;margin-bottom:6px;font-family:'DM Sans',sans-serif;">Prix min</label>
+            <input
+              type="number"
+              [(ngModel)]="prixMinVal"
+              (ngModelChange)="onPrixMinChange($event)"
+              min="0"
+              [max]="prixMaxVal"
+              placeholder="0"
+              style="width:100%;font-size:13px;color:#1e293b;background:transparent;border:none;outline:none;font-family:'DM Sans',sans-serif;font-weight:500;margin-bottom:8px;"
+            />
+            <input
+              type="range"
+              [(ngModel)]="prixMinVal"
+              (ngModelChange)="onPrixMinChange($event)"
+              min="0"
+              [max]="PRIX_MAX"
+              step="10000"
+              style="width:100%;height:3px;accent-color:#1e3a5f;cursor:pointer;"
+            />
+            <span style="font-size:9px;color:#94a3b8;font-family:'DM Sans',sans-serif;">{{ prixMinVal | number:'1.0-0' }} FCFA</span>
+          </div>
+
+          <!-- PRIX MAX -->
+          <div style="padding:14px 16px;">
+            <label style="display:block;font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.18em;color:#94a3b8;margin-bottom:6px;font-family:'DM Sans',sans-serif;">Prix max</label>
+            <input
+              type="number"
+              [(ngModel)]="prixMaxVal"
+              (ngModelChange)="onPrixMaxChange($event)"
+              [min]="prixMinVal"
+              [max]="PRIX_MAX"
+              placeholder="Illimité"
+              style="width:100%;font-size:13px;color:#1e293b;background:transparent;border:none;outline:none;font-family:'DM Sans',sans-serif;font-weight:500;margin-bottom:8px;"
+            />
+            <input
+              type="range"
+              [(ngModel)]="prixMaxVal"
+              (ngModelChange)="onPrixMaxChange($event)"
+              [min]="prixMinVal"
+              [max]="PRIX_MAX"
+              step="10000"
+              style="width:100%;height:3px;accent-color:#1e3a5f;cursor:pointer;"
+            />
+            <span style="font-size:9px;color:#94a3b8;font-family:'DM Sans',sans-serif;">
+              {{ prixMaxVal < PRIX_MAX ? (prixMaxVal | number:'1.0-0') + ' FCFA' : 'Illimité' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- ERREUR PRIX -->
+        @if (prixError()) {
+          <div style="margin:0 16px;padding:8px 12px;background:#fef2f2;border-radius:8px;border-left:3px solid #f87171;">
+            <p style="font-size:11px;color:#ef4444;margin:0;font-family:'DM Sans',sans-serif;">
+              Le prix minimum ne peut pas dépasser le prix maximum.
+            </p>
+          </div>
+        }
+
+        <!-- FILTRES ACTIFS -->
+        @if (hasActiveFilters()) {
+          <div style="padding:10px 16px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            @if (searchVille) {
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#1d4ed8;background:#eff6ff;padding:4px 10px;border-radius:20px;font-family:'DM Sans',sans-serif;">
+                <svg style="width:10px;height:10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                {{ searchVille }}{{ selectedQuartierLabel() ? ' · ' + selectedQuartierLabel() : '' }}
+              </span>
+            }
+            @if (selectedTypeBienId() !== null) {
+              <span style="font-size:11px;color:#1d4ed8;background:#eff6ff;padding:4px 10px;border-radius:20px;font-family:'DM Sans',sans-serif;">
+                {{ selectedTypeBienLabel() }}
+              </span>
+            }
+            @if (prixMinVal > 0 || prixMaxVal < PRIX_MAX) {
+              <span style="font-size:11px;color:#1d4ed8;background:#eff6ff;padding:4px 10px;border-radius:20px;font-family:'DM Sans',sans-serif;">
+                {{ prixMinVal | number:'1.0-0' }} – {{ prixMaxVal < PRIX_MAX ? (prixMaxVal | number:'1.0-0') + ' FCFA' : '∞ FCFA' }}
+              </span>
+            }
+            <button
+              (click)="onReset()"
+              style="font-size:11px;color:#94a3b8;background:transparent;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-family:'DM Sans',sans-serif;padding:0;transition:color 0.1s;"
+              onmouseover="this.style.color='#ef4444'"
+              onmouseout="this.style.color='#94a3b8'"
+            >Réinitialiser</button>
+          </div>
+        }
+
+        <!-- BOUTON RECHERCHER -->
+        <div style="padding:14px 16px 16px;">
+          <button
+            (click)="onSearch()"
+            [disabled]="prixError()"
+            routerLink="/annonces"
+            style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#1e3a5f;color:#ffffff;font-size:13.5px;font-weight:600;padding:14px 24px;border-radius:12px;border:none;cursor:pointer;transition:background 0.15s,transform 0.1s;font-family:'DM Sans',sans-serif;letter-spacing:0.01em;"
+            onmouseover="this.style.background='#162d4d'"
+            onmouseout="this.style.background='#1e3a5f'"
+            onmousedown="this.style.transform='scale(0.99)'"
+            onmouseup="this.style.transform='scale(1)'"
+          >
+            <svg style="width:15px;height:15px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span style="color:#ffffff;">Voir les annonces</span>
+            <svg style="width:13px;height:13px;flex-shrink:0;opacity:0.7;" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- META STATS -->
+      <div class="fade-up" style="animation-delay:160ms;display:flex;align-items:center;justify-content:center;gap:0;margin-top:20px;flex-wrap:wrap;">
+        <span style="color:rgba(255,255,255,0.5);font-size:12px;padding:4px 12px;font-family:'DM Sans',sans-serif;">
+          <strong style="color:rgba(255,255,255,0.8);font-weight:500;">{{ annonces().length + 40 }}</strong> annonces actives
+        </span>
+        <span style="width:1px;height:12px;background:rgba(255,255,255,0.15);"></span>
+        <span style="color:rgba(255,255,255,0.5);font-size:12px;padding:4px 12px;font-family:'DM Sans',sans-serif;">20 villes couvertes</span>
+        <span style="width:1px;height:12px;background:rgba(255,255,255,0.15);"></span>
+        <span style="color:rgba(255,255,255,0.5);font-size:12px;padding:4px 12px;font-family:'DM Sans',sans-serif;">Publication gratuite</span>
+        <span style="width:1px;height:12px;background:rgba(255,255,255,0.15);display:none;" class="sm:inline-block"></span>
+        <a routerLink="/annonces/creer"
+           style="display:none;align-items:center;gap:4px;font-size:12px;color:rgba(255,255,255,0.6);font-family:'DM Sans',sans-serif;font-weight:500;text-decoration:none;padding:4px 12px;transition:color 0.1s;"
+           class="sm:inline-flex"
+           onmouseover="this.style.color='rgba(255,255,255,0.95)'"
+           onmouseout="this.style.color='rgba(255,255,255,0.6)'"
+        >
+          <svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Publier une annonce
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- RESPONSIVE MOBILE — grille 1 colonne sous 640px -->
+
+
+    <!-- ══════════════════════════════
+         LISTE ANNONCES
+    ══════════════════════════════ -->
+    <main class="bg-slate-50 min-h-screen">
+      <div class="max-w-screen-xl mx-auto px-3 sm:px-6 pt-6 pb-16">
+
+        <!-- SC-01 exception A: erreur serveur -->
+        @if (serverError()) {
+          <div class="flex flex-col items-center justify-center py-16 gap-4 fade-up">
+            <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <p class="text-sm font-semibold text-slate-600 text-center">
+              Impossible de charger les annonces. Vérifiez votre connexion et réessayez.
+            </p>
+            <button (click)="reload()"
+              class="px-5 py-2 bg-[#1e293b] text-white text-sm font-semibold rounded-xl
+                     hover:bg-blue-500 transition-colors">
+              Réessayer
+            </button>
+          </div>
+        }
+
+        <!-- SC-01 exception B: hors connexion -->
+        @if (isOffline()) {
+          <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
+            <span class="text-2xl">📡</span>
+            <div>
+              <p class="text-sm font-semibold text-amber-800">Vous êtes hors connexion.</p>
+              <p class="text-xs text-amber-600 mt-0.5">ImmoCam nécessite une connexion internet.</p>
+            </div>
+          </div>
+        }
+
+        <!-- Compteur résultats + label recherche active -->
+        @if (!loading() && !serverError() && annonces().length > 0) {
+          <div class="flex items-center justify-between mb-4">
+            <p class="text-xs text-slate-400">
+              {{ totalElements() > 0 ? totalElements() : annonces().length }}
+              annonce{{ (totalElements() > 1 || annonces().length > 1) ? 's' : '' }}
+              @if (searchVille) { à <strong class="text-slate-600">{{ searchVille }}</strong> }
+              @if (selectedQuartierLabel()) { — <strong class="text-slate-600">{{ selectedQuartierLabel() }}</strong> }
+              @if (selectedTypeBienLabel() && selectedTypeBienId() !== null) {
+                · <strong class="text-slate-600">{{ selectedTypeBienLabel() }}</strong>
+              }
+            </p>
+          </div>
+        }
+
+        <!-- Skeletons — chargement initial (SC-01) -->
+        @if (loading()) {
+          <div class="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            @for (i of skeletons; track i) {
+              <app-annonce-card-skeleton/>
+            }
+          </div>
+        }
+
+        @if (!loading() && !serverError()) {
+
+          <!-- Annonces présentes -->
+          @if (annonces().length > 0) {
+          <div class="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              @for (annonce of annonces(); track annonce.id; let i = $index) {
+                <div class="card-hover fade-up"
+                     [style]="'animation-delay:' + (i % 8 * 40) + 'ms'">
+                  <app-annonce-card [annonce]="annonce"/>
+                </div>
+              }
+            </div>
+
+            <!-- Skeletons "load more" — SC-02 alt D -->
+            @if (loadingMore()) {
+              <div class="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mt-4">
+                @for (i of [1,2,3,4]; track i) { <app-annonce-card-skeleton/> }
+              </div>
+            }
+
+            <!-- Fin de liste — SC-02 alt D -->
+            @if (!hasMore() && !loadingMore()) {
+              <div class="flex items-center gap-3 mt-12">
+                <div class="flex-1 h-px bg-slate-200"></div>
+                <p class="text-xs text-slate-400 whitespace-nowrap">Toutes les annonces affichées</p>
+                <div class="flex-1 h-px bg-slate-200"></div>
+              </div>
+            }
+
+            <!-- Sentinelle scroll infini -->
+            @if (hasMore()) {
+              <app-infinite-scroll [disabled]="loadingMore()" (scrolled)="loadMore()"/>
+            }
+
+          } @else {
+            <!-- SC-01 exception C / SC-02 exception B : aucun résultat -->
+            <div class="flex flex-col items-center justify-center py-24 gap-4 fade-up">
+              <svg class="w-20 h-20 text-slate-200" viewBox="0 0 80 80"
+                   fill="none" stroke="currentColor" stroke-width="1.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 38 L40 12 L68 38"/>
+                <rect x="20" y="38" width="40" height="30" rx="2"/>
+                <rect x="32" y="48" width="16" height="20" rx="1"/>
+                <circle cx="60" cy="60" r="12"/>
+                <line x1="55" y1="60" x2="65" y2="60"/>
+                <line x1="60" y1="55" x2="60" y2="65"/>
+              </svg>
+
+              @if (hasActiveFilters()) {
+                <!-- Aucun résultat avec filtres actifs -->
+                <p class="text-sm font-semibold text-slate-600">
+                  Aucune annonce ne correspond à vos critères.
+                </p>
+                <p class="text-xs text-slate-400 text-center max-w-xs">
+                  Essayez de modifier ou supprimer certains filtres.
+                </p>
+                <button (click)="onReset()"   style="color: white;"
+                  class="px-5 py-2.5 bg-[#1e3a5f] text-white text-sm font-semibold
+                         rounded-xl hover:bg-[#1e293b] transition-colors">
+                  Voir toutes les annonces
+                </button>
+              } @else {
+                <!-- Aucune annonce en base -->
+                <p class="text-sm font-semibold text-slate-600">Aucune annonce disponible pour le moment.</p>
+                <p class="text-xs text-slate-400 text-center max-w-xs">
+                  Revenez bientôt ou soyez le premier à publier !
+                </p>
+                <a style="color: white;" routerLink="/annonces/creer"
+                   class="px-5 py-2.5 bg-[#1e3a5f] text-white text-sm font-semibold
+                          rounded-xl hover:bg-[#1e293b] transition-colors">
+                  Publier une annonce
+                </a>
+              }
+            </div>
+          }
+        }
+
+      </div>
+    </main>
+
+    <!-- ══════════════════════════════
+         BANDEAU TRANSPARENCE (SC-01)
+    ══════════════════════════════ -->
+    <div class="bg-slate-100 border-t border-slate-200 py-3 px-4">
+      <p class="text-center text-[11px] text-slate-400 max-w-2xl mx-auto">
+        Les annonces sur ImmoCam sont publiées directement par les propriétaires.
+        Chaque annonce reste visible 30 jours. Passé ce délai, elle est automatiquement suspendue si le propriétaire ne la renouvelle pas.
+      </p>
+    </div>

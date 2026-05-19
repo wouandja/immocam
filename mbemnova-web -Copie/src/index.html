@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <title>ImmoCam — Immobilier camerounais</title>
+  <base href="/"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+
+  <!-- SEO -->
+  <meta name="description" content="Trouvez votre logement, bureau ou boutique au Cameroun. Annonces immobilières de Douala, Yaoundé et 18 autres villes."/>
+  <meta name="keywords" content="immobilier cameroun, logement douala, appartement yaoundé, maison cameroun"/>
+  <meta name="author" content="MBEMNOVA"/>
+  <meta name="robots" content="index, follow"/>
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="ImmoCam — Immobilier camerounais"/>
+  <meta property="og:description" content="Trouvez votre bien immobilier au Cameroun"/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://immocam.cm"/>
+  <meta property="og:image" content="/assets/images/og-image.png"/>
+  <meta property="og:locale" content="fr_CM"/>
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="ImmoCam — Immobilier camerounais"/>
+  <meta name="twitter:description" content="Trouvez votre bien immobilier au Cameroun"/>
+
+  <!-- PWA -->
+  <meta name="theme-color" content="#0F2A5E"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="ImmoCam"/>
+  <link rel="manifest" href="/manifest.json"/>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico"/>
+
+  <!-- Preconnect fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
+
+  <!-- Toast CSS inline -->
+  <style>
+    @keyframes toastIn  { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity:1; transform: none; } }
+    @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(6px) scale(.97); } }
+    body { margin: 0; }
+  </style>
+</head>
+<body>
+  <app-root>
+    <!-- Splash screen pendant le chargement Angular -->
+    <div style="position:fixed;inset:0;background:#0F2A5E;display:flex;flex-direction:column;
+                align-items:center;justify-content:center;gap:16px;z-index:9999;"
+         id="app-splash">
+      <div style="width:56px;height:56px;background:white;border-radius:16px;display:flex;
+                  align-items:center;justify-content:center;font-weight:800;font-size:18px;
+                  color:#0F2A5E;font-family:sans-serif;">IC</div>
+      <p style="color:#93C5FD;font-size:14px;font-family:sans-serif;margin:0;">Chargement...</p>
+      <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,.2);
+                  border-top-color:white;border-radius:50%;animation:spin .8s linear infinite;"></div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </app-root>
+  <script>
+    // Cacher le splash dès qu'Angular est prêt
+    document.addEventListener('DOMContentLoaded', function() {
+      const observer = new MutationObserver(function() {
+        const splash = document.getElementById('app-splash');
+        if (document.querySelector('app-root > *:not(#app-splash)') && splash) {
+          splash.style.transition = 'opacity 300ms ease';
+          splash.style.opacity = '0';
+          setTimeout(() => splash.remove(), 300);
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.querySelector('app-root'), { childList: true });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.angular/
+.vscode/
+.git/
+*.md
+*.sh
+.env
+.env.*
+coverage/
+.nyc_output/
+ng-*.sh

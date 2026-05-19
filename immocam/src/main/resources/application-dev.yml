@@ -1,0 +1,68 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/immocam_dev
+    username: immocam_user
+    password: devpassword
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update 
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: false
+
+  thymeleaf:
+    cache: false
+
+  mail:
+    host: smtp.gmail.com
+    port: 465
+    username: padol5342@gmail.com
+    password: dodt jrfv ccdu ivmo
+    protocol: smtp
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          socketFactory:
+            port: 465
+            class: javax.net.ssl.SSLSocketFactory
+            fallback: false
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+logging:
+  level:
+    org.flywaydb: DEBUG
+    com.mbem.immocam: DEBUG
+
+server:
+  error:
+    include-stacktrace: always
+
+immocam:
+  email:
+    from: dev@immocam.local
+    from-name: ImmoCam DEV
+  storage:
+    upload-dir: ./uploads/annonces
+    temp-dir: ./uploads/temp
+    base-url:  http://localhost:1010/api/uploads/
+  security:
+    jwt:
+      secret: dev-secret-key-only-for-development
+  scheduler:
+    enabled: false
+
+springdoc:
+  swagger-ui:
+    enabled: true

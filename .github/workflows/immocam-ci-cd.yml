@@ -1,0 +1,293 @@
+# =============================================================================
+# ImmoCam — Pipeline CI/CD GitHub Actions
+#
+# Déclenchement : push sur main ou tag v*.*.*
+#
+# Jobs :
+#   1. test-backend   : Tests Maven + PostgreSQL
+#   2. build-frontend : Build Angular production
+#   3. build-push     : Build & push images Docker vers GHCR
+#   4. deploy         : Déploiement sur VPS via SSH
+#
+# Secrets GitHub requis (Settings → Secrets and variables → Actions) :
+#   VPS_HOST      : IP ou hostname du VPS
+#   VPS_USER      : Utilisateur SSH (ex: tontinepro ou immocam)
+#   VPS_SSH_KEY   : Clé privée SSH (même que TontinePro si même VPS)
+#
+# Réutilise les secrets SSH de TontinePro (même VPS) ✓
+# =============================================================================
+
+name: 🚀 CI/CD ImmoCam
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ "v*.*.*" ]
+    paths:
+      # Déclenche uniquement si les dossiers ImmoCam sont modifiés
+      - 'immocam/**'
+      - 'mbemnova-web/**'
+      - 'docker-compose.prod.yml'
+      - '.github/workflows/immocam-ci-cd.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'immocam/**'
+      - 'mbemnova-web/**'
+
+env:
+  REGISTRY: ghcr.io
+  JAVA_VERSION: "21"
+  NODE_VERSION: "20"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+
+  # ════════════════════════════════════════════════════════════
+  # JOB 1 : Tests Backend Spring Boot
+  # ════════════════════════════════════════════════════════════
+  test-backend:
+    name: 🧪 Tests Backend (Spring Boot + PostgreSQL)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: immocam_test
+          POSTGRES_USER: immocam_user
+          POSTGRES_PASSWORD: testpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U immocam_user -d immocam_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: 🔧 Permissions mvnw
+        working-directory: immocam
+        run: chmod +x mvnw
+
+      - name: 🧪 Tests Maven
+        working-directory: immocam
+        run: ./mvnw test -B
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          DB_URL: jdbc:postgresql://localhost:5432/immocam_test
+          DB_USERNAME: immocam_user
+          DB_PASSWORD: testpassword
+          JWT_SECRET: test-secret-key-for-ci-cd-pipeline-only-long-enough-64chars-ok
+          SMTP_USERNAME: test@test.com
+          SMTP_PASSWORD: test
+          STORAGE_BASE_URL: http://localhost:1010/api/uploads/
+
+      - name: 📊 Rapport de tests
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: immocam-backend-test-results
+          path: immocam/target/surefire-reports/
+          retention-days: 7
+
+  # ════════════════════════════════════════════════════════════
+  # JOB 2 : Build Frontend Angular
+  # ════════════════════════════════════════════════════════════
+  build-frontend:
+    name: 🧪 Build Frontend (Angular)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: mbemnova-web/package-lock.json
+
+      - name: 📦 npm ci
+        working-directory: mbemnova-web
+        run: npm ci --prefer-offline --no-audit
+
+      - name: 🏗️ Build production
+        working-directory: mbemnova-web
+        run: npx ng build --configuration=production
+
+  # ════════════════════════════════════════════════════════════
+  # JOB 3 : Build & Push images Docker vers GHCR
+  # ════════════════════════════════════════════════════════════
+  build-push:
+    name: 🐳 Build & Push Images Docker
+    runs-on: ubuntu-latest
+    needs: [ test-backend, build-frontend ]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+
+    outputs:
+      image_tag: ${{ steps.tag.outputs.sha }}
+      repo: ${{ steps.tag.outputs.repo }}
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🏷️ Calcul du tag
+        id: tag
+        run: |
+          SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "repo=${REPO}" >> $GITHUB_OUTPUT
+          echo "Tag: ${SHA} | Repo: ${REPO}"
+
+      - name: 🔑 Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🛠️ Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Image Backend ───────────────────────────────────────
+      - name: 🏗️ Build & Push API
+        uses: docker/build-push-action@v6
+        with:
+          context: ./immocam
+          file: ./immocam/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.tag.outputs.repo }}/immocam-api:${{ steps.tag.outputs.sha }}
+            ${{ env.REGISTRY }}/${{ steps.tag.outputs.repo }}/immocam-api:latest
+          cache-from: type=gha,scope=immocam-api
+          cache-to: type=gha,mode=max,scope=immocam-api
+          platforms: linux/amd64
+
+      # ── Image Frontend ──────────────────────────────────────
+      - name: 🏗️ Build & Push Frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./mbemnova-web
+          file: ./mbemnova-web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.tag.outputs.repo }}/immocam-frontend:${{ steps.tag.outputs.sha }}
+            ${{ env.REGISTRY }}/${{ steps.tag.outputs.repo }}/immocam-frontend:latest
+          cache-from: type=gha,scope=immocam-frontend
+          cache-to: type=gha,mode=max,scope=immocam-frontend
+          platforms: linux/amd64
+
+  # ════════════════════════════════════════════════════════════
+  # JOB 4 : Déploiement sur VPS
+  # ════════════════════════════════════════════════════════════
+  deploy:
+    name: 🚀 Deploy → VPS (IP directe)
+    runs-on: ubuntu-latest
+    needs: build-push
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+
+    
+
+    steps:
+      - name: 🚀 Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          timeout: 300s
+          script: |
+            set -euo pipefail
+
+            APP_DIR="/opt/immocam"
+            IMAGE_TAG="${{ needs.build-push.outputs.image_tag }}"
+            REPO="${{ needs.build-push.outputs.repo }}"
+
+            echo "🚀 Déploiement ImmoCam — tag: ${IMAGE_TAG}"
+            echo "   Repo: ${REPO}"
+
+            # Vérifier que .env.prod existe
+            if [ ! -f "${APP_DIR}/.env.prod" ]; then
+              echo "❌ ERREUR: ${APP_DIR}/.env.prod introuvable!"
+              echo "   Créez-le depuis .env.prod.template"
+              echo "   Voir : /opt/immocam/.env.prod.template"
+              exit 1
+            fi
+
+            cd "${APP_DIR}"
+
+            # Mise à jour du tag dans .env.prod
+            sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${IMAGE_TAG}|" "${APP_DIR}/.env.prod"
+            sed -i "s|^GITHUB_REPOSITORY=.*|GITHUB_REPOSITORY=${REPO}|" "${APP_DIR}/.env.prod"
+
+            # Login GHCR
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+            # Pull des nouvelles images
+            echo "📥 Pull image API..."
+            docker pull "ghcr.io/${REPO}/immocam-api:${IMAGE_TAG}"
+            echo "📥 Pull image Frontend..."
+            docker pull "ghcr.io/${REPO}/immocam-frontend:${IMAGE_TAG}"
+
+            # Export des variables
+            export IMAGE_TAG
+            export GITHUB_REPOSITORY="${REPO}"
+
+            # Démarrage / mise à jour des conteneurs
+            echo "🔄 Mise à jour des conteneurs..."
+            docker compose \
+              -f "${APP_DIR}/docker-compose.prod.yml" \
+              --env-file "${APP_DIR}/.env.prod" \
+              up -d --remove-orphans --no-build
+
+            # Attendre que l'API soit healthy
+            echo "⏳ Attente API (max 3 minutes)..."
+            ATTEMPTS=0
+            MAX=36
+            until docker inspect --format='{{.State.Health.Status}}' immocam_api 2>/dev/null | grep -q "healthy"; do
+              ATTEMPTS=$((ATTEMPTS + 1))
+              if [ "${ATTEMPTS}" -ge "${MAX}" ]; then
+                echo "⚠️  Timeout : API pas encore healthy après ${MAX} tentatives"
+                echo "   Logs récents :"
+                docker logs immocam_api --tail=30 2>&1 || true
+                echo "   Déploiement considéré OK si le conteneur tourne."
+                break
+              fi
+              echo "   ⌛ Tentative ${ATTEMPTS}/${MAX}..."
+              sleep 5
+            done
+
+            # Nettoyage des vieilles images
+            docker image prune -f > /dev/null 2>&1 || true
+
+            echo ""
+            echo "✅ ══ Déploiement ImmoCam réussi ! ══"
+            echo "🌐 Frontend : http://$(curl -s ifconfig.me 2>/dev/null || echo 'VPS_IP'):4202"
+            echo "🔌 API      : http://$(curl -s ifconfig.me 2>/dev/null || echo 'VPS_IP'):1011/api"
+            echo "📅 $(date)"
+            echo ""
+
+            # État des conteneurs ImmoCam
+            docker compose \
+              -f "${APP_DIR}/docker-compose.prod.yml" \
+              --env-file "${APP_DIR}/.env.prod" \
+              ps

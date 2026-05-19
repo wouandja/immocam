@@ -1,0 +1,142 @@
+# =============================================================================
+# IMMOCAM — Configuration commune (base pour tous les profils)
+# Par défaut : profil dev actif
+# =============================================================================
+
+spring:
+  application:
+    name: immocam
+  profiles:
+    active: dev # ← profil par défaut au lancement local
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: ${DB_POOL_MIN:2}
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: ImmoCamHikariPool
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_batch_fetch_size: 20
+        jdbc:
+          batch_size: 20
+          order_inserts: true
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+
+  mail:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=50000,expireAfterWrite=3600s
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${UPLOAD_MAX_FILE_SIZE:4MB}
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:20MB}
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    encoding: UTF-8
+    cache: true
+
+    
+
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Africa/Douala
+
+server:
+  port: ${SERVER_PORT:1010}
+  servlet:
+    context-path: /api
+  compression:
+    enabled: true
+    mime-types: application/json
+    min-response-size: 1024
+  error:
+    include-message: always
+    include-stacktrace: never
+  tomcat:
+    connection-timeout: 20000
+    threads:
+      max: 200
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+immocam:
+  email:
+    from: ${EMAIL_FROM:noreply@immocam.cm}
+    from-name: ${EMAIL_FROM_NAME:ImmoCam}
+  storage:
+    upload-dir: ${UPLOAD_DIR:./uploads/annonces}
+    temp-dir: ${UPLOAD_TEMP_DIR:./uploads/temp}
+    base-url: ${STORAGE_BASE_URL:http://localhost:1010/api/uploads/}
+    compression:
+      enabled: true
+      qualite: 0.80
+      largeur-max: 1280
+    max-photos-par-annonce: ${MAX_PHOTOS:4}
+    max-taille-photo-mo: 4
+  security:
+    jwt:
+      secret: ${JWT_SECRET:CHANGE_THIS_IN_PRODUCTION}
+      access-expiration-ms: ${JWT_ACCESS_EXP:3600000}
+      refresh-expiration-ms: ${JWT_REFRESH_EXP:2592000000}
+    rate-limit:
+      requetes-par-minute: ${RATE_LIMIT_RPM:100}
+  annonce:
+    duree-vie-jours: ${ANNONCE_DUREE:30}
+    max-annonces-par-proprietaire: ${MAX_ANNONCES:5}
+    delai-rappel-j5: 5
+    delai-rappel-j1: 1
+    delai-suppression-apres-expiration: 7
+  otp:
+    expiration-minutes: 10
+    max-renvois-par-heure: 3
+    max-tentatives-connexion: 5
+    duree-blocage-minutes: 30
+  scheduler:
+    expiration-cron: ${SCHEDULER_CRON:0 0 3 * * *}
+    enabled: true

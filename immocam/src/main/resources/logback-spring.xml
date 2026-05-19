@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="immocam"/>
+
+  <springProfile name="dev,default">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) [%thread] %logger{36} - %msg%n</pattern>
+      </encoder>
+    </appender>
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+    <logger name="com.mbem.immocam" level="DEBUG"/>
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
+  </springProfile>
+
+  <springProfile name="prod">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <pattern>{"timestamp":"%d{ISO8601}","level":"%level","app":"${APP_NAME}","message":"%msg"}%n</pattern>
+      </encoder>
+    </appender>
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+      <file>logs/immocam.log</file>
+      <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+        <fileNamePattern>logs/immocam-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+        <maxHistory>30</maxHistory>
+      </rollingPolicy>
+      <encoder>
+        <pattern>{"timestamp":"%d{ISO8601}","level":"%level","app":"${APP_NAME}","message":"%msg"}%n</pattern>
+      </encoder>
+    </appender>
+    <root level="WARN">
+      <appender-ref ref="CONSOLE"/>
+      <appender-ref ref="FILE"/>
+    </root>
+    <logger name="com.mbem.immocam" level="INFO"/>
+  </springProfile>
+
+  <logger name="org.springframework.security" level="WARN"/>
+  <logger name="org.flywaydb" level="INFO"/>
+</configuration>

@@ -1,0 +1,35 @@
+// =============================================================================
+// IMMOCAM — Angular Material Custom Theme
+// Blue foncé ImmoCam palette
+// =============================================================================
+@use '@angular/material' as mat;
+
+// Désactiver le CSS legacy de Material
+@include mat.core();
+
+$immocam-primary: mat.define-palette(mat.$indigo-palette, 800, 700, 900);
+$immocam-accent:  mat.define-palette(mat.$blue-palette,   600, 400, 800);
+$immocam-warn:    mat.define-palette(mat.$red-palette,     600);
+
+$immocam-theme: mat.define-light-theme((
+  color: (
+    primary: $immocam-primary,
+    accent:  $immocam-accent,
+    warn:    $immocam-warn,
+  ),
+  typography: mat.define-typography-config(
+    $font-family: 'Inter, Segoe UI, system-ui, sans-serif',
+  ),
+  density: -1,
+));
+
+@include mat.all-component-themes($immocam-theme);
+
+// Overrides ImmoCam
+.mat-mdc-button.mat-primary,
+.mat-mdc-raised-button.mat-primary {
+  background-color: #0F2A5E !important;
+}
+
+.mat-mdc-form-field.mat-focused .mat-mdc-floating-label { color: #1E40AF !important; }
+.mat-mdc-form-field.mat-focused .mdc-notched-outline { border-color: #3B82F6 !important; }

@@ -1,0 +1,387 @@
+@import "tailwindcss";
+@import "tailwindcss/utilities";
+@import './tokens.css';
+
+/* ── 2. Google Fonts — chargement optimisé (display=swap) ───────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── 4. Base critique (impossible à faire en Tailwind pur) ───────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--c-text);
+    background: var(--c-bg);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+  }
+
+  /* Focus visible accessible — remplace l'outline navigateur par défaut */
+  :focus-visible {
+    outline: 2px solid var(--c-primary-600);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Scrollbar discrète */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--c-border-hover); border-radius: var(--radius-full); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--c-text-muted); }
+
+  /* Sélection de texte — couleur primaire */
+  ::selection { background: var(--c-primary-100); color: var(--c-primary-900); }
+}
+
+/* ── 5. Composants utilitaires Tailwind ──────────────────────────────────── */
+@layer components {
+
+  /* Carte standard */
+  .card {
+    background-color: white;
+    border-radius: 0.75rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    transition-property: box-shadow;
+    transition-duration: 200ms;
+  }
+  .card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Boutons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition-property: all;
+    transition-duration: 150ms;
+    outline: none;
+    user-select: none;
+  }
+  .btn:focus-visible {
+    outline: none;
+    ring: 2px solid #2563eb;
+    ring-offset: 2px;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  
+  .btn-primary {
+    background-color: #2563eb;
+    color: white;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+  }
+  .btn-primary:hover {
+    background-color: #1d4ed8;
+  }
+  .btn-primary:active {
+    background-color: #1e40af;
+  }
+  
+  .btn-secondary {
+    background-color: white;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+  }
+  .btn-secondary:hover {
+    background-color: #eff6ff;
+  }
+  
+  .btn-ghost {
+    color: #475569;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+  }
+  .btn-ghost:hover {
+    background-color: #f1f5f9;
+  }
+  
+  .btn-danger {
+    background-color: #dc2626;
+    color: white;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+  }
+  .btn-danger:hover {
+    background-color: #b91c1c;
+  }
+  
+  .btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    border-radius: 0.5rem;
+  }
+  
+  .btn-lg {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 0.5rem;
+  }
+  
+  .btn-icon {
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+  }
+
+  /* Input standard */
+  .input {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+    background-color: white;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    transition-property: all;
+    transition-duration: 150ms;
+  }
+  .input::placeholder {
+    color: #94a3b8;
+  }
+  .input:focus {
+    outline: none;
+    ring: 2px solid #2563eb;
+    border-color: transparent;
+  }
+  .input:disabled {
+    background-color: #f8fafc;
+    color: #94a3b8;
+  }
+  
+  .input-error {
+    border-color: #f87171;
+  }
+  .input-error:focus {
+    ring-color: #ef4444;
+  }
+
+  /* Label */
+  .label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #334155;
+    margin-bottom: 0.375rem;
+  }
+
+  /* Badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .badge-blue {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+  .badge-green {
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+  }
+  .badge-amber {
+    background-color: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+  .badge-red {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+  }
+  .badge-slate {
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+  }
+  .badge-gold {
+    background-color: #fef3c7;
+    color: #78350f;
+    border: 1px solid #fde68a;
+  }
+
+  /* Container page */
+  .page-container {
+    max-width: 80rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  @media (min-width: 640px) {
+    .page-container { padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+  @media (min-width: 1024px) {
+    .page-container { padding-left: 2rem; padding-right: 2rem; }
+  }
+  
+  .section {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+  @media (min-width: 768px) {
+    .section { padding-top: 4rem; padding-bottom: 4rem; }
+  }
+  @media (min-width: 1024px) {
+    .section { padding-top: 5rem; padding-bottom: 5rem; }
+  }
+
+  /* Titre de page */
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.025em;
+  }
+  @media (min-width: 768px) {
+    .page-title { font-size: 1.875rem; }
+  }
+  
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  @media (min-width: 768px) {
+    .section-title { font-size: 1.5rem; }
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    background-color: #e2e8f0;
+    border-radius: 0.25rem;
+    background: linear-gradient(90deg, #f1f5f9 0px, #e2e8f0 80px, #f1f5f9 160px);
+    background-size: 600px 100%;
+    animation: shimmer 1.5s infinite linear;
+  }
+
+  /* Divider */
+  .divider {
+    border-top: 1px solid #f1f5f9;
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Link texte */
+  .link {
+    color: #2563eb;
+    transition-property: color;
+    transition-duration: 150ms;
+  }
+  .link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 0.5rem;
+    background-color: #f1f5f9;
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background-color: #2563eb;
+    border-radius: 9999px;
+    transition-property: all;
+    transition-duration: 500ms;
+    transition-timing-function: ease-out;
+  }
+  .progress-fill-green {
+    height: 100%;
+    background-color: #22c55e;
+    border-radius: 9999px;
+    transition-property: all;
+    transition-duration: 500ms;
+  }
+}
+
+/* ── 6. Animations (critiques — non faisables en Tailwind pur) ───────────── */
+@layer utilities {
+  @keyframes shimmer {
+    from { background-position: -600px 0; }
+    to   { background-position:  600px 0; }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes slideInDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  /* Animation logo MbemNova */
+  @keyframes logoReveal {
+    0%   { letter-spacing: -0.1em; opacity: 0; }
+    50%  { letter-spacing: 0.05em; opacity: 0.7; }
+    100% { letter-spacing: 0; opacity: 1; }
+  }
+
+  @keyframes logoDot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%       { transform: scale(1.4); opacity: 0.8; }
+  }
+
+  /* XP confetti */
+  @keyframes confettiBurst {
+    0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translateY(-60px) rotate(360deg) scale(0); opacity: 0; }
+  }
+
+  .animate-fade-in-up   { animation: fadeInUp 0.3s ease both; }
+  .animate-fade-in      { animation: fadeIn 0.2s ease both; }
+  .animate-slide-right  { animation: slideInRight 0.25s ease both; }
+  .animate-slide-down   { animation: slideInDown 0.2s ease both; }
+  .animate-scale-in     { animation: scaleIn 0.2s ease both; }
+  .animate-logo         { animation: logoReveal 0.6s ease both; }
+
+  /* Délais d'animation pour les listes staggerées */
+  .delay-75  { animation-delay: 75ms; }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-500 { animation-delay: 500ms; }
+}

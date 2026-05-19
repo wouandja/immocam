@@ -1,0 +1,176 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                     🎯 RÉSUMÉ - DONNÉES DE TEST IMMOCAM                        ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+📊 DONNÉES CRÉÉES AUTOMATIQUEMENT
+═══════════════════════════════════════════════════════════════════════════════════
+
+  ✓ 1 Administrateur
+    • Email: admin@immocam.cm
+    • Mot de passe: Admin123
+    • Rôle: ADMINISTRATEUR
+    • Statut: ACTIF
+
+  ✓ 4 Utilisateurs standards
+    • Jean Dupont (jean@email.com / User123)
+    • Marie Kamga (marie@email.com / User123)
+    • Paul Mbarga (paul@email.com / User123)
+    • Claire Ndom (claire@email.com / User123)
+    • Tous avec statut: ACTIF
+
+  ✓ 8 Annonces immobilières (2 par utilisateur)
+    • Types variés: Chambre, Studio, Appartement, Bureau, etc.
+    • Villes: Yaounde, Douala, Maroua, etc.
+    • Prix: 50 000 à 500 000 FCFA
+    • Statut: ACTIVE
+    • Expiration: +30 jours
+
+  ✓ 32 Photos (4 par annonce)
+    • URLs en ligne: https://picsum.photos
+    • Chemins de stockage: uploads/annonces/YYYY/MM/
+
+  ✓ 9+ Commentaires
+    • Annonce 1: 6 commentaires
+    • Annonce 2: 3 commentaires
+    • Autres: 1-2 par annonce
+
+  ✓ 8+ Favoris
+    • Chaque utilisateur: 2-3 favoris
+
+  ✓ 24+ Contacts WhatsApp
+    • 3-5 contacts par annonce
+
+
+🚀 DÉMARRAGE RAPIDE
+═══════════════════════════════════════════════════════════════════════════════════
+
+1️⃣ Vérifier que PostgreSQL fonctionne
+   Windows: pgAdmin ou pg_isready -h localhost
+   Linux/Mac: psql -U immocam_user -d immocam_dev
+
+2️⃣ Démarrer l'application
+
+   Option A (Windows):
+   → Double-cliquer sur start.bat
+
+   Option B (Terminal/CMD):
+   → mvn spring-boot:run
+
+   Option C (IDE):
+   → F5 ou Run en debug
+
+3️⃣ Attendre le message:
+   ✅ Started ImmocamApplication in X seconds
+
+
+🔐 IDENTIFIANTS DE CONNEXION
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Admin:
+  • Email: admin@immocam.cm
+  • Password: Admin123
+
+  Utilisateur standard:
+  • Email: jean@email.com
+  • Password: User123
+
+  (Les autres users: marie@email.com, paul@email.com, claire@email.com)
+
+
+🧪 TESTER LES DONNÉES
+═══════════════════════════════════════════════════════════════════════════════════
+
+A. TESTS AUTOMATIQUES (recommandé)
+   → mvn test -Dtest=DataLoaderTest
+
+   Résultat: Affiche un résumé complet des données créées
+
+B. TESTS API REST
+   → PowerShell (Windows): .\test_api.ps1
+   → Bash (Linux/Mac): ./test_api.sh
+   → Manual: Utiliser curl ou Postman
+
+C. TESTS SQL DIRECT
+   → psql -U immocam_user -d immocam_dev -f check_test_data.sql
+   → Ou interroger directement les tables
+
+D. SWAGGER UI
+   → Ouvrir: http://localhost:8080/swagger-ui.html
+   → Tester directement dans le navigateur
+
+
+📌 ENDPOINTS PRINCIPAUX POUR TESTER
+═══════════════════════════════════════════════════════════════════════════════════
+
+PUBLIC (aucune authentification):
+  GET  /annonces                    → Liste des annonces
+  GET  /annonces/{id}               → Détail d'une annonce
+  GET  /types-biens                 → Types de bien
+  GET  /localisations               → Villes et quartiers
+
+AUTHENTIFICATION:
+  POST /auth/login                  → Connexion
+  POST /auth/refresh                → Rafraîchir token
+  POST /auth/register               → Inscription
+  POST /auth/verify-email           → Validation email
+
+PRIVÉ (authentification requise):
+  GET  /annonces/mes-annonces       → Mes annonces
+  POST /annonces                    → Publier annonce
+  PUT  /annonces/{id}               → Modifier annonce
+  GET  /profil                      → Mon profil
+
+
+💻 EXEMPLE DE REQUÊTE (curl)
+═══════════════════════════════════════════════════════════════════════════════════
+
+1. Récupérer les annonces:
+   curl http://localhost:8080/annonces?page=0&taille=10
+
+2. Se connecter:
+   curl -X POST http://localhost:8080/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"jean@email.com","motDePasse":"User123"}'
+
+3. Récupérer mes annonces (avec token):
+   curl -H "Authorization: Bearer YOUR_TOKEN" \
+     http://localhost:8080/annonces/mes-annonces
+
+4. Voir détail annonce:
+   curl http://localhost:8080/annonces/1
+
+
+⚠️ IMPORTANT
+═══════════════════════════════════════════════════════════════════════════════════
+
+• Les données se créent UNE SEULE FOIS au démarrage
+• Si la base est vide → données créées
+• Si la base contient des données → pas de rechargement
+• Pour réinitialiser: DELETE FROM utilisateurs; (puis redémarrer)
+
+• Les mots de passe sont hashés en BCrypt (force 12)
+• Les photos utilisent des URLs en ligne (picsum.photos)
+• Les numéros WhatsApp sont sécurisés (jamais exposés en clair)
+
+
+🎓 DOCUMENTATION COMPLÈTE
+═══════════════════════════════════════════════════════════════════════════════════
+
+Voir: TEST_DATA_GUIDE.md pour des instructions détaillées
+
+
+✅ VÉRIFICATION FINALE
+═══════════════════════════════════════════════════════════════════════════════════
+
+□ Application démarre sans erreur
+□ Données créées dans la base
+□ Connexion admin OK
+□ Connexion utilisateur OK
+□ Annonces visibles en PUBLIC
+□ Tests passent (mvn test -Dtest=DataLoaderTest)
+□ API REST répond correctement
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+                           🎉 Prêt à développer!
+═══════════════════════════════════════════════════════════════════════════════════

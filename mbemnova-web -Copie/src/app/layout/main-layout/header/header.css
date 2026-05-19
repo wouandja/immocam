@@ -1,0 +1,14 @@
+@keyframes immopulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+  }
+
+  .active-nav {
+    color: #1e3a5f !important;
+    font-weight: 500 !important;
+    background: #eff4fb !important;
+  }
+
+  @media (max-width: 640px) {
+    .header-inner { padding: 0 16px !important; }
+  }
