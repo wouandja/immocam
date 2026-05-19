@@ -65,7 +65,12 @@
                 }
               ],
               "outputHashing": "all",
-              "optimization": true,
+              "optimization": {
+                  "fonts": {
+                  "inline": false
+                }
+            
+                },
               "sourceMap": false,
               "fileReplacements": [
                 {
