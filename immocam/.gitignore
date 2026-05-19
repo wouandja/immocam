@@ -42,8 +42,6 @@ uploads/temp/*
 # Secrets
 .env
 .env.local
-application-prod.yml
-
 # Logs
 logs/
 *.log
