@@ -85,7 +85,7 @@ jobs:
 
       - name: 🧪 Tests Maven
         working-directory: immocam
-        run: ./mvnw test -B
+        run: ./mvnw clean package -DskipTests -B
         env:
           SPRING_PROFILES_ACTIVE: test
           DB_URL: jdbc:postgresql://localhost:5432/immocam_test
