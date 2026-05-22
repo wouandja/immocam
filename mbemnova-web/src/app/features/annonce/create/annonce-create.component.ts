@@ -1382,7 +1382,8 @@ export class AnnonceCreateComponent implements OnInit, OnDestroy {
     }).slice(0, remaining);
     this.photos.update(p => [
       ...p,
-      ...valid.map(f => ({ file: f, url: URL.createObjectURL(f), id: crypto.randomUUID() })),
+    
+...valid.map(f => ({ file: f, url: URL.createObjectURL(f), id: this.generateId() })),
     ]);
   }
 
@@ -1480,4 +1481,12 @@ export class AnnonceCreateComponent implements OnInit, OnDestroy {
       },
     });
   }
+
+  private generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback pour HTTP / anciens navigateurs
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
 }
