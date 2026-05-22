@@ -3,6 +3,10 @@ package com.mbem.immocam.module.admin.service;
 import com.mbem.immocam.infrastructure.audit.LogActiviteService;
 import com.mbem.immocam.infrastructure.email.service.EmailService;
 import com.mbem.immocam.infrastructure.exception.custom.RessourceNotFoundException;
+import com.mbem.immocam.infrastructure.exception.custom.DoublonException;
+import com.mbem.immocam.module.admin.dto.request.AdminCreateTypeBienRequest;
+import com.mbem.immocam.module.admin.dto.request.AdminCreateUtilisateurRequest;
+import com.mbem.immocam.module.admin.dto.request.AdminCreateVilleRequest;
 import com.mbem.immocam.module.admin.dto.response.AdminAnnonceResponse;
 import com.mbem.immocam.module.admin.dto.response.AdminSignalementResponse;
 import com.mbem.immocam.module.admin.dto.response.AdminUtilisateurResponse;
@@ -13,11 +17,17 @@ import com.mbem.immocam.module.annonce.specification.AnnonceSpecification;
 import com.mbem.immocam.module.commentaire.repository.CommentaireRepository;
 import com.mbem.immocam.module.config.entity.ConfigSysteme;
 import com.mbem.immocam.module.config.repository.ConfigSystemeRepository;
+import com.mbem.immocam.module.config.service.ConfigSystemeService;
 import com.mbem.immocam.module.contact.repository.ContactWhatsAppRepository;
+import com.mbem.immocam.module.localisation.entity.Localisation;
+import com.mbem.immocam.module.localisation.repository.LocalisationRepository;
 import com.mbem.immocam.module.signalement.entity.Signalement;
 import com.mbem.immocam.module.signalement.repository.SignalementRepository;
+import com.mbem.immocam.module.typebien.entity.TypeBien;
+import com.mbem.immocam.module.typebien.repository.TypeBienRepository;
 import com.mbem.immocam.module.utilisateur.entity.Utilisateur;
 import com.mbem.immocam.module.utilisateur.repository.UtilisateurRepository;
+import com.mbem.immocam.shared.enums.RoleUtilisateur;
 import com.mbem.immocam.shared.enums.StatutAnnonce;
 import com.mbem.immocam.shared.enums.StatutCompte;
 import com.mbem.immocam.shared.enums.StatutSignalement;
@@ -26,6 +36,7 @@ import com.mbem.immocam.shared.pagination.PageResponse;
 import com.mbem.immocam.shared.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -50,8 +61,12 @@ public class AdminServiceImpl implements AdminService {
     private final CommentaireRepository commentaireRepository;
     private final ContactWhatsAppRepository contactRepository;
     private final ConfigSystemeRepository configRepository;
+    private final LocalisationRepository localisationRepository;
+    private final TypeBienRepository typeBienRepository;
     private final EmailService emailService;
     private final LogActiviteService logActiviteService;
+    private final PasswordEncoder passwordEncoder;
+    private final ConfigSystemeService configSystemeService;
 
     // ── Dashboard ─────────────────────────────────────────────────────────────
 
@@ -74,6 +89,8 @@ public class AdminServiceImpl implements AdminService {
                 .signalementsEnAttente(signalementRepository.countByStatut(StatutSignalement.EN_ATTENTE))
                 .utilisateursActifs(utilisateurRepository.countByStatut(StatutCompte.ACTIF))
                 .utilisateursSuspendus(utilisateurRepository.countByStatut(StatutCompte.SUSPENDU))
+                .utilisateursTotal(utilisateurRepository.count())
+                .contactsWhatsAppTotal(contactRepository.count())
                 .build();
     }
 
@@ -271,10 +288,138 @@ public class AdminServiceImpl implements AdminService {
     public void mettreAJourConfig(String cle, String valeur, Long adminId) {
         ConfigSysteme config = configRepository.findByCle(cle)
                 .orElseThrow(() -> new RessourceNotFoundException("Configuration : " + cle));
+        validerConfig(cle, valeur);
         config.setValeur(valeur);
         config.setModifiePar(obtenirUtilisateur(adminId));
+        configSystemeService.evictAll();
         logActiviteService.log(adminId, TypeAction.MODIFICATION_CONFIG_SYSTEME,
                 "Config", null, null, cle + "=" + valeur);
+    }
+
+    @Override
+    @Transactional
+    public Localisation creerVille(AdminCreateVilleRequest request, Long adminId) {
+        String ville = request.getVille().trim();
+        if (localisationRepository.existsByVilleIgnoreCase(ville)) {
+            throw new DoublonException("Cette ville existe deja");
+        }
+        Localisation localisation = Localisation.builder()
+                .ville(ville)
+                .estActive(true)
+                .estPreChargee(false)
+                .build();
+        Localisation saved = localisationRepository.save(localisation);
+        logActiviteService.log(adminId, TypeAction.AJOUT_VILLE, "Localisation", saved.getId(), null, ville);
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public Localisation modifierVille(Long id, AdminCreateVilleRequest request, Long adminId) {
+        Localisation ville = localisationRepository.findById(id)
+                .orElseThrow(() -> new RessourceNotFoundException("Ville", id));
+        String newValue = request.getVille().trim();
+        if (!ville.getVille().equalsIgnoreCase(newValue)
+                && localisationRepository.existsByVilleIgnoreCase(newValue)) {
+            throw new DoublonException("Cette ville existe deja");
+        }
+        ville.setVille(newValue);
+        logActiviteService.log(adminId, TypeAction.MODIFICATION_CONFIG_SYSTEME, "Localisation", id, null, newValue);
+        return ville;
+    }
+
+    @Override
+    @Transactional
+    public void basculerVilleActive(Long id, boolean active, Long adminId) {
+        Localisation ville = localisationRepository.findById(id)
+                .orElseThrow(() -> new RessourceNotFoundException("Ville", id));
+        ville.setEstActive(active);
+        logActiviteService.log(adminId, TypeAction.MODIFICATION_CONFIG_SYSTEME, "Localisation", id, null, "active=" + active);
+    }
+
+    @Override
+    @Transactional
+    public TypeBien creerTypeBien(AdminCreateTypeBienRequest request, Long adminId) {
+        String libelle = request.getLibelle().trim();
+        if (typeBienRepository.existsByLibelleIgnoreCase(libelle)) {
+            throw new DoublonException("Ce type de bien existe deja");
+        }
+        TypeBien typeBien = TypeBien.builder().libelle(libelle).estActif(true).build();
+        TypeBien saved = typeBienRepository.save(typeBien);
+        logActiviteService.log(adminId, TypeAction.AJOUT_TYPE_BIEN, "TypeBien", saved.getId(), null, libelle);
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public TypeBien modifierTypeBien(Long id, AdminCreateTypeBienRequest request, Long adminId) {
+        TypeBien typeBien = typeBienRepository.findById(id)
+                .orElseThrow(() -> new RessourceNotFoundException("Type de bien", id));
+        String libelle = request.getLibelle().trim();
+        if (!typeBien.getLibelle().equalsIgnoreCase(libelle)
+                && typeBienRepository.existsByLibelleIgnoreCase(libelle)) {
+            throw new DoublonException("Ce type de bien existe deja");
+        }
+        typeBien.setLibelle(libelle);
+        logActiviteService.log(adminId, TypeAction.MODIFICATION_CONFIG_SYSTEME, "TypeBien", id, null, libelle);
+        return typeBien;
+    }
+
+    @Override
+    @Transactional
+    public void basculerTypeBienActif(Long id, boolean actif, Long adminId) {
+        TypeBien typeBien = typeBienRepository.findById(id)
+                .orElseThrow(() -> new RessourceNotFoundException("Type de bien", id));
+        typeBien.setEstActif(actif);
+        logActiviteService.log(adminId, TypeAction.MODIFICATION_CONFIG_SYSTEME, "TypeBien", id, null, "actif=" + actif);
+    }
+
+    @Override
+    @Transactional
+    public AdminUtilisateurResponse creerUtilisateur(AdminCreateUtilisateurRequest request, Long adminId) {
+        String email = request.getEmail().trim().toLowerCase();
+        String telephone = PhoneUtils.normaliser(request.getTelephone());
+        if (utilisateurRepository.existsByEmail(email)) {
+            throw new DoublonException("Email deja utilise");
+        }
+        if (utilisateurRepository.existsByTelephone(telephone)) {
+            throw new DoublonException("Telephone deja utilise");
+        }
+        Utilisateur user = Utilisateur.builder()
+                .prenom(request.getPrenom().trim())
+                .nom(request.getNom().trim())
+                .email(email)
+                .telephone(telephone)
+                .ville(request.getVille().trim())
+                .motDePasseHash(passwordEncoder.encode(request.getMotDePasse()))
+                .role(request.getRole())
+                .statut(StatutCompte.ACTIF)
+                .politiqueAcceptee(true)
+                .dateAcceptationPolitique(LocalDateTime.now())
+                .build();
+        Utilisateur saved = utilisateurRepository.save(user);
+        logActiviteService.log(adminId, TypeAction.INSCRIPTION, "Utilisateur", saved.getId(), null, "creation admin");
+        return AdminUtilisateurResponse.builder()
+                .id(saved.getId())
+                .prenom(saved.getPrenom())
+                .nom(saved.getNom())
+                .email(saved.getEmail())
+                .telephoneMasque(PhoneUtils.masquer(saved.getTelephone()))
+                .ville(saved.getVille())
+                .role(saved.getRole().name())
+                .statut(saved.getStatut().name())
+                .dateInscription(saved.getDateCreation())
+                .nombreAnnoncesActives(0)
+                .nombreAnnoncesTotal(0)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void modifierRoleUtilisateur(Long utilisateurId, RoleUtilisateur role, Long adminId) {
+        Utilisateur utilisateur = obtenirUtilisateur(utilisateurId);
+        utilisateur.setRole(role);
+        logActiviteService.log(adminId, TypeAction.MODIFICATION_CONFIG_SYSTEME, "Utilisateur", utilisateurId, null, "role=" + role.name());
     }
 
     // ── Helpers privés ────────────────────────────────────────────────────────
@@ -282,5 +427,27 @@ public class AdminServiceImpl implements AdminService {
     private Utilisateur obtenirUtilisateur(Long id) {
         return utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RessourceNotFoundException("Utilisateur", id));
+    }
+
+    private void validerConfig(String cle, String valeur) {
+        try {
+            switch (cle) {
+                case "DUREE_VIE_ANNONCE_JOURS", "DELAI_RAPPEL_JOURS", "DELAI_RAPPEL_FINAL_JOURS",
+                     "DELAI_SUPPRESSION_JOURS", "MAX_PHOTOS_PAR_ANNONCE", "MAX_TAILLE_PHOTO_MO",
+                     "MAX_ANNONCES_PAR_PROPRIO", "MAX_CONNEXIONS_ECHOUEES", "DUREE_BLOCAGE_MINUTES" -> {
+                    int i = Integer.parseInt(valeur);
+                    if (i <= 0) throw new IllegalArgumentException("La valeur doit etre > 0");
+                }
+                case "MSG_WHATSAPP" -> {
+                    if (valeur == null || valeur.isBlank()) {
+                        throw new IllegalArgumentException("Le message WhatsApp ne peut pas etre vide");
+                    }
+                }
+                default -> {
+                }
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Valeur numerique invalide pour " + cle);
+        }
     }
 }

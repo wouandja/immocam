@@ -229,7 +229,9 @@ public class AnnonceServiceImpl implements AnnonceService {
                             " annonces actives. Archivez ou supprimez une annonce existante.");
         }
 
-        String telephone = PhoneUtils.normaliser(request.getNumeroWhatsApp());
+        String telephone = (request.getNumeroWhatsApp() == null || request.getNumeroWhatsApp().isBlank())
+                ? proprietaire.getTelephone()
+                : PhoneUtils.normaliser(request.getNumeroWhatsApp());
         if (annonceRepository.existsDoublon(proprietaireId, request.getTypeBienId(),
                 request.getLocalisationId(), request.getQuartier(), request.getPrix(), telephone)) {
             throw new DoublonException("Une annonce similaire existe déjà dans votre dashboard.");
@@ -283,7 +285,7 @@ public class AnnonceServiceImpl implements AnnonceService {
             annonce.setDescription(request.getDescription());
         if (request.getPrix() != null)
             annonce.setPrix(request.getPrix());
-        if (request.getNumeroWhatsApp() != null)
+        if (request.getNumeroWhatsApp() != null && !request.getNumeroWhatsApp().isBlank())
             annonce.setNumeroWhatsApp(PhoneUtils.normaliser(request.getNumeroWhatsApp()));
  
         logActiviteService.log(proprietaireId, TypeAction.MODIFICATION_ANNONCE, "Annonce", id, null, null);

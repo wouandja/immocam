@@ -32,6 +32,7 @@ import com.mbem.immocam.module.auth.entity.CodeValidation;
 import com.mbem.immocam.module.auth.entity.TokenReinitialisation;
 import com.mbem.immocam.module.auth.repository.CodeValidationRepository;
 import com.mbem.immocam.module.auth.repository.TokenReinitialisationRepository;
+import com.mbem.immocam.module.config.service.ConfigSystemeService;
 import com.mbem.immocam.module.utilisateur.entity.Utilisateur;
 import com.mbem.immocam.module.utilisateur.repository.UtilisateurRepository;
 import com.mbem.immocam.shared.constants.ImmoCamConstants;
@@ -56,6 +57,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final LogActiviteService logActiviteService;
+    private final ConfigSystemeService configSystemeService;
 
     @Value("${immocam.otp.expiration-minutes:10}")
     private int otpExpirationMinutes;
@@ -210,12 +212,16 @@ public class AuthServiceImpl implements AuthService {
             authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(emailNormalise, request.getMotDePasse()));
         } catch (BadCredentialsException e) {
+            int maxTentatives = configSystemeService.getInt(
+                    ImmoCamConstants.CONFIG_MAX_CONNEXIONS_ECHOUEES, maxTentativesConnexion);
+            int dureeBlocage = configSystemeService.getInt(
+                    ImmoCamConstants.CONFIG_DUREE_BLOCAGE_MINUTES, dureeBlocageMinutes);
             int tentatives = utilisateur.getTentativesConnexionEchouees() + 1;
             utilisateur.setTentativesConnexionEchouees(tentatives);
 
-            if (tentatives >= maxTentativesConnexion) {
+            if (tentatives >= maxTentatives) {
                 utilisateur.setCompteBloqueJusqua(
-                    LocalDateTime.now().plusMinutes(dureeBlocageMinutes));
+                    LocalDateTime.now().plusMinutes(dureeBlocage));
                 utilisateur.setTentativesConnexionEchouees(0);
                 emailService.envoyerAlerteConnexionSuspecte(
                     utilisateur.getEmail(), utilisateur.getPrenom(),
@@ -288,7 +294,6 @@ public class AuthServiceImpl implements AuthService {
     public void motDePasseOublie(ForgotPasswordRequest request) {
         utilisateurRepository.findByEmail(request.getEmail()).ifPresent(utilisateur -> {
             tokenReinitialisationRepository.invaliderTokensExistants(utilisateur.getId());
-
             String token = UUID.randomUUID().toString();
             TokenReinitialisation tokenEntity = TokenReinitialisation.builder()
                     .utilisateur(utilisateur)

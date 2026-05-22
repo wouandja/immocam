@@ -41,26 +41,30 @@ export interface AdminUtilisateurResponse {
   id: number;
   prenom: string;
   nom: string;
-  nomComplet: string;
   email: string;
-  telephone: string;
+  nomComplet?: string;
+  telephone?: string;
+  telephoneMasque?: string;
   ville: string;
   role: RoleUtilisateur;
   statut: StatutCompte;
-  emailVerifie: boolean;
+  emailVerifie?: boolean;
   dateInscription: string;
-  nombreAnnonces: number;
-  nombreConnexions: number;
+  nombreAnnonces?: number;
+  nombreAnnoncesActives?: number;
+  nombreAnnoncesTotal?: number;
+  nombreConnexions?: number;
   derniereConnexion?: string;
+  dernierLogin?: string;
 }
 
 export interface AdminUtilisateurFilters {
-  recherche?: string;
+  terme?: string;
   statut?: StatutCompte;
   role?: RoleUtilisateur;
   ville?: string;
   page?: number;
-  size?: number;
+  taille?: number;
 }
 
 export interface SignalementResponse {
@@ -100,8 +104,7 @@ export interface LocalisationRequest {
 }
 
 export interface TypeBienRequest {
-  nom: string;
-  icone?: string;
+  libelle: string;
 }
 
 export interface AdminAnnonceFilters {
@@ -113,4 +116,5 @@ export interface AdminAnnonceFilters {
   dateFin?: string;
   page?: number;
   size?: number;
+  search?: string;
 }

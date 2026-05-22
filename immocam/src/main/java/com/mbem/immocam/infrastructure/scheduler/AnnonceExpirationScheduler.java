@@ -3,6 +3,8 @@ package com.mbem.immocam.infrastructure.scheduler;
 import com.mbem.immocam.infrastructure.email.service.EmailService;
 import com.mbem.immocam.module.annonce.entity.Annonce;
 import com.mbem.immocam.module.annonce.repository.AnnonceRepository;
+import com.mbem.immocam.module.config.service.ConfigSystemeService;
+import com.mbem.immocam.shared.constants.ImmoCamConstants;
 import com.mbem.immocam.shared.enums.StatutAnnonce;
 import com.mbem.immocam.shared.utils.DateUtils;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class AnnonceExpirationScheduler {
 
     private final AnnonceRepository annonceRepository;
     private final EmailService emailService;
+    private final ConfigSystemeService configSystemeService;
 
     @Value("${immocam.annonce.delai-rappel-j5:5}")
     private int delaiRappelJ5;
@@ -67,8 +70,9 @@ public class AnnonceExpirationScheduler {
 
     /** J-5 : email de premier rappel. */
     private int envoyerRappelsJ5(LocalDateTime maintenant) {
-        LocalDateTime debut = maintenant.plusDays(delaiRappelJ5).withHour(0).withMinute(0);
-        LocalDateTime fin   = maintenant.plusDays(delaiRappelJ5).withHour(23).withMinute(59);
+        int delai = configSystemeService.getInt(ImmoCamConstants.CONFIG_DELAI_RAPPEL, delaiRappelJ5);
+        LocalDateTime debut = maintenant.plusDays(delai).withHour(0).withMinute(0);
+        LocalDateTime fin   = maintenant.plusDays(delai).withHour(23).withMinute(59);
         List<Annonce> annonces = annonceRepository.findAnnoncesRappelJ5(debut, fin);
 
         for (Annonce a : annonces) {
@@ -79,7 +83,7 @@ public class AnnonceExpirationScheduler {
                     a.getTypeBien().getLibelle(),
                     a.getLocalisation().getVille(),
                     DateUtils.formatEmail(a.getDateExpiration()),
-                    delaiRappelJ5
+                    delai
                 );
                 a.setRappelJ5Envoye(true);
                 log.debug("Rappel J-5 envoyé pour annonce id={}", a.getId());
@@ -92,8 +96,9 @@ public class AnnonceExpirationScheduler {
 
     /** J-1 : email de dernier rappel. */
     private int envoyerRappelsJ1(LocalDateTime maintenant) {
-        LocalDateTime debut = maintenant.plusDays(delaiRappelJ1).withHour(0).withMinute(0);
-        LocalDateTime fin   = maintenant.plusDays(delaiRappelJ1).withHour(23).withMinute(59);
+        int delai = configSystemeService.getInt(ImmoCamConstants.CONFIG_DELAI_RAPPEL_FINAL, delaiRappelJ1);
+        LocalDateTime debut = maintenant.plusDays(delai).withHour(0).withMinute(0);
+        LocalDateTime fin   = maintenant.plusDays(delai).withHour(23).withMinute(59);
         List<Annonce> annonces = annonceRepository.findAnnoncesRappelJ1(debut, fin);
 
         for (Annonce a : annonces) {
@@ -104,7 +109,7 @@ public class AnnonceExpirationScheduler {
                     a.getTypeBien().getLibelle(),
                     a.getLocalisation().getVille(),
                     DateUtils.formatEmail(a.getDateExpiration()),
-                    delaiRappelJ1
+                    delai
                 );
                 a.setRappelJ1Envoye(true);
                 log.debug("Rappel J-1 envoyé pour annonce id={}", a.getId());
@@ -137,7 +142,8 @@ public class AnnonceExpirationScheduler {
 
     /** J+7 : supprimer définitivement les annonces expirées sans renouvellement. */
     private int supprimerDefinitivement(LocalDateTime maintenant) {
-        LocalDateTime limite = maintenant.minusDays(delaiSuppressionJours);
+        int delai = configSystemeService.getInt(ImmoCamConstants.CONFIG_DELAI_SUPPRESSION, delaiSuppressionJours);
+        LocalDateTime limite = maintenant.minusDays(delai);
         List<Annonce> annonces = annonceRepository.findAnnoncesASupprimer(limite);
         for (Annonce a : annonces) {
             try {

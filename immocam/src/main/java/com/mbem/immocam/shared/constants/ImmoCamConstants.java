@@ -26,7 +26,10 @@ public final class ImmoCamConstants {
     public static final String OTP_TYPE_REINITIALISATION  = "REINITIALISATION_MDP";
 
     // ── ANNONCES ───────────────────────────────────────────────────────────
-    public static final int  SCROLL_PAGE_SIZE  = 12;
+    public static final int  SCROLL_PAGE_SIZE  = 8;
+    public static final int  SCROLL_PAGE_SIZE_MAX = 20;
+    public static final int  DASHBOARD_PAGE_SIZE_MAX = 20;
+    public static final int  ADMIN_PAGE_SIZE_MAX = 50;
     public static final int  DESCRIPTION_MIN   = 30;
     public static final int  DESCRIPTION_MAX   = 1000;
     public static final long PRIX_MINIMUM_FCFA = 1_000L;
@@ -55,6 +58,9 @@ public final class ImmoCamConstants {
     public static final String CONFIG_MAX_TAILLE_PHOTO  = "MAX_TAILLE_PHOTO_MO";
     public static final String CONFIG_MAX_ANNONCES      = "MAX_ANNONCES_PAR_PROPRIO";
     public static final String CONFIG_MSG_WHATSAPP      = "MSG_WHATSAPP";
+    public static final String CONFIG_DELAI_RAPPEL_FINAL = "DELAI_RAPPEL_FINAL_JOURS";
+    public static final String CONFIG_MAX_CONNEXIONS_ECHOUEES = "MAX_CONNEXIONS_ECHOUEES";
+    public static final String CONFIG_DUREE_BLOCAGE_MINUTES = "DUREE_BLOCAGE_MINUTES";
 
     // ── ROLES SPRING SECURITY ──────────────────────────────────────────────
     public static final String ROLE_UTILISATEUR = "ROLE_UTILISATEUR";

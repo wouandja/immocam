@@ -28,6 +28,8 @@ public interface ContactWhatsAppRepository extends JpaRepository<ContactWhatsApp
     @Query("SELECT COUNT(c) FROM ContactWhatsApp c WHERE c.dateContact >= :depuis")
     long countDepuis(@Param("depuis") LocalDateTime depuis);
 
+    long count();
+
     /** Vérifier si un utilisateur a déjà contacté une annonce. */
     boolean existsByUtilisateurIdAndAnnonceId(Long utilisateurId, Long annonceId);
 
@@ -72,4 +74,3 @@ long countByAnnonce_Proprietaire_IdAndUtilisateur_IdNot(
     Long proprietaireId, Long utilisateurId);
  
 }
-

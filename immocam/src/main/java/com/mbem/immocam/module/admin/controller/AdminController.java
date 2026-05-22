@@ -2,6 +2,10 @@ package com.mbem.immocam.module.admin.controller;
 
 import com.mbem.immocam.infrastructure.exception.custom.RessourceNotFoundException;
 import com.mbem.immocam.infrastructure.security.config.SecurityUtils;
+import com.mbem.immocam.module.admin.dto.request.AdminCreateTypeBienRequest;
+import com.mbem.immocam.module.admin.dto.request.AdminCreateUtilisateurRequest;
+import com.mbem.immocam.module.admin.dto.request.AdminCreateVilleRequest;
+import com.mbem.immocam.module.admin.dto.request.AdminUpdateRoleRequest;
 import com.mbem.immocam.module.admin.dto.response.AdminAnnonceResponse;
 import com.mbem.immocam.module.admin.dto.response.AdminSignalementResponse;
 import com.mbem.immocam.module.admin.dto.response.AdminUtilisateurResponse;
@@ -10,7 +14,10 @@ import com.mbem.immocam.module.admin.service.AdminService;
 import com.mbem.immocam.module.commentaire.repository.CommentaireRepository;
 import com.mbem.immocam.module.config.repository.ConfigSystemeRepository;
 import com.mbem.immocam.module.config.entity.ConfigSysteme;
+import com.mbem.immocam.module.localisation.entity.Localisation;
+import com.mbem.immocam.module.typebien.entity.TypeBien;
 import com.mbem.immocam.module.utilisateur.repository.UtilisateurRepository;
+import com.mbem.immocam.shared.constants.ImmoCamConstants;
 import com.mbem.immocam.shared.enums.StatutSignalement;
 import com.mbem.immocam.shared.pagination.PageResponse;
 import com.mbem.immocam.shared.response.ApiResponse;
@@ -18,6 +25,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -61,9 +69,10 @@ public class AdminController {
             @RequestParam(required = false) String statut,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int taille) {
+        int safeTaille = normaliserTaille(taille, 20, ImmoCamConstants.ADMIN_PAGE_SIZE_MAX);
         PageResponse<AdminAnnonceResponse> result = adminService.listerAnnonces(
                 ville, typeBienId, proprietaireId, statut,
-                PageRequest.of(page, taille, Sort.by(Sort.Direction.DESC, "dateCreation")));
+                PageRequest.of(page, safeTaille, Sort.by(Sort.Direction.DESC, "dateCreation")));
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
@@ -98,8 +107,9 @@ public class AdminController {
             @RequestParam(required = false) String terme,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int taille) {
+        int safeTaille = normaliserTaille(taille, 20, ImmoCamConstants.ADMIN_PAGE_SIZE_MAX);
         PageResponse<AdminUtilisateurResponse> result = adminService.listerUtilisateurs(
-                terme, PageRequest.of(page, taille, Sort.by(Sort.Direction.DESC, "dateCreation")));
+                terme, PageRequest.of(page, safeTaille, Sort.by(Sort.Direction.DESC, "dateCreation")));
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
@@ -134,9 +144,10 @@ public class AdminController {
             @RequestParam(defaultValue = "EN_ATTENTE") String statut,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int taille) {
+        int safeTaille = normaliserTaille(taille, 20, ImmoCamConstants.ADMIN_PAGE_SIZE_MAX);
         PageResponse<AdminSignalementResponse> result = adminService.listerSignalements(
                 StatutSignalement.valueOf(statut),
-                PageRequest.of(page, taille, Sort.by(Sort.Direction.DESC, "dateCreation")));
+                PageRequest.of(page, safeTaille, Sort.by(Sort.Direction.DESC, "dateCreation")));
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
@@ -176,6 +187,65 @@ public class AdminController {
             @PathVariable String cle, @RequestParam String valeur) {
         adminService.mettreAJourConfig(cle, valeur, getAdminId());
         return ResponseEntity.ok(ApiResponse.message("Configuration mise a jour."));
+    }
+
+    @Operation(summary = "Creer une ville")
+    @PostMapping("/villes")
+    public ResponseEntity<ApiResponse<Localisation>> creerVille(
+            @Valid @RequestBody AdminCreateVilleRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(adminService.creerVille(request, getAdminId())));
+    }
+
+    @Operation(summary = "Modifier une ville")
+    @PutMapping("/villes/{id}")
+    public ResponseEntity<ApiResponse<Localisation>> modifierVille(
+            @PathVariable Long id, @Valid @RequestBody AdminCreateVilleRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(adminService.modifierVille(id, request, getAdminId())));
+    }
+
+    @Operation(summary = "Activer/desactiver une ville")
+    @PatchMapping("/villes/{id}/active")
+    public ResponseEntity<ApiResponse<Void>> basculerVille(
+            @PathVariable Long id, @RequestParam boolean active) {
+        adminService.basculerVilleActive(id, active, getAdminId());
+        return ResponseEntity.ok(ApiResponse.message("Ville mise a jour."));
+    }
+
+    @Operation(summary = "Creer un type de bien")
+    @PostMapping("/types-biens")
+    public ResponseEntity<ApiResponse<TypeBien>> creerTypeBien(
+            @Valid @RequestBody AdminCreateTypeBienRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(adminService.creerTypeBien(request, getAdminId())));
+    }
+
+    @Operation(summary = "Modifier un type de bien")
+    @PutMapping("/types-biens/{id}")
+    public ResponseEntity<ApiResponse<TypeBien>> modifierTypeBien(
+            @PathVariable Long id, @Valid @RequestBody AdminCreateTypeBienRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(adminService.modifierTypeBien(id, request, getAdminId())));
+    }
+
+    @Operation(summary = "Activer/desactiver un type de bien")
+    @PatchMapping("/types-biens/{id}/actif")
+    public ResponseEntity<ApiResponse<Void>> basculerTypeBien(
+            @PathVariable Long id, @RequestParam boolean actif) {
+        adminService.basculerTypeBienActif(id, actif, getAdminId());
+        return ResponseEntity.ok(ApiResponse.message("Type de bien mis a jour."));
+    }
+
+    @Operation(summary = "Creer un utilisateur avec role")
+    @PostMapping("/utilisateurs")
+    public ResponseEntity<ApiResponse<AdminUtilisateurResponse>> creerUtilisateur(
+            @Valid @RequestBody AdminCreateUtilisateurRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(adminService.creerUtilisateur(request, getAdminId())));
+    }
+
+    @Operation(summary = "Modifier le role d'un utilisateur")
+    @PatchMapping("/utilisateurs/{id}/role")
+    public ResponseEntity<ApiResponse<Void>> modifierRole(
+            @PathVariable Long id, @Valid @RequestBody AdminUpdateRoleRequest request) {
+        adminService.modifierRoleUtilisateur(id, request.getRole(), getAdminId());
+        return ResponseEntity.ok(ApiResponse.message("Role utilisateur modifie."));
     }
 
     // ── Exports CSV ───────────────────────────────────────────────────────
@@ -221,5 +291,10 @@ public class AdminController {
         return utilisateurRepository.findByEmail(email)
                 .map(u -> u.getId())
                 .orElseThrow(() -> new RessourceNotFoundException("Administrateur non trouve"));
+    }
+
+    private int normaliserTaille(int taille, int valeurParDefaut, int max) {
+        if (taille <= 0) return valeurParDefaut;
+        return Math.min(taille, max);
     }
 }

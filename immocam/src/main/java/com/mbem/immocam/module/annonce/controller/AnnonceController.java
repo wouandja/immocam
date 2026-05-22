@@ -10,6 +10,7 @@ import com.mbem.immocam.module.annonce.dto.response.DashboardStatsResponse;
 import com.mbem.immocam.module.annonce.service.AnnonceService;
 import com.mbem.immocam.module.photo.service.PhotoService;
 import com.mbem.immocam.module.utilisateur.repository.UtilisateurRepository;
+import com.mbem.immocam.shared.constants.ImmoCamConstants;
 import com.mbem.immocam.shared.pagination.PageResponse;
 import com.mbem.immocam.shared.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -70,9 +71,9 @@ public class AnnonceController {
             @RequestParam(required = false) BigDecimal prixMin,
             @RequestParam(required = false) BigDecimal prixMax,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int taille) {
-
-        Pageable pageable = PageRequest.of(page, taille,
+            @RequestParam(defaultValue = "8") int taille) {
+        int safeTaille = normaliserTaille(taille, ImmoCamConstants.SCROLL_PAGE_SIZE, ImmoCamConstants.SCROLL_PAGE_SIZE_MAX);
+        Pageable pageable = PageRequest.of(page, safeTaille,
             Sort.by(Sort.Direction.DESC, "dateCreation"));
         PageResponse<AnnonceListResponse> result =
             annonceService.listerAnnonces(ville, quartier, typeBienId, prixMin, prixMax, pageable);
@@ -204,7 +205,8 @@ public class AnnonceController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int taille) {
         Long proprietaireId = obtenirUtilisateurCourantId();
-        Pageable pageable = PageRequest.of(page, taille,
+        int safeTaille = normaliserTaille(taille, 10, ImmoCamConstants.DASHBOARD_PAGE_SIZE_MAX);
+        Pageable pageable = PageRequest.of(page, safeTaille,
             Sort.by(Sort.Direction.DESC, "dateCreation"));
         PageResponse<AnnonceDashboardResponse> result =
             annonceService.mesAnnonces(proprietaireId, pageable);
@@ -231,4 +233,9 @@ public ResponseEntity<ApiResponse<DashboardStatsResponse>> getDashboardStats() {
     DashboardStatsResponse stats = annonceService.getDashboardStats(proprietaireId);
     return ResponseEntity.ok(ApiResponse.ok(stats));
 }
+
+    private int normaliserTaille(int taille, int valeurParDefaut, int max) {
+        if (taille <= 0) return valeurParDefaut;
+        return Math.min(taille, max);
+    }
 }

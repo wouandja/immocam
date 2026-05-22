@@ -32,4 +32,6 @@ public class DashboardResponse {
     private long signalementsEnAttente;
     private long utilisateursActifs;
     private long utilisateursSuspendus;
+    private long utilisateursTotal;
+    private long contactsWhatsAppTotal;
 }

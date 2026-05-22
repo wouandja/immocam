@@ -81,8 +81,8 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
       <div class="max-w-screen-xl mx-auto px-3 sm:px-6 py-3">
 
         <!-- Pills type de bien -->
-        <div class="overflow-x-auto pb-2.5 border-b border-slate-50 mb-3" style="scrollbar-width:none;">
-          <div class="flex gap-1.5" style="min-width:max-content;">
+       <div class="overflow-x-auto pb-2.5 border-b border-slate-50 mb-3" style="scrollbar-width:none;-ms-overflow-style:none;">
+  <div class="inline-flex gap-1.5">
 
             <button
               (click)="selectType(null)"
@@ -414,10 +414,8 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
   filterPrixMax                   = 2_000_000;
   readonly PRIX_MAX               = 2_000_000;
 
-  private readonly PAGE_SIZE      = 12;
+  private readonly PAGE_SIZE      = 8;
   private currentPage             = 0;
-  private allAnnonces: AnnonceListResponse[]      = [];
-  private filteredAnnonces: AnnonceListResponse[] = [];
 
   readonly prixError = computed(() =>
     this.filterPrixMin > 0 && this.filterPrixMax > 0 && this.filterPrixMin > this.filterPrixMax,
@@ -451,8 +449,6 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
       next: r => this.villes.set(r.data ?? []),
     });
 
-    this._loadInitialAnnonces();
-
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       this.filterVille          = typeof params['ville'] === 'string' ? params['ville'].trim() : '';
       this.filterTypeBienId     = this._toPositiveInt(params['typeBienId']);
@@ -481,7 +477,8 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
         this.filterLocalisationId = null;
       }
 
-      this._applyLocalFilters();
+      this.currentPage = 0;
+      this._loadPage(false);
     });
   }
 
@@ -523,7 +520,8 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
   applyFilters(): void {
     this._normalizePriceRange();
     if (this.prixError()) return;
-    this._applyLocalFilters();
+    this.currentPage = 0;
+    this._loadPage(false);
     this._syncUrl();
   }
 
@@ -534,57 +532,49 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
     this.filterPrixMin        = 0;
     this.filterPrixMax        = this.PRIX_MAX;
     this.quartiers.set([]);
-    this._applyLocalFilters();
+    this.currentPage = 0;
+    this._loadPage(false);
     this.router.navigate([], { queryParams: {}, replaceUrl: true });
   }
 
   loadMore(): void {
     if (this.loadingMore() || !this.hasMore()) return;
     this.currentPage++;
-    this._refreshVisibleAnnonces();
+    this._loadPage(true);
   }
 
-  private _loadInitialAnnonces(): void {
-    this.loading.set(true);
-    this.annonceApi.getAnnonces({ page: 0, size: 5000 }).pipe(takeUntil(this.destroy$)).subscribe({
+  private _loadPage(append: boolean): void {
+    if (append) this.loadingMore.set(true);
+    else this.loading.set(true);
+
+    const quartier = this.filterLocalisationId !== null
+      ? this.quartiers().find(q => q.id === this.filterLocalisationId)?.quartier
+      : undefined;
+
+    this.annonceApi.getAnnonces({
+      page: this.currentPage,
+      taille: this.PAGE_SIZE,
+      ville: this.filterVille || undefined,
+      typeBienId: this.filterTypeBienId ?? undefined,
+      quartier: quartier || undefined,
+      prixMin: this.filterPrixMin > 0 ? this.filterPrixMin : undefined,
+      prixMax: this.filterPrixMax < this.PRIX_MAX ? this.filterPrixMax : undefined,
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: res => {
-        this.allAnnonces = this._shuffle([...(res.data?.contenu ?? [])]);
-        this._applyLocalFilters();
+        const page = res.data;
+        const incoming = page?.contenu ?? [];
+        this.annonces.set(append ? [...this.annonces(), ...incoming] : incoming);
+        this.hasMore.set((page?.page ?? 0) < ((page?.totalPages ?? 1) - 1));
         this.loading.set(false);
+        this.loadingMore.set(false);
       },
       error: () => {
-        this.allAnnonces      = [];
-        this.filteredAnnonces = [];
-        this.annonces.set([]);
-        this.hasMore.set(false);
+        if (!append) this.annonces.set([]);
         this.loading.set(false);
+        this.loadingMore.set(false);
+        this.hasMore.set(false);
       },
     });
-  }
-
-  private _applyLocalFilters(): void {
-    this.currentPage = 0;
-    const ville      = this.filterVille.trim();
-    const villeLower = ville.toLowerCase();
-
-    const typeBienLibelle = this.filterTypeBienId !== null
-      ? this.typesBiens().find(t => t.id === this.filterTypeBienId)?.libelle ?? null
-      : null;
-
-    this.filteredAnnonces = this.allAnnonces.filter(a => {
-      if (ville && a.ville.toLowerCase() !== villeLower) return false;
-      if (typeBienLibelle !== null && a.typeBien !== typeBienLibelle) return false;
-      if (this.filterLocalisationId !== null) {
-        const qs = this.quartiers().find(q => q.id === this.filterLocalisationId)?.quartier ?? null;
-        if (qs && a.quartier !== qs) return false;
-      }
-      if (this.filterPrixMin > 0 && a.prix < this.filterPrixMin) return false;
-      if (this.filterPrixMax < this.PRIX_MAX && a.prix > this.filterPrixMax) return false;
-      return true;
-    });
-
-    this.filteredAnnonces = this._shuffle([...this.filteredAnnonces]);
-    this._refreshVisibleAnnonces();
   }
 
   private _syncUrl(): void {
@@ -613,17 +603,4 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
     this.filterPrixMax = Math.min(this.PRIX_MAX, Math.max(0, Math.floor(Number(this.filterPrixMax) || this.PRIX_MAX)));
   }
 
-  private _refreshVisibleAnnonces(): void {
-    const end = (this.currentPage + 1) * this.PAGE_SIZE;
-    this.annonces.set(this.filteredAnnonces.slice(0, end));
-    this.hasMore.set(end < this.filteredAnnonces.length);
-  }
-
-  private _shuffle<T>(arr: T[]): T[] {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
 }

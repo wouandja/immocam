@@ -1064,7 +1064,7 @@ postComment(): void {
       .signaler({
         annonceId: a.id,
         motif: this.selectedMotif,
-        description: this.signalementDesc || undefined,
+        details: this.signalementDesc || undefined,
       })
       .subscribe({
         next: () => {

@@ -18,4 +18,6 @@ public interface TypeBienRepository extends JpaRepository<TypeBien, Long> {
     List<TypeBien> findByEstActifTrueOrderByLibelleAsc();
 
     boolean existsByLibelle(String libelle);
+
+    boolean existsByLibelleIgnoreCase(String libelle);
 }

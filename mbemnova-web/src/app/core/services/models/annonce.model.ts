@@ -63,7 +63,7 @@ export interface PublierAnnonceRequest {
   quartier: string; // ✅ Quartier saisi librement par l'utilisateur
   description: string;
   prix: number;
-  numeroWhatsApp: string;
+  numeroWhatsApp?: string;
 }
 
 export interface ModifierAnnonceRequest extends Partial<PublierAnnonceRequest> {}
@@ -151,13 +151,13 @@ export interface RepondreCommentaireRequest {
 export interface SignalementRequest {
   annonceId: number;
   motif: string;
-  description?: string;
+  details?: string;
 }
 
 // ─── Référentiels ─────────────────────────────────────────────────────────────
 export interface TypeBienResponse {
   id: number;
-  nom: string;
+  libelle: string;
   icone?: string;
-  active: boolean;
+  estActif: boolean;
 }

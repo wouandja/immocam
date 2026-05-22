@@ -13,7 +13,7 @@ export interface AnnonceState {
   detail: AnnonceDetailResponse | null;
   detailLoading: boolean;
   filters: AnnonceFilters;
-  mesAnnonces: AnnonceDashboardResponse [];
+  mesAnnonces: AnnonceDashboardResponse[];
   mesAnnoncesTotal: number;
   actionLoading: boolean;
 }
@@ -38,11 +38,14 @@ export const annonceReducer = createReducer(
   initialState,
 
   // Liste
-  on(annonceActions.loadAnnonces, (s, { append }) => ({
+  on(annonceActions.loadAnnonces, (s, { filters, append }) => ({
     ...s,
     loading: !append,
     loadingMore: !!append,
     error: null,
+    // On mémorise la page demandée dès le dispatch
+    // pour ne pas dépendre de ce que renvoie l'API
+    currentPage: filters?.page ?? s.currentPage,
   })),
   on(annonceActions.loadAnnoncesSuccess, (s, { page, append }) => ({
     ...s,
@@ -51,7 +54,9 @@ export const annonceReducer = createReducer(
     items: append ? [...s.items, ...page.contenu] : page.contenu,
     totalElements: page.totalElements,
     totalPages: page.totalPages,
-    currentPage: page.page,
+    // currentPage est déjà bon (posé au dispatch) — on le confirme
+    // avec page.page si l'API le renvoie correctement, sinon on garde
+    currentPage: page.page ?? s.currentPage,
   })),
   on(annonceActions.loadAnnoncesFailure, (s, { error }) => ({
     ...s,
@@ -73,7 +78,7 @@ export const annonceReducer = createReducer(
     error,
   })),
 
-  // Actions
+  // Actions cycle de vie
   on(
     annonceActions.pause,
     annonceActions.reactiver,
@@ -83,24 +88,24 @@ export const annonceReducer = createReducer(
     (s) => ({ ...s, actionLoading: true }),
   ),
   on(annonceActions.actionSuccess, (s, { id, action }) => {
-  const statutMap: Record<string, string> = {
-    pause: 'EN_PAUSE',
-    reactiver: 'ACTIVE',
-    renouveler: 'ACTIVE',
-    archiver: 'ARCHIVEE',
-    supprimer: 'SUPPRIMEE',
-  };
-  const newStatut = statutMap[action];
-  return {
-    ...s,
-    actionLoading: false,
-    mesAnnonces: newStatut
-      ? s.mesAnnonces
-          .filter(a => action === 'supprimer' ? a.id !== id : true)
-          .map(a => a.id === id ? { ...a, statut: newStatut as any } : a)
-      : s.mesAnnonces,
-  };
-}),
+    const statutMap: Record<string, string> = {
+      pause:      'EN_PAUSE',
+      reactiver:  'ACTIVE',
+      renouveler: 'ACTIVE',
+      archiver:   'ARCHIVEE',
+      supprimer:  'SUPPRIMEE',
+    };
+    const newStatut = statutMap[action];
+    return {
+      ...s,
+      actionLoading: false,
+      mesAnnonces: newStatut
+        ? s.mesAnnonces
+            .filter(a => action === 'supprimer' ? a.id !== id : true)
+            .map(a => a.id === id ? { ...a, statut: newStatut as any } : a)
+        : s.mesAnnonces,
+    };
+  }),
   on(annonceActions.actionFailure, (s, { error }) => ({ ...s, actionLoading: false, error })),
 
   // Mes annonces

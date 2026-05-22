@@ -38,7 +38,7 @@ export class AdminApi {
     });
   }
   supprimerAnnonce(id: number, motif: string): Observable<ApiResponse<void>> {
-    return this.http.delete<ApiResponse<void>>(`${this.base}/annonces/${id}`, { body: { motif } });
+    return this.http.delete<ApiResponse<void>>(`${this.base}/annonces/${id}?motif=${encodeURIComponent(motif)}`);
   }
   pauseAnnonceAdmin(id: number): Observable<ApiResponse<void>> {
     return this.http.patch<ApiResponse<void>>(`${this.base}/annonces/${id}/pause`, {});
@@ -56,15 +56,19 @@ export class AdminApi {
     );
   }
   suspendreUtilisateur(id: number, motif: string): Observable<ApiResponse<void>> {
-    return this.http.post<ApiResponse<void>>(`${this.base}/utilisateurs/${id}/suspendre`, {
-      motif,
-    });
+    return this.http.patch<ApiResponse<void>>(
+      `${this.base}/utilisateurs/${id}/suspendre?motif=${encodeURIComponent(motif)}`,
+      {},
+    );
   }
   bannirUtilisateur(id: number, motif: string): Observable<ApiResponse<void>> {
-    return this.http.post<ApiResponse<void>>(`${this.base}/utilisateurs/${id}/bannir`, { motif });
+    return this.http.patch<ApiResponse<void>>(
+      `${this.base}/utilisateurs/${id}/bannir?motif=${encodeURIComponent(motif)}`,
+      {},
+    );
   }
   activerUtilisateur(id: number): Observable<ApiResponse<void>> {
-    return this.http.post<ApiResponse<void>>(`${this.base}/utilisateurs/${id}/activer`, {});
+    return this.http.patch<ApiResponse<void>>(`${this.base}/utilisateurs/${id}/activer`, {});
   }
   getSignalements(
     statut?: string,
@@ -78,7 +82,10 @@ export class AdminApi {
     );
   }
   traiterSignalement(id: number, req: TraiterSignalementRequest): Observable<ApiResponse<void>> {
-    return this.http.put<ApiResponse<void>>(`${this.base}/signalements/${id}`, req);
+    return this.http.patch<ApiResponse<void>>(
+      `${this.base}/signalements/${id}/traiter?decision=${encodeURIComponent(req.statut)}`,
+      {},
+    );
   }
   getCommentaires(page = 0): Observable<ApiResponse<PageResponse<CommentaireResponse>>> {
     return this.http.get<ApiResponse<PageResponse<CommentaireResponse>>>(
@@ -88,24 +95,36 @@ export class AdminApi {
   supprimerCommentaire(id: number): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.base}/commentaires/${id}`);
   }
-  getConfig(): Observable<ApiResponse<ConfigSystemeResponse>> {
-    return this.http.get<ApiResponse<ConfigSystemeResponse>>(`${this.base}/config`);
+  getConfig(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.base}/config`);
   }
-  updateConfig(
-    config: Partial<ConfigSystemeResponse>,
-  ): Observable<ApiResponse<ConfigSystemeResponse>> {
-    return this.http.put<ApiResponse<ConfigSystemeResponse>>(`${this.base}/config`, config);
+  updateConfigByKey(cle: string, valeur: string | number | boolean): Observable<ApiResponse<void>> {
+    return this.http.patch<ApiResponse<void>>(
+      `${this.base}/config/${encodeURIComponent(cle)}?valeur=${encodeURIComponent(String(valeur))}`,
+      {},
+    );
   }
-  ajouterLocalisation(req: LocalisationRequest): Observable<ApiResponse<void>> {
-    return this.http.post<ApiResponse<void>>(`${environment.apiUrl}/localisations`, req);
+  creerVille(ville: string): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(`${this.base}/villes`, { ville });
   }
   ajouterTypeBien(req: TypeBienRequest): Observable<ApiResponse<void>> {
-    return this.http.post<ApiResponse<void>>(`${environment.apiUrl}/typebien`, req);
+    return this.http.post<ApiResponse<void>>(`${this.base}/types-biens`, { libelle: req.libelle });
+  }
+  creerUtilisateur(req: {
+    prenom: string;
+    nom: string;
+    email: string;
+    telephone: string;
+    ville: string;
+    motDePasse: string;
+    role: string;
+  }): Observable<ApiResponse<AdminUtilisateurResponse>> {
+    return this.http.post<ApiResponse<AdminUtilisateurResponse>>(`${this.base}/utilisateurs`, req);
   }
   exportAnnoncesCSV(): Observable<Blob> {
-    return this.http.get(`${this.base}/exports/annonces`, { responseType: 'blob' });
+    return this.http.get(`${this.base}/rapports/export/annonces`, { responseType: 'blob' });
   }
   exportUtilisateursCSV(): Observable<Blob> {
-    return this.http.get(`${this.base}/exports/utilisateurs`, { responseType: 'blob' });
+    return this.http.get(`${this.base}/rapports/export/utilisateurs`, { responseType: 'blob' });
   }
 }

@@ -8,7 +8,8 @@
       {
         "ignore": [
           "-webkit-text-size-adjust",
-          "-moz-appearance"
+          "-moz-appearance",
+          "user-select"
         ]
       }
     ],
@@ -40,6 +41,7 @@
       {
         "button-name": "off"
       }
-    ]
+    ],
+    "meta-viewport": "off"
   }
 }

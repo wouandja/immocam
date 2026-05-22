@@ -54,7 +54,7 @@ import { TypeBienApi } from '@core/services/api/typebien.api';
           >
             <option [value]="undefined">🏠 Tous les types</option>
             @for (t of typesBiens; track t.id) {
-              <option [value]="t.id">{{ t.nom }}</option>
+              <option [value]="t.id">{{ t.libelle }}</option>
             }
           </select>
         </div>

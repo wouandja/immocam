@@ -33,4 +33,6 @@ public interface LocalisationRepository extends JpaRepository<Localisation, Long
    // Remplacer la query par celle-ci
 @Query("SELECT l.id AS id, l.ville AS ville FROM Localisation l WHERE l.estActive = true ORDER BY l.ville ASC")
 List<VilleProjection> findVillesActivesAvecId();
+
+boolean existsByVilleIgnoreCase(String ville);
 }
