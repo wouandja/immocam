@@ -4,8 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { AdminApi } from '@core/services/api/admin.api';
 import { ConfirmDialogComponent } from '@shared/components/confirm-dialog/confirm-dialog.component';
 import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
-import { AdminUtilisateurResponse, RoleUtilisateur } from '@core/services/models';
+import {  RoleUtilisateur } from '@core/services/models';
 import { ToastService } from '@core/services/toast.service';
+import { AdminUtilisateurResponse } from '@core/services/models/admin.model';
 
 type ViewMode = 'table' | 'card';
 
@@ -704,7 +705,7 @@ type ViewMode = 'table' | 'card';
                         <div>
                           <div class="user-name">{{ fullName(u) }}</div>
                           <div class="user-email">{{ u.email }}</div>
-                          <div class="user-phone">{{ u.telephoneMasque || u.telephone || '-' }}</div>
+                          <div class="user-phone">{{ u.telephoneMasque ||   '-' }}</div>
                         </div>
                       </div>
                     </td>
@@ -716,7 +717,7 @@ type ViewMode = 'table' | 'card';
                       </span>
                     </td>
                     <td class="td-right">
-                      <span class="annonces-count">{{ u.nombreAnnoncesTotal ?? u.nombreAnnoncesActives ?? u.nombreAnnonces ?? 0 }}</span>
+                      <span class="annonces-count">{{ u.nombreAnnoncesTotal ?? u.nombreAnnoncesActives ?? u.nombreAnnoncesTotal ?? 0 }}</span>
                     </td>
                     <td><span class="date-text">{{ u.dateInscription | timeAgo }}</span></td>
                     <td>
@@ -812,7 +813,7 @@ type ViewMode = 'table' | 'card';
                 <div class="card-user-info">
                   <p class="card-name">{{ fullName(u) }}</p>
                   <p class="card-email">{{ u.email }}</p>
-                  <p class="card-phone">{{ u.telephoneMasque || u.telephone || '-' }}</p>
+                  <p class="card-phone">{{ u.telephoneMasque  || '-' }}</p>
                 </div>
                 <span class="status-badge" [ngClass]="statusBadgeClass(u.statut)">
                   <span class="status-dot"></span>
@@ -826,7 +827,7 @@ type ViewMode = 'table' | 'card';
                 </div>
                 <div class="card-meta-row">
                   <span class="card-meta-label">Annonces</span>
-                  <span class="card-meta-val annonces">{{ u.nombreAnnoncesTotal ?? u.nombreAnnoncesActives ?? u.nombreAnnonces ?? 0 }}</span>
+                  <span class="card-meta-val annonces">{{ u.nombreAnnoncesTotal ?? u.nombreAnnoncesActives ?? u.nombreAnnoncesTotal ?? 0 }}</span>
                 </div>
                 <div class="card-meta-row">
                   <span class="card-meta-label">Inscrit</span>
@@ -1015,7 +1016,7 @@ export class AdminUtilisateursComponent implements OnInit {
   }
 
   fullName(u: AdminUtilisateurResponse): string {
-    return u.nomComplet || `${u.prenom} ${u.nom}`.trim();
+    return  `${u.prenom} ${u.nom}`.trim();
   }
 
   canCreateUser(): boolean {

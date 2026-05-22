@@ -2,24 +2,22 @@ import { RoleUtilisateur, StatutCompte, StatutSignalement } from './enums.model'
 import { AnnonceListResponse } from './annonce.model';
 
 export interface AdminDashboardResponse {
-  visitesTotales: number;
-  visitesTotales7j: number;
-  visitesTotales30j: number;
-  annoncesActives: number;
-  nouvellesAnnonces: number;
-  nouvellesAnnonces7j: number;
-  nouveauxInscrits: number;
+  // Aujourd'hui
+  annoncesPublieesAujourdhui: number;
+  nouveauxInscritsAujourdhui: number;
+  contactsWhatsAppAujourdhui: number;
+  commentairesAujourdhui: number;
+  // 7 derniers jours
+  annoncesPubliees7j: number;
   nouveauxInscrits7j: number;
-  contactsWhatsapp: number;
-  contactsWhatsapp7j: number;
-  commentairesPublies: number;
-  commentairesPublies7j: number;
-  signalEmentsNonTraites: number;
-  evolutionVisites: ChartDataPoint[];
-  evolutionContacts: ChartDataPoint[];
-  evolutionPublications: ChartDataPoint[];
-  villesActives: VilleRanking[];
-  typesBiensPopulaires: TypeBienRanking[];
+  contactsWhatsApp7j: number;
+  // Temps réel
+  annoncesActives: number;
+  signalementsEnAttente: number;
+  utilisateursActifs: number;
+  utilisateursSuspendus: number;
+  utilisateursTotal: number;
+  contactsWhatsAppTotal: number;
 }
 
 export interface ChartDataPoint {
@@ -37,25 +35,22 @@ export interface TypeBienRanking {
   nombreAnnonces: number;
 }
 
+// ============================================
+// admin.utilisateur.model.ts
+// ============================================
 export interface AdminUtilisateurResponse {
   id: number;
   prenom: string;
   nom: string;
   email: string;
-  nomComplet?: string;
-  telephone?: string;
-  telephoneMasque?: string;
+  telephoneMasque: string;  // ← backend envoie telephoneMasque
   ville: string;
-  role: RoleUtilisateur;
-  statut: StatutCompte;
-  emailVerifie?: boolean;
+  role: string;              // ← backend envoie string, pas RoleUtilisateur enum
+  statut: string;            // ← backend envoie string, pas StatutCompte enum
   dateInscription: string;
-  nombreAnnonces?: number;
-  nombreAnnoncesActives?: number;
-  nombreAnnoncesTotal?: number;
-  nombreConnexions?: number;
-  derniereConnexion?: string;
-  dernierLogin?: string;
+  dernierLogin: string;      // ← backend: dernierLogin
+  nombreAnnoncesActives: number;
+  nombreAnnoncesTotal: number;
 }
 
 export interface AdminUtilisateurFilters {
@@ -70,15 +65,13 @@ export interface AdminUtilisateurFilters {
 export interface SignalementResponse {
   id: number;
   annonceId: number;
-  annonceTitre: string;
-  auteurPrenom: string;
-  auteurEmail: string;
+  typeBienAnnonce: string;   // ← backend: typeBienAnnonce
+  villeAnnonce: string;       // ← backend: villeAnnonce
   motif: string;
-  description?: string;
-  statut: StatutSignalement;
+  details: string;            // ← backend: details
+  statut: string;             // ← backend: statut (string, pas enum)
+  auteurEmail: string;        // ← backend: auteurEmail
   dateSignalement: string;
-  dateTraitement?: string;
-  administrateurNote?: string;
 }
 
 export interface TraiterSignalementRequest {
@@ -117,4 +110,20 @@ export interface AdminAnnonceFilters {
   page?: number;
   size?: number;
   search?: string;
+}
+
+
+export interface LocalisationResponse {
+  id: number;
+  ville: string;
+  quartier?: string;  // optionnel selon votre entity
+  active: boolean;
+  dateCreation?: string;
+}
+
+export interface TypeBienResponse {
+  id: number;
+  libelle: string;
+  estActif: boolean;   // ← backend: estActif (pas "actif" ou "active")
+  dateCreation?: string;
 }

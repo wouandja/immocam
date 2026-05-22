@@ -281,6 +281,9 @@ public class AdminServiceImpl implements AdminService {
                 "Signalement", signalementId, null, decision.name());
     }
 
+
+
+
     // ── Configuration ─────────────────────────────────────────────────────────
 
     @Override
@@ -450,4 +453,19 @@ public class AdminServiceImpl implements AdminService {
             throw new IllegalArgumentException("Valeur numerique invalide pour " + cle);
         }
     }
+
+     @Override    
+     @Transactional
+    public void modifierQuartierAnnonce(Long annonceId, String quartier, Long adminId) {
+    Annonce annonce = annonceRepository.findById(annonceId)
+            .orElseThrow(() -> new RessourceNotFoundException("Annonce", annonceId));
+    
+    if (quartier == null || quartier.isBlank()) {
+        throw new IllegalArgumentException("Le quartier ne peut pas être vide");
+    }
+    
+    annonce.setQuartier(quartier);
+    logActiviteService.log(adminId, TypeAction.MODIFICATION_ANNONCE, 
+            "Admin - Modification quartier annonce", annonceId, null, null);
+}
 }

@@ -46,7 +46,7 @@ public class PublierAnnonceRequest {
      * Pré-rempli avec le numéro du compte, modifiable par le propriétaire.
      * JAMAIS exposé en clair dans l'API — intégré uniquement dans le lien wa.me.
      */
-    @NotBlank(message = "Le numéro WhatsApp est obligatoire")
+ 
     @TelephoneCameroun
     private String numeroWhatsApp;
 }

@@ -3,30 +3,25 @@
 // 3 layouts : MainLayout | AuthLayout | AdminLayout
 // Guards : authGuard | guestGuard | roleAdminGuard | verifiedGuard
 // =============================================================================
-import { Routes }          from '@angular/router';
-import { authGuard }       from './core/guards/auth.guard';
-import { guestGuard }      from './core/guards/guest.guard';
-import { roleAdminGuard }  from './core/guards/role.guard';
-import { verifiedGuard }   from './core/guards/verified.guard';
+import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth.guard';
+import { guestGuard } from './core/guards/guest.guard';
+import { roleAdminGuard } from './core/guards/role.guard';
+import { verifiedGuard } from './core/guards/verified.guard';
 
 export const routes: Routes = [
-
   // ══════════════════════════════════════════════════════════════════════════
   // LAYOUT PRINCIPAL — header + footer + mobile nav
   // ══════════════════════════════════════════════════════════════════════════
   {
     path: '',
     loadComponent: () =>
-      import('./layout/main-layout/main-layout.component')
-        .then(m => m.MainLayoutComponent),
+      import('./layout/main-layout/main-layout.component').then((m) => m.MainLayoutComponent),
     children: [
-
       // ── Page d'accueil ──────────────────────────────────────────────────
       {
         path: '',
-        loadComponent: () =>
-          import('./features/home/home.component')
-            .then(m => m.HomeComponent),
+        loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
         title: 'ImmoCam — Immobilier camerounais',
         data: { animation: 'home' },
       },
@@ -38,32 +33,36 @@ export const routes: Routes = [
           {
             path: '',
             loadComponent: () =>
-              import('./features/annonce/list/annonce-list.component')
-                .then(m => m.AnnonceListComponent),
+              import('./features/annonce/list/annonce-list.component').then(
+                (m) => m.AnnonceListComponent,
+              ),
             title: 'Annonces immobilières — ImmoCam',
           },
           {
             path: 'creer',
             loadComponent: () =>
-              import('./features/annonce/create/annonce-create.component')
-                .then(m => m.AnnonceCreateComponent),
+              import('./features/annonce/create/annonce-create.component').then(
+                (m) => m.AnnonceCreateComponent,
+              ),
             canActivate: [authGuard, verifiedGuard],
             title: 'Publier une annonce — ImmoCam',
           },
           {
             path: ':id',
             loadComponent: () =>
-              import('./features/annonce/detail/annonce-detail.component')
-                .then(m => m.AnnonceDetailComponent),
+              import('./features/annonce/detail/annonce-detail.component').then(
+                (m) => m.AnnonceDetailComponent,
+              ),
             title: 'Détail annonce — ImmoCam',
           },
           {
             path: ':id/modifier',
             loadComponent: () =>
-              import('./features/annonce/edit/annonce-edit.component')
-                .then(m => m.AnnonceEditComponent),
+              import('./features/annonce/edit/annonce-edit.component').then(
+                (m) => m.AnnonceEditComponent,
+              ),
             canActivate: [authGuard, verifiedGuard],
-            title: 'Modifier l\'annonce — ImmoCam',
+            title: "Modifier l'annonce — ImmoCam",
           },
         ],
       },
@@ -73,8 +72,9 @@ export const routes: Routes = [
         path: 'dashboard',
         canActivate: [authGuard, verifiedGuard],
         loadComponent: () =>
-          import('./features/dashboard/dashboard-shell.component')
-            .then(m => m.DashboardShellComponent),
+          import('./features/dashboard/dashboard-shell.component').then(
+            (m) => m.DashboardShellComponent,
+          ),
         title: 'Mon espace — ImmoCam',
         children: [
           {
@@ -85,36 +85,39 @@ export const routes: Routes = [
           {
             path: 'overview',
             loadComponent: () =>
-              import('./features/dashboard/overview/overview.component')
-                .then(m => m.DashboardOverviewComponent),
+              import('./features/dashboard/overview/overview.component').then(
+                (m) => m.DashboardOverviewComponent,
+              ),
             title: 'Tableau de bord — ImmoCam',
           },
           {
             path: 'mes-annonces',
             loadComponent: () =>
-              import('./features/dashboard/mes-annonces/mes-annonces.component')
-                .then(m => m.MesAnnoncesComponent),
+              import('./features/dashboard/mes-annonces/mes-annonces.component').then(
+                (m) => m.MesAnnoncesComponent,
+              ),
             title: 'Mes annonces — ImmoCam',
           },
           {
             path: 'mes-favoris',
             loadComponent: () =>
-              import('./features/dashboard/mes-favoris/mes-favoris.component')
-                .then(m => m.MesFavorisComponent),
+              import('./features/dashboard/mes-favoris/mes-favoris.component').then(
+                (m) => m.MesFavorisComponent,
+              ),
             title: 'Mes favoris — ImmoCam',
           },
           {
             path: 'mes-contacts',
             loadComponent: () =>
-              import('./features/dashboard/mes-contacts/mes-contacts.component')
-                .then(m => m.MesContactsComponent),
+              import('./features/dashboard/mes-contacts/mes-contacts.component').then(
+                (m) => m.MesContactsComponent,
+              ),
             title: 'Mes contacts — ImmoCam',
           },
           {
             path: 'profil',
             loadComponent: () =>
-              import('./features/dashboard/profil/profil.component')
-                .then(m => m.ProfilComponent),
+              import('./features/dashboard/profil/profil.component').then((m) => m.ProfilComponent),
             title: 'Mon profil — ImmoCam',
           },
         ],
@@ -124,29 +127,29 @@ export const routes: Routes = [
       {
         path: 'politique-confidentialite',
         loadComponent: () =>
-          import('./features/politique-confidentialite/politique.component')
-            .then(m => m.PolitiqueComponent),
+          import('./features/politique-confidentialite/politique.component').then(
+            (m) => m.PolitiqueComponent,
+          ),
         title: 'Politique de confidentialité — ImmoCam',
       },
       {
         path: 'conditions-utilisation',
         loadComponent: () =>
-          import('./features/conditions-utilisation/conditions.component')
-            .then(m => m.ConditionsComponent),
-        title: 'Conditions d\'utilisation — ImmoCam',
+          import('./features/conditions-utilisation/conditions.component').then(
+            (m) => m.ConditionsComponent,
+          ),
+        title: "Conditions d'utilisation — ImmoCam",
       },
       {
         path: 'mentions-legales',
         loadComponent: () =>
-          import('../../mentions-legales/mentions.component')
-            .then(m => m.MentionsComponent),
+          import('../../mentions-legales/mentions.component').then((m) => m.MentionsComponent),
         title: 'Mentions légales — ImmoCam',
       },
       {
         path: 'contact',
         loadComponent: () =>
-          import('./features/contact/contact.component')
-            .then(m => m.ContactComponent),
+          import('./features/contact/contact.component').then((m) => m.ContactComponent),
         title: 'Contact MBEMNOVA — ImmoCam',
       },
     ],
@@ -158,8 +161,7 @@ export const routes: Routes = [
   {
     path: 'auth',
     loadComponent: () =>
-      import('./layout/auth-layout/auth-layout.component')
-        .then(m => m.AuthLayoutComponent),
+      import('./layout/auth-layout/auth-layout.component').then((m) => m.AuthLayoutComponent),
     children: [
       {
         path: '',
@@ -169,39 +171,40 @@ export const routes: Routes = [
       {
         path: 'login',
         loadComponent: () =>
-          import('./features/auth/login/login.component')
-            .then(m => m.LoginComponent),
+          import('./features/auth/login/login.component').then((m) => m.LoginComponent),
         canActivate: [guestGuard],
         title: 'Connexion — ImmoCam',
       },
       {
         path: 'register',
         loadComponent: () =>
-          import('./features/auth/register/register.component')
-            .then(m => m.RegisterComponent),
+          import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
         canActivate: [guestGuard],
         title: 'Inscription — ImmoCam',
       },
       {
         path: 'verify-email',
         loadComponent: () =>
-          import('./features/auth/verify-email/verify-email.component')
-            .then(m => m.VerifyEmailComponent),
+          import('./features/auth/verify-email/verify-email.component').then(
+            (m) => m.VerifyEmailComponent,
+          ),
         title: 'Vérification email — ImmoCam',
       },
       {
         path: 'forgot-password',
         loadComponent: () =>
-          import('./features/auth/forgot-password/forgot-password.component')
-            .then(m => m.ForgotPasswordComponent),
+          import('./features/auth/forgot-password/forgot-password.component').then(
+            (m) => m.ForgotPasswordComponent,
+          ),
         canActivate: [guestGuard],
         title: 'Mot de passe oublié — ImmoCam',
       },
       {
         path: 'reset-password',
         loadComponent: () =>
-          import('./features/auth/reset-password/reset-password.component')
-            .then(m => m.ResetPasswordComponent),
+          import('./features/auth/reset-password/reset-password.component').then(
+            (m) => m.ResetPasswordComponent,
+          ),
         title: 'Réinitialiser le mot de passe — ImmoCam',
       },
     ],
@@ -214,8 +217,7 @@ export const routes: Routes = [
     path: 'admin',
     canActivate: [roleAdminGuard],
     loadComponent: () =>
-      import('./layout/admin-layout/admin-layout.component')
-        .then(m => m.AdminLayoutComponent),
+      import('./layout/admin-layout/admin-layout.component').then((m) => m.AdminLayoutComponent),
     title: 'Administration — ImmoCam',
     children: [
       {
@@ -226,43 +228,49 @@ export const routes: Routes = [
       {
         path: 'dashboard',
         loadComponent: () =>
-          import('./features/admin/dashboard/admin-dashboard.component')
-            .then(m => m.AdminDashboardComponent),
+          import('./features/admin/dashboard/admin-dashboard.component').then(
+            (m) => m.AdminDashboardComponent,
+          ),
         title: 'Dashboard Admin — ImmoCam',
       },
       {
         path: 'annonces',
         loadComponent: () =>
-          import('./features/admin/annonces/admin-annonces.component')
-            .then(m => m.AdminAnnoncesComponent),
+          import('./features/admin/annonces/admin-annonces.component').then(
+            (m) => m.AdminAnnoncesComponent,
+          ),
         title: 'Gestion annonces — ImmoCam',
       },
       {
         path: 'utilisateurs',
         loadComponent: () =>
-          import('./features/admin/utilisateurs/admin-utilisateurs.component')
-            .then(m => m.AdminUtilisateursComponent),
+          import('./features/admin/utilisateurs/admin-utilisateurs.component').then(
+            (m) => m.AdminUtilisateursComponent,
+          ),
         title: 'Gestion utilisateurs — ImmoCam',
       },
       {
         path: 'signalements',
         loadComponent: () =>
-          import('./features/admin/signalements/admin-signalements.component')
-            .then(m => m.AdminSignalementsComponent),
+          import('./features/admin/signalements/admin-signalements.component').then(
+            (m) => m.AdminSignalementsComponent,
+          ),
         title: 'Signalements — ImmoCam',
       },
       {
         path: 'commentaires',
         loadComponent: () =>
-          import('./features/admin/commentaires/admin-commentaires.component')
-            .then(m => m.AdminCommentairesComponent),
+          import('./features/admin/commentaires/admin-commentaires.component').then(
+            (m) => m.AdminCommentairesComponent,
+          ),
         title: 'Modération commentaires — ImmoCam',
       },
       {
         path: 'config',
         loadComponent: () =>
-          import('./features/admin/config/admin-config.component')
-            .then(m => m.AdminConfigComponent),
+          import('./features/admin/config/admin-config.component').then(
+            (m) => m.AdminConfigComponent,
+          ),
         title: 'Configuration — ImmoCam',
       },
     ],
@@ -274,8 +282,7 @@ export const routes: Routes = [
   {
     path: '**',
     loadComponent: () =>
-      import('./features/not-found/not-found.component')
-        .then(m => m.NotFoundComponent),
+      import('./features/not-found/not-found.component').then((m) => m.NotFoundComponent),
     title: 'Page introuvable — ImmoCam',
   },
 ];

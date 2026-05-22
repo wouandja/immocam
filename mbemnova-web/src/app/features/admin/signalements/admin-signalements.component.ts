@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '@core/services/api/admin.api';
 import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
-import { SignalementResponse } from '@core/services/models';
+ 
 import { ToastService } from '@core/services/toast.service';
 import { MOTIF_SIGNALEMENT_LABELS } from '@core/services/models';
+import { SignalementResponse } from '@core/services/models/admin.model';
 
 @Component({
   selector: 'app-admin-signalements',
@@ -483,16 +484,16 @@ import { MOTIF_SIGNALEMENT_LABELS } from '@core/services/models';
                 </div>
 
                 <p class="sig-annonce">
-                  Annonce : <span>{{ s.annonceTitre }}</span>
+                  typeBienAnnonce : <span>{{ s.typeBienAnnonce }}</span>
                 </p>
                 <p class="sig-author">
-                  Signalé par <strong>{{ s.auteurPrenom }}</strong>
+                  Signalé par <strong>{{ s.auteurEmail }}</strong>
                   <span style="color:#CBD5E1"> · </span>
                   {{ s.auteurEmail }}
                 </p>
 
-                @if (s.description) {
-                  <div class="sig-description">"{{ s.description }}"</div>
+                @if (s.details) {
+                  <div class="sig-description">"{{ s.details }}"</div>
                 }
               </div>
             </div>

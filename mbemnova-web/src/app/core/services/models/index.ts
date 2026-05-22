@@ -3,4 +3,4 @@ export * from './enums.model';
 export * from './auth.model';
 export * from './annonce.model';
 export * from './utilisateur.model';
-export * from './admin.model';
+ 

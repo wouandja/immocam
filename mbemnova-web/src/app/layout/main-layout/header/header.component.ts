@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, HostListener, ElementRef } from '@angular/core';
 import { CommonModule }               from '@angular/common';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { Store }                       from '@ngrx/store';
@@ -38,14 +38,14 @@ const SEARCH_DATA: SuggestionItem[] = [
 @Component({
   selector: 'app-header',
   standalone: true,
-  // ✅ Ajout de RouterLinkActive pour la mise en évidence de la route active
   imports: [CommonModule, RouterLink, RouterLinkActive],
   templateUrl: './header.html',
   styleUrl: './header.css'
 })
 export class HeaderComponent {
-  private readonly store  = inject(Store);
-  private readonly router = inject(Router);
+  private readonly store   = inject(Store);
+  private readonly router  = inject(Router);
+  private readonly elRef   = inject(ElementRef);
 
   // ── Sélecteurs NgRx ────────────────────────────────────────────────────────
   readonly isLoggedIn = this.store.selectSignal(selectIsLoggedIn);
@@ -54,11 +54,34 @@ export class HeaderComponent {
 
   // ── État local ─────────────────────────────────────────────────────────────
   mobileSearchOpen = signal(false);
+  /** Contrôle l'ouverture du dropdown avatar — piloté au clic, fonctionne touch + desktop */
+  dropdownOpen     = signal(false);
+
   searchFocused    = false;
   searchQuery      = '';
   showSuggestions  = false;
   suggestions: SuggestionItem[] = [];
   searchLoading    = false;
+
+  // ── Fermeture au clic extérieur ────────────────────────────────────────────
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    // Si le clic est en dehors du composant entier, on ferme le dropdown
+    if (!this.elRef.nativeElement.contains(event.target)) {
+      this.dropdownOpen.set(false);
+    }
+  }
+
+  // ── Toggle dropdown ────────────────────────────────────────────────────────
+  toggleDropdown(event: MouseEvent): void {
+    // stopPropagation pour éviter que onDocumentClick ne ferme immédiatement
+    event.stopPropagation();
+    this.dropdownOpen.update(open => !open);
+  }
+
+  closeDropdown(): void {
+    this.dropdownOpen.set(false);
+  }
 
   // ── Getters utilisateur ────────────────────────────────────────────────────
   get userInitial(): string {
@@ -69,6 +92,10 @@ export class HeaderComponent {
     const u = this.user();
     if (!u) return '';
     return u.prenom && u.nom ? `${u.prenom} ${u.nom}` : u.nom ?? u.prenom ?? '';
+  }
+
+  get userEmail(): string {
+    return this.user()?.email ?? '';
   }
 
   // ── Groupes de suggestions ─────────────────────────────────────────────────
@@ -89,7 +116,6 @@ export class HeaderComponent {
 
   onSearchBlur(): void {
     this.searchFocused = false;
-    // Délai pour laisser mousedown sur les suggestions se déclencher en premier
     setTimeout(() => { this.showSuggestions = false; }, 150);
   }
 
@@ -156,6 +182,7 @@ export class HeaderComponent {
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   logout(): void {
+    this.closeDropdown();
     this.store.dispatch(authActions.logout());
   }
 }

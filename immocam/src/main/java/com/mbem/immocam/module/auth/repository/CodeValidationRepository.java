@@ -26,7 +26,7 @@ public interface CodeValidationRepository extends JpaRepository<CodeValidation, 
     Optional<CodeValidation> findByUtilisateurIdAndCodeAndTypeCodeAndEstUtiliseFalse(
             Long utilisateurId, String code, String typeCode);
 
-    /** Compter les renvois des dernière heure (anti-spam : max 3). */
+    /** Compter les renvois de la dernière heure (anti-spam : max 3). */
     @Query("SELECT COUNT(c) FROM CodeValidation c " +
            "WHERE c.utilisateur.id = :userId " +
            "AND c.typeCode = :typeCode " +
@@ -36,8 +36,15 @@ public interface CodeValidationRepository extends JpaRepository<CodeValidation, 
             @Param("typeCode") String typeCode,
             @Param("depuis") LocalDateTime depuis);
 
-    /** Invalider tous les anciens codes d'un utilisateur. */
-    @Modifying
+    /**
+     * Invalider tous les anciens codes d'un utilisateur.
+     *
+     * clearAutomatically = true  → vide le cache L1 Hibernate après le UPDATE bulk,
+     *                              évite que les entités en mémoire restent stale.
+     * flushAutomatically = true  → force le flush des changements pending avant
+     *                              d'exécuter le UPDATE, garantit la cohérence.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE CodeValidation c SET c.estUtilise = true " +
            "WHERE c.utilisateur.id = :userId AND c.typeCode = :typeCode")
     void invaliderCodesExistants(

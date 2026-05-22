@@ -198,14 +198,14 @@ function shuffle<T>(arr: T[]): T[] {
       -webkit-appearance: none;
       width: 14px; height: 14px;
       border-radius: 50%;
-      background: #1e3a5f;
+      background: #1E3A8A;
       cursor: pointer;
       box-shadow: 0 1px 4px rgba(30,58,95,0.35);
     }
     input[type='range']::-moz-range-thumb {
       width: 14px; height: 14px;
       border-radius: 50%;
-      background: #1e3a5f;
+      background: #1E3A8A;
       cursor: pointer;
       border: none;
     }
@@ -217,7 +217,7 @@ function shuffle<T>(arr: T[]): T[] {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      background: #1e3a5f;
+      background: #1E3A8A;
       color: #fff;
       font-size: 13.5px;
       font-weight: 600;
@@ -231,7 +231,7 @@ function shuffle<T>(arr: T[]): T[] {
       box-shadow: 0 4px 16px rgba(30,58,95,0.3);
     }
     .btn-search:hover:not(:disabled) {
-      background: #162d4d;
+      background: #1E3A8A;
       box-shadow: 0 6px 24px rgba(30,58,95,0.4);
       transform: translateY(-1px);
     }
@@ -244,7 +244,7 @@ function shuffle<T>(arr: T[]): T[] {
       align-items: center;
       gap: 4px;
       font-size: 11px;
-      color: #1e3a5f;
+      color: #1E3A8A;
       background: #e8eef6;
       padding: 4px 10px;
       border-radius: 20px;
@@ -310,7 +310,7 @@ function shuffle<T>(arr: T[]): T[] {
       margin: 32px auto 0;
       padding: 13px 32px;
       background: #fff;
-      color: #1e3a5f;
+      color: #1E3A8A;
       font-size: 13px;
       font-weight: 600;
       font-family: 'Inter', sans-serif;
@@ -321,7 +321,7 @@ function shuffle<T>(arr: T[]): T[] {
       box-shadow: 0 2px 8px rgba(30,58,95,0.08);
     }
     .btn-load-more:hover:not(:disabled) {
-      border-color: #1e3a5f;
+      border-color: #1E3A8A;
       box-shadow: 0 4px 16px rgba(30,58,95,0.15);
       transform: translateY(-1px);
     }
@@ -332,7 +332,7 @@ function shuffle<T>(arr: T[]): T[] {
     .spinner {
       width: 16px; height: 16px;
       border: 2px solid #e2e8f0;
-      border-top-color: #1e3a5f;
+      border-top-color: #1E3A8A;
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       flex-shrink: 0;

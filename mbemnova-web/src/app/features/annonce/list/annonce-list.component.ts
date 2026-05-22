@@ -55,14 +55,14 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
         width: 13px;
         height: 13px;
         border-radius: 50%;
-        background: #1e3a5f;
+        background: #1E3A8A;
         cursor: pointer;
       }
       input[type='range']::-moz-range-thumb {
         width: 13px;
         height: 13px;
         border-radius: 50%;
-        background: #1e3a5f;
+        background: #1E3A8A;
         cursor: pointer;
         border: none;
       }
@@ -88,9 +88,9 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
               (click)="selectType(null)"
               class="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-medium border-[1.5px] cursor-pointer transition-all duration-150 whitespace-nowrap"
               style="font-family:'DM Sans',sans-serif;"
-              [style.background]="filterTypeBienId === null ? '#1e3a5f' : 'transparent'"
+              [style.background]="filterTypeBienId === null ? '#1E3A8A' : 'transparent'"
               [style.color]="filterTypeBienId === null ? '#fff' : '#64748b'"
-              [style.borderColor]="filterTypeBienId === null ? '#1e3a5f' : '#e2e8f0'"
+              [style.borderColor]="filterTypeBienId === null ? '#1E3A8A' : '#e2e8f0'"
             >
               Tout
             </button>
@@ -105,9 +105,9 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
                   (click)="selectType(t.id)"
                   class="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-medium border-[1.5px] cursor-pointer transition-all duration-150 whitespace-nowrap"
                   style="font-family:'DM Sans',sans-serif;"
-                  [style.background]="filterTypeBienId === t.id ? '#1e3a5f' : 'transparent'"
+                  [style.background]="filterTypeBienId === t.id ? '#1E3A8A' : 'transparent'"
                   [style.color]="filterTypeBienId === t.id ? '#fff' : '#64748b'"
-                  [style.borderColor]="filterTypeBienId === t.id ? '#1e3a5f' : '#e2e8f0'"
+                  [style.borderColor]="filterTypeBienId === t.id ? '#1E3A8A' : '#e2e8f0'"
                 >
                   {{ t.libelle }}
                 </button>
@@ -196,7 +196,7 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
               [max]="PRIX_MAX"
               step="10000"
               class="w-full"
-              style="accent-color:#1e3a5f;"
+              style="accent-color:#1E3A8A;"
             />
             <span class="text-[9px] text-slate-400 mt-0.5 block" style="font-family:'DM Sans',sans-serif;">
               {{ filterPrixMin | number:'1.0-0' }} FCFA
@@ -225,7 +225,7 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
               [max]="PRIX_MAX"
               step="10000"
               class="w-full"
-              style="accent-color:#1e3a5f;"
+              style="accent-color:#1E3A8A;"
             />
             <span class="text-[9px] text-slate-400 mt-0.5 block" style="font-family:'DM Sans',sans-serif;">
               {{ filterPrixMax < PRIX_MAX ? (filterPrixMax | number:'1.0-0') + ' FCFA' : 'Illimité' }}
@@ -249,7 +249,7 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
             @if (filterVille) {
               <span
                 class="text-[11px] px-2.5 py-1 rounded-full"
-                style="color:#1e3a5f;background:#e8eef6;font-family:'DM Sans',sans-serif;"
+                style="color:#1E3A8A;background:#e8eef6;font-family:'DM Sans',sans-serif;"
               >
                 📍 {{ filterVille }}{{ filterLocalisationId ? ' · ' + quartierLabel() : '' }}
               </span>
@@ -257,13 +257,13 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
             @if (filterTypeBienId !== null) {
               <span
                 class="text-[11px] px-2.5 py-1 rounded-full"
-                style="color:#1e3a5f;background:#e8eef6;font-family:'DM Sans',sans-serif;"
+                style="color:#1E3A8A;background:#e8eef6;font-family:'DM Sans',sans-serif;"
               >{{ typeBienLabel() }}</span>
             }
             @if (filterPrixMin > 0 || filterPrixMax < PRIX_MAX) {
               <span
                 class="text-[11px] px-2.5 py-1 rounded-full"
-                style="color:#1e3a5f;background:#e8eef6;font-family:'DM Sans',sans-serif;"
+                style="color:#1E3A8A;background:#e8eef6;font-family:'DM Sans',sans-serif;"
               >
                 {{ filterPrixMin | number:'1.0-0' }} –
                 {{ filterPrixMax < PRIX_MAX ? (filterPrixMax | number:'1.0-0') + ' FCFA' : '∞ FCFA' }}
@@ -291,7 +291,7 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
         @if (!loading() && annonces().length > 0) {
           <div class="flex items-center justify-between mb-4 fade-up">
             <p class="text-[11.5px]" style="color:#94a3b8;font-family:'DM Sans',sans-serif;">
-              <strong style="color:#1e3a5f;font-weight:600;">{{ annonces().length }}</strong>
+              <strong style="color:#1E3A8A;font-weight:600;">{{ annonces().length }}</strong>
               annonce{{ annonces().length > 1 ? 's' : '' }}
               @if (filterVille) {
                 à <strong style="color:#0f172a;">{{ filterVille }}</strong>
@@ -366,7 +366,7 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
                 <button
                   (click)="resetFilters()"
                   class="mt-3 px-5 py-2.5 text-[13px] font-medium rounded-[10px] border-none cursor-pointer"
-                  style="background:#1e3a5f;color:#fff!important;font-family:'DM Sans',sans-serif;"
+                  style="background:#1E3A8A;color:#fff!important;font-family:'DM Sans',sans-serif;"
                 >
                   Voir toutes les annonces
                 </button>
@@ -374,7 +374,7 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
                  <a
                   routerLink="/annonces/creer"
                   class="mt-3 inline-block px-5 py-2.5 text-[13px] font-medium rounded-[10px]"
-                  style="background:#1e3a5f;color:#fff!important;text-decoration:none;font-family:'DM Sans',sans-serif;"
+                  style="background:#1E3A8A;color:#fff!important;text-decoration:none;font-family:'DM Sans',sans-serif;"
                 >
                   Publier une annonce
                 </a>
@@ -400,6 +400,7 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
   readonly loadingMore        = signal(false);
   readonly hasMore            = signal(false);
   readonly skeletons          = [1,2,3,4,5,6,7,8];
+  private isLoadingMoreLock = false;
 
   readonly typesBiens         = signal<TypeBienResponse[]>([]);
   readonly villes             = signal<string[]>([]);
@@ -537,11 +538,21 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
     this.router.navigate([], { queryParams: {}, replaceUrl: true });
   }
 
-  loadMore(): void {
-    if (this.loadingMore() || !this.hasMore()) return;
-    this.currentPage++;
-    this._loadPage(true);
-  }
+loadMore(): void {
+  // Éviter les appels multiples
+  if (this.loadingMore() || !this.hasMore() || this.isLoadingMoreLock) return;
+  
+  this.isLoadingMoreLock = true;
+  this.loadingMore.set(true);
+  this.currentPage++;
+  
+  this._loadPage(true);
+  
+  // Débloquer après un délai
+  setTimeout(() => {
+    this.isLoadingMoreLock = false;
+  }, 1000);
+}
 
   private _loadPage(append: boolean): void {
     if (append) this.loadingMore.set(true);

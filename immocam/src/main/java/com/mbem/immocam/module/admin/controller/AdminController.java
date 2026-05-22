@@ -225,6 +225,15 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.ok(adminService.modifierTypeBien(id, request, getAdminId())));
     }
 
+    @Operation(summary = "Admin - Modifier le quartier d'une annonce")
+@PatchMapping("/annonces/{id}/quartier")
+public ResponseEntity<ApiResponse<Void>> modifierQuartierAnnonce(
+        @PathVariable Long id,
+        @RequestParam String quartier) {
+    adminService.modifierQuartierAnnonce(id, quartier, getAdminId());
+    return ResponseEntity.ok(ApiResponse.message("Quartier modifié avec succès"));
+}
+
     @Operation(summary = "Activer/desactiver un type de bien")
     @PatchMapping("/types-biens/{id}/actif")
     public ResponseEntity<ApiResponse<Void>> basculerTypeBien(

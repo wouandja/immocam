@@ -5,7 +5,11 @@ import { environment } from '@environments/environment';
 import {
   ApiResponse,
   PageResponse,
-  AdminDashboardResponse,
+
+  CommentaireResponse,
+  AnnonceListResponse,
+} from '@core/services/models';
+import { LocalisationResponse,  AdminDashboardResponse,
   AdminUtilisateurResponse,
   AdminUtilisateurFilters,
   SignalementResponse,
@@ -13,10 +17,8 @@ import {
   ConfigSystemeResponse,
   LocalisationRequest,
   TypeBienRequest,
-  AnnonceListResponse,
-  AdminAnnonceFilters,
-  CommentaireResponse,
-} from '@core/services/models';
+ 
+  AdminAnnonceFilters, TypeBienResponse } from '../models/admin.model';
 
 @Injectable({ providedIn: 'root' })
 export class AdminApi {
@@ -87,11 +89,23 @@ export class AdminApi {
       {},
     );
   }
-  getCommentaires(page = 0): Observable<ApiResponse<PageResponse<CommentaireResponse>>> {
-    return this.http.get<ApiResponse<PageResponse<CommentaireResponse>>>(
-      `${this.base}/commentaires?page=${page}`,
-    );
-  }
+getCommentaires(page = 0, taille = 20): Observable<ApiResponse<PageResponse<CommentaireResponse>>> {
+  let params = new HttpParams().set('page', page).set('taille', taille);
+  return this.http.get<ApiResponse<PageResponse<CommentaireResponse>>>(
+    `${this.base}/commentaires`,
+    { params }
+  );
+}
+
+// À ajouter après basculerTypeBienActif()
+modifierQuartierAnnonceAdmin(id: number, quartier: string): Observable<ApiResponse<void>> {
+  const params = new HttpParams().set('quartier', quartier);
+  return this.http.patch<ApiResponse<void>>(
+    `${this.base}/annonces/${id}/quartier`,
+    null,
+    { params }
+  );
+}
   supprimerCommentaire(id: number): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.base}/commentaires/${id}`);
   }
@@ -127,4 +141,34 @@ export class AdminApi {
   exportUtilisateursCSV(): Observable<Blob> {
     return this.http.get(`${this.base}/rapports/export/utilisateurs`, { responseType: 'blob' });
   }
+
+
+// À ajouter après pauseAnnonceAdmin()
+reactiverAnnonceAdmin(id: number): Observable<ApiResponse<void>> {
+  return this.http.patch<ApiResponse<void>>(`${this.base}/annonces/${id}/reactiver`, {});
+}
+
+// À ajouter après activerUtilisateur()
+modifierRoleUtilisateur(id: number, role: string): Observable<ApiResponse<void>> {
+  return this.http.patch<ApiResponse<void>>(`${this.base}/utilisateurs/${id}/role`, { role });
+}
+
+// À ajouter après supprimerCommentaire()
+modifierVille(id: number, ville: string): Observable<ApiResponse<LocalisationResponse>> {
+  return this.http.put<ApiResponse<LocalisationResponse>>(`${this.base}/villes/${id}`, { ville });
+}
+
+basculerVilleActive(id: number, active: boolean): Observable<ApiResponse<void>> {
+  return this.http.patch<ApiResponse<void>>(`${this.base}/villes/${id}/active?active=${active}`, {});
+}
+
+modifierTypeBien(id: number, req: TypeBienRequest): Observable<ApiResponse<TypeBienResponse>> {
+  return this.http.put<ApiResponse<TypeBienResponse>>(`${this.base}/types-biens/${id}`, { libelle: req.libelle });
+}
+
+basculerTypeBienActif(id: number, actif: boolean): Observable<ApiResponse<void>> {
+  return this.http.patch<ApiResponse<void>>(`${this.base}/types-biens/${id}/actif?actif=${actif}`, {});
+}
+
+ 
 }

@@ -404,12 +404,12 @@ import { AuthService } from '@core/services/auth.service';
       .reply-author {
         font-size: 12px;
         font-weight: 600;
-        color: #1d4ed8;
+        color: #1E3A8A;
         margin-bottom: 4px;
       }
       .reply-text {
         font-size: 13px;
-        color: #1e40af;
+        color: #1E3A8A;
         line-height: 1.6;
       }
 
@@ -426,10 +426,10 @@ import { AuthService } from '@core/services/auth.service';
       }
       .avatar-blue {
         background: #dbeafe;
-        color: #1d4ed8;
+        color: #1E3A8A;
       }
       .avatar-dark {
-        background: #1e3a5f;
+        background: #1E3A8A;
         color: #fff;
       }
 
@@ -456,7 +456,7 @@ import { AuthService } from '@core/services/auth.service';
 
       .btn-post {
         padding: 8px 18px;
-        background: #1e3a5f;
+        background: #1E3A8A;
         color: #fff;
         font-size: 12px;
         font-weight: 600;
@@ -466,7 +466,7 @@ import { AuthService } from '@core/services/auth.service';
         transition: background 0.15s;
       }
       .btn-post:hover {
-        background: #1e3a5f;
+        background: #1E3A8A;
         opacity: 0.88;
       }
       .btn-post:disabled {
@@ -601,7 +601,7 @@ import { AuthService } from '@core/services/auth.service';
       .btn-login {
         display: inline-block;
         padding: 9px 22px;
-        background: #1e3a5f;
+        background: #1E3A8A;
         color: #fff;
         font-size: 13px;
         font-weight: 600;
@@ -764,7 +764,7 @@ import { AuthService } from '@core/services/auth.service';
                   <div class="comment-author" style="word-break:break-word;">
                     {{ c.auteurPrenom }}
                     @if (c.estProprietaire) {
-                      <span style="color:#2563eb;font-weight:400;"> · Propriétaire</span>
+                      <span style="color:#1E3A8A;font-weight:400;"> · Propriétaire</span>
                     }
                   </div>
                   <p class="comment-text" style="word-break:break-word;overflow-wrap:break-word;">

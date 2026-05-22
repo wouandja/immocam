@@ -58,4 +58,7 @@ public interface AdminService {
     AdminUtilisateurResponse creerUtilisateur(AdminCreateUtilisateurRequest request, Long adminId);
 
     void modifierRoleUtilisateur(Long utilisateurId, RoleUtilisateur role, Long adminId);
+
+    // À ajouter dans AdminService.java
+   void modifierQuartierAnnonce(Long annonceId, String quartier, Long adminId);
 }
