@@ -26,74 +26,87 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
     InfiniteScrollComponent,
     EmptyStateComponent,
   ],
-  styles: [
-    `
-      @keyframes fadeUp {
-        from { opacity: 0; transform: translateY(12px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
-      .fade-up {
-        animation: fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-      }
+  styles: [`
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both; }
 
-      select {
-        appearance: none;
-        -webkit-appearance: none;
-      }
+    select { appearance: none; -webkit-appearance: none; }
 
-      input[type='range'] {
-        -webkit-appearance: none;
-        appearance: none;
-        height: 3px;
-        border-radius: 99px;
-        outline: none;
-        width: 100%;
-        background: #e2e8f0;
-      }
-      input[type='range']::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 13px;
-        height: 13px;
-        border-radius: 50%;
-        background: #1E3A8A;
-        cursor: pointer;
-      }
-      input[type='range']::-moz-range-thumb {
-        width: 13px;
-        height: 13px;
-        border-radius: 50%;
-        background: #1E3A8A;
-        cursor: pointer;
-        border: none;
-      }
-      input[type='number']::-webkit-inner-spin-button,
-      input[type='number']::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-      }
-      input[type='number'] {
-        -moz-appearance: textfield;
-      }
-    `,
-  ],
+    /* Double range slider */
+    .range-wrap { position: relative; height: 20px; }
+    .range-wrap input[type=range] {
+      position: absolute;
+      width: 100%;
+      height: 4px;
+      background: transparent;
+      -webkit-appearance: none;
+      appearance: none;
+      pointer-events: none;
+      top: 50%;
+      transform: translateY(-50%);
+      margin: 0;
+    }
+    .range-wrap input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: #1E3A8A;
+      border: 2.5px solid #fff;
+      box-shadow: 0 0 0 1.5px #1E3A8A40;
+      cursor: pointer;
+      pointer-events: all;
+    }
+    .range-wrap input[type=range]::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: #1E3A8A;
+      border: 2.5px solid #fff;
+      cursor: pointer;
+      pointer-events: all;
+    }
+    .range-track {
+      position: absolute;
+      top: 50%; transform: translateY(-50%);
+      height: 4px; width: 100%;
+      border-radius: 99px;
+      background: #e2e8f0;
+      pointer-events: none;
+    }
+    .range-fill {
+      position: absolute;
+      height: 4px;
+      background: #1E3A8A;
+      border-radius: 99px;
+      pointer-events: none;
+      top: 50%; transform: translateY(-50%);
+    }
+
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; }
+  `],
   template: `
-    <!-- ── FILTER BAR ── -->
-    <div class="bg-white border-b border-slate-100 sticky top-[59px] sm:top-[88px] z-30">
+    <!-- ══ FILTER BAR ══ -->
+    <div class="bg-white border-b border-slate-100 sticky top-[59px] sm:top-[100px] z-30">
       <div class="max-w-screen-xl mx-auto px-3 sm:px-6 py-3">
 
         <!-- Pills type de bien -->
-       <div class="overflow-x-auto pb-2.5 border-b border-slate-50 mb-3" style="scrollbar-width:none;-ms-overflow-style:none;">
-  <div class="inline-flex gap-1.5">
+        <div class="overflow-x-auto pb-2.5 border-b border-slate-100 mb-3"
+             style="scrollbar-width:none;-ms-overflow-style:none;">
+          <div class="inline-flex gap-1.5">
 
             <button
               (click)="selectType(null)"
-              class="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-medium border-[1.5px] cursor-pointer transition-all duration-150 whitespace-nowrap"
+              class="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-medium border-[1.5px]
+                     cursor-pointer transition-all duration-150 whitespace-nowrap"
               style="font-family:'DM Sans',sans-serif;"
               [style.background]="filterTypeBienId === null ? '#1E3A8A' : 'transparent'"
               [style.color]="filterTypeBienId === null ? '#fff' : '#64748b'"
               [style.borderColor]="filterTypeBienId === null ? '#1E3A8A' : '#e2e8f0'"
-            >
-              Tout
-            </button>
+            >Tout</button>
 
             @if (loadingTypesBiens()) {
               @for (i of [1,2,3,4,5]; track i) {
@@ -103,24 +116,22 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
               @for (t of typesBiens(); track t.id) {
                 <button
                   (click)="selectType(t.id)"
-                  class="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-medium border-[1.5px] cursor-pointer transition-all duration-150 whitespace-nowrap"
+                  class="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-medium border-[1.5px]
+                         cursor-pointer transition-all duration-150 whitespace-nowrap"
                   style="font-family:'DM Sans',sans-serif;"
                   [style.background]="filterTypeBienId === t.id ? '#1E3A8A' : 'transparent'"
                   [style.color]="filterTypeBienId === t.id ? '#fff' : '#64748b'"
                   [style.borderColor]="filterTypeBienId === t.id ? '#1E3A8A' : '#e2e8f0'"
-                >
-                  {{ t.libelle }}
-                </button>
+                >{{ t.libelle }}</button>
               }
             }
           </div>
         </div>
 
-        <!-- Grille filtres ville / quartier / prix -->
-        <div
-          class="grid grid-cols-2 sm:grid-cols-4 rounded-xl overflow-hidden"
-          style="border:1px solid #f1f5f9;"
-        >
+        <!-- Grille filtres -->
+        <div class="grid grid-cols-2 sm:grid-cols-[1fr_1fr_2fr] rounded-xl overflow-hidden"
+             style="border:1px solid #f1f5f9;">
+
           <!-- VILLE -->
           <div class="p-3 border-b border-r border-slate-50 sm:border-b-0">
             <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400 mb-1.5"
@@ -129,7 +140,8 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
               <select
                 [(ngModel)]="filterVille"
                 (ngModelChange)="onVilleChange($event)"
-                class="w-full text-[12.5px] font-medium text-slate-800 bg-transparent border-none outline-none cursor-pointer pr-4"
+                class="w-full text-[12.5px] font-medium text-slate-800 bg-transparent
+                       border-none outline-none cursor-pointer pr-4"
                 style="font-family:'DM Sans',sans-serif;"
               >
                 <option value="">Toutes</option>
@@ -150,15 +162,19 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
                [class]="filterVille ? 'text-slate-400' : 'text-slate-300'"
                style="font-family:'DM Sans',sans-serif;">Quartier</p>
             @if (loadingQuartiers()) {
-              <span class="text-[12.5px] text-slate-400" style="font-family:'DM Sans',sans-serif;">Chargement…</span>
+              <span class="text-[12.5px] text-slate-400" style="font-family:'DM Sans',sans-serif;">
+                Chargement…
+              </span>
             } @else if (!filterVille) {
-              <span class="text-[12.5px] text-slate-300 select-none" style="font-family:'DM Sans',sans-serif;">Choisissez une ville</span>
+              <span class="text-[12.5px] text-slate-300 select-none"
+                    style="font-family:'DM Sans',sans-serif;">Choisissez une ville</span>
             } @else {
               <div class="relative">
                 <select
                   [(ngModel)]="filterLocalisationId"
                   (ngModelChange)="applyFilters()"
-                  class="w-full text-[12.5px] font-medium text-slate-800 bg-transparent border-none outline-none cursor-pointer pr-4"
+                  class="w-full text-[12.5px] font-medium text-slate-800 bg-transparent
+                         border-none outline-none cursor-pointer pr-4"
                   style="font-family:'DM Sans',sans-serif;"
                 >
                   <option [ngValue]="null">Tous</option>
@@ -174,62 +190,54 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
             }
           </div>
 
-          <!-- PRIX MIN -->
-          <div class="p-3 border-r border-slate-50">
-            <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400 mb-1.5"
-               style="font-family:'DM Sans',sans-serif;">Prix min</p>
-            <input
-              type="number"
-              [(ngModel)]="filterPrixMin"
-              (ngModelChange)="applyFilters()"
-              min="0"
-              [max]="filterPrixMax"
-              placeholder="0"
-              class="w-full text-[12.5px] font-medium text-slate-800 bg-transparent border-none outline-none mb-1.5"
-              style="font-family:'DM Sans',sans-serif;"
-            />
-            <input
-              type="range"
-              [(ngModel)]="filterPrixMin"
-              (ngModelChange)="applyFilters()"
-              min="0"
-              [max]="PRIX_MAX"
-              step="10000"
-              class="w-full"
-              style="accent-color:#1E3A8A;"
-            />
-            <span class="text-[9px] text-slate-400 mt-0.5 block" style="font-family:'DM Sans',sans-serif;">
-              {{ filterPrixMin | number:'1.0-0' }} FCFA
-            </span>
-          </div>
+          <!-- PRIX — double slider sur toute la colonne restante -->
+          <div class="p-3 col-span-2 sm:col-span-1 border-t border-slate-50 sm:border-t-0">
+            <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400 mb-2"
+               style="font-family:'DM Sans',sans-serif;">Fourchette de prix</p>
 
-          <!-- PRIX MAX -->
-          <div class="p-3">
-            <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400 mb-1.5"
-               style="font-family:'DM Sans',sans-serif;">Prix max</p>
-            <input
-              type="number"
-              [(ngModel)]="filterPrixMax"
-              (ngModelChange)="applyFilters()"
-              [min]="filterPrixMin"
-              [max]="PRIX_MAX"
-              placeholder="Illimité"
-              class="w-full text-[12.5px] font-medium text-slate-800 bg-transparent border-none outline-none mb-1.5"
-              style="font-family:'DM Sans',sans-serif;"
-            />
-            <input
-              type="range"
-              [(ngModel)]="filterPrixMax"
-              (ngModelChange)="applyFilters()"
-              [min]="filterPrixMin"
-              [max]="PRIX_MAX"
-              step="10000"
-              class="w-full"
-              style="accent-color:#1E3A8A;"
-            />
-            <span class="text-[9px] text-slate-400 mt-0.5 block" style="font-family:'DM Sans',sans-serif;">
-              {{ filterPrixMax < PRIX_MAX ? (filterPrixMax | number:'1.0-0') + ' FCFA' : 'Illimité' }}
-            </span>
+            <!-- Affichage min / max -->
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[14.5px] font-medium text-slate-800"
+                    style="font-family:'DM Sans',sans-serif;">
+                {{ formatPrix(filterPrixMin) }} FCFA
+              </span>
+              <span class="text-[10px] text-slate-300 mx-1">—</span>
+              <span class="text-[14.5px] font-medium text-slate-800"
+                    style="font-family:'DM Sans',sans-serif;">
+                {{ filterPrixMax >= PRIX_MAX ? 'Illimité' : formatPrix(filterPrixMax) + ' FCFA' }}
+              </span>
+            </div>
+
+            <!-- Double slider -->
+            <div class="relative px-0">
+              <div class="range-track"></div>
+              <div class="range-fill"
+                   [style.left.%]="(filterPrixMin / PRIX_MAX) * 100"
+                   [style.width.%]="((filterPrixMax - filterPrixMin) / PRIX_MAX) * 100">
+              </div>
+              <div class="range-wrap">
+                <input
+                  type="range"
+                  [value]="filterPrixMin"
+                  (input)="onRangeMinInput($event)"
+                  min="0" [max]="PRIX_MAX" step="10000"
+                />
+                <input
+                  type="range"
+                  [value]="filterPrixMax"
+                  (input)="onRangeMaxInput($event)"
+                  min="0" [max]="PRIX_MAX" step="10000"
+                />
+              </div>
+            </div>
+
+            <!-- Bornes lisibles -->
+            <div class="flex justify-between mt-1">
+              <span class="text-[9px] text-slate-300" style="font-family:'DM Sans',sans-serif;">0</span>
+              <span class="text-[9px] text-slate-300" style="font-family:'DM Sans',sans-serif;">
+                {{ formatPrixShort(PRIX_MAX) }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -246,48 +254,52 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
         <!-- Tags filtres actifs -->
         @if (hasActiveFilters()) {
           <div class="flex items-center gap-1.5 flex-wrap mt-2.5">
+
             @if (filterVille) {
-              <span
-                class="text-[11px] px-2.5 py-1 rounded-full"
-                style="color:#1E3A8A;background:#e8eef6;font-family:'DM Sans',sans-serif;"
-              >
-                📍 {{ filterVille }}{{ filterLocalisationId ? ' · ' + quartierLabel() : '' }}
+              <span class="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full"
+                    style="color:#1E3A8A;background:#e8eef6;font-family:'DM Sans',sans-serif;">
+                <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path d="M12 21c-4-4.5-6-8-6-11a6 6 0 1 1 12 0c0 3-2 6.5-6 11z"/>
+                  <circle cx="12" cy="10" r="2"/>
+                </svg>
+                {{ filterVille }}{{ filterLocalisationId ? ' · ' + quartierLabel() : '' }}
               </span>
             }
+
             @if (filterTypeBienId !== null) {
-              <span
-                class="text-[11px] px-2.5 py-1 rounded-full"
-                style="color:#1E3A8A;background:#e8eef6;font-family:'DM Sans',sans-serif;"
-              >{{ typeBienLabel() }}</span>
-            }
-            @if (filterPrixMin > 0 || filterPrixMax < PRIX_MAX) {
-              <span
-                class="text-[11px] px-2.5 py-1 rounded-full"
-                style="color:#1E3A8A;background:#e8eef6;font-family:'DM Sans',sans-serif;"
-              >
-                {{ filterPrixMin | number:'1.0-0' }} –
-                {{ filterPrixMax < PRIX_MAX ? (filterPrixMax | number:'1.0-0') + ' FCFA' : '∞ FCFA' }}
+              <span class="text-[11px] px-2.5 py-1 rounded-full"
+                    style="color:#1E3A8A;background:#e8eef6;font-family:'DM Sans',sans-serif;">
+                {{ typeBienLabel() }}
               </span>
             }
+
+            @if (filterPrixMin > 0 || filterPrixMax < PRIX_MAX) {
+              <span class="text-[11px] px-2.5 py-1 rounded-full"
+                    style="color:#1E3A8A;background:#e8eef6;font-family:'DM Sans',sans-serif;">
+                {{ formatPrix(filterPrixMin) }} –
+                {{ filterPrixMax < PRIX_MAX ? formatPrix(filterPrixMax) + ' FCFA' : '∞ FCFA' }}
+              </span>
+            }
+
             <button
               (click)="resetFilters()"
-              class="text-[11px] bg-transparent border-none cursor-pointer underline underline-offset-2 p-0 transition-colors"
+              class="text-[11px] bg-transparent border-none cursor-pointer
+                     underline underline-offset-2 p-0 transition-colors"
               style="color:#94a3b8;font-family:'DM Sans',sans-serif;"
               onmouseover="this.style.color='#e11d48'"
               onmouseout="this.style.color='#94a3b8'"
-            >
-              Réinitialiser
-            </button>
+            >Réinitialiser</button>
           </div>
         }
+
       </div>
     </div>
 
-    <!-- ── LISTE ── -->
-    <main class="bg-slate-50 mt-10 sm:mt-20 min-h-screen">
-      <div class="max-w-screen-xl mx-auto px-3 sm:px-6 pt-5 pb-16">
+    <!-- ══ LISTE ══ -->
+    <main class="bg-slate-50 min-h-screen">
+      <div class="max-w-screen-xl mx-auto px-3 sm:px-6 pt-6 pb-16">
 
-        <!-- Compteur + bouton publier -->
+        <!-- Compteur -->
         @if (!loading() && annonces().length > 0) {
           <div class="flex items-center justify-between mb-4 fade-up">
             <p class="text-[11.5px]" style="color:#94a3b8;font-family:'DM Sans',sans-serif;">
@@ -297,22 +309,10 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
                 à <strong style="color:#0f172a;">{{ filterVille }}</strong>
               }
             </p>
-            <!-- <a
-              routerLink="/annonces/creer"
-              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[11.5px] font-medium rounded-[10px] transition-colors"
-              style="background:#1e3a5f;color:#fff!important;text-decoration:none;font-family:'DM Sans',sans-serif;"
-              onmouseover="this.style.background='#16304e'"
-              onmouseout="this.style.background='#1e3a5f'"
-            >
-              <svg class="w-2.5 h-2.5" fill="none" stroke="#fff" viewBox="0 0 24 24" stroke-width="2.5">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-              Publier
-            </a> -->
           </div>
         }
 
-        <!-- Skeletons chargement initial -->
+        <!-- Skeletons -->
         @if (loading()) {
           <div class="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             @for (i of skeletons; track i) {
@@ -323,6 +323,7 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
 
         @if (!loading()) {
           @if (annonces().length > 0) {
+
             <div class="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               @for (annonce of annonces(); track annonce.id; let i = $index) {
                 <div class="fade-up" [style]="'animation-delay:' + (i % 8) * 35 + 'ms'">
@@ -355,6 +356,7 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
             }
 
           } @else {
+
             <app-empty-state
               icon="search"
               title="Aucune annonce trouvée"
@@ -367,19 +369,16 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
                   (click)="resetFilters()"
                   class="mt-3 px-5 py-2.5 text-[13px] font-medium rounded-[10px] border-none cursor-pointer"
                   style="background:#1E3A8A;color:#fff!important;font-family:'DM Sans',sans-serif;"
-                >
-                  Voir toutes les annonces
-                </button>
+                >Voir toutes les annonces</button>
               } @else {
-                 <a
+                <a
                   routerLink="/annonces/creer"
                   class="mt-3 inline-block px-5 py-2.5 text-[13px] font-medium rounded-[10px]"
                   style="background:#1E3A8A;color:#fff!important;text-decoration:none;font-family:'DM Sans',sans-serif;"
-                >
-                  Publier une annonce
-                </a>
+                >Publier une annonce</a>
               }
             </app-empty-state>
+
           }
         }
 
@@ -388,45 +387,69 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
   `,
 })
 export class AnnonceListComponent implements OnInit, OnDestroy {
-  private readonly route          = inject(ActivatedRoute);
-  private readonly router         = inject(Router);
-  private readonly locApi         = inject(LocalisationApi);
-  private readonly annonceApi     = inject(AnnonceApi);
-  private readonly typeBienApi    = inject(TypeBienApi);
-  private readonly destroy$       = new Subject<void>();
+  private readonly route       = inject(ActivatedRoute);
+  private readonly router      = inject(Router);
+  private readonly locApi      = inject(LocalisationApi);
+  private readonly annonceApi  = inject(AnnonceApi);
+  private readonly typeBienApi = inject(TypeBienApi);
+  private readonly destroy$    = new Subject<void>();
 
-  readonly annonces           = signal<AnnonceListResponse[]>([]);
-  readonly loading            = signal(true);
-  readonly loadingMore        = signal(false);
-  readonly hasMore            = signal(false);
-  readonly skeletons          = [1,2,3,4,5,6,7,8];
-  private isLoadingMoreLock = false;
+  readonly annonces          = signal<AnnonceListResponse[]>([]);
+  readonly loading           = signal(true);
+  readonly loadingMore       = signal(false);
+  readonly hasMore           = signal(false);
+  readonly skeletons         = [1,2,3,4,5,6,7,8];
+  private isLoadingMoreLock  = false;
 
-  readonly typesBiens         = signal<TypeBienResponse[]>([]);
-  readonly villes             = signal<string[]>([]);
-  readonly quartiers          = signal<LocalisationResponse[]>([]);
-  readonly loadingTypesBiens  = signal(true);
-  readonly loadingQuartiers   = signal(false);
+  readonly typesBiens        = signal<TypeBienResponse[]>([]);
+  readonly villes            = signal<string[]>([]);
+  readonly quartiers         = signal<LocalisationResponse[]>([]);
+  readonly loadingTypesBiens = signal(true);
+  readonly loadingQuartiers  = signal(false);
 
-  filterTypeBienId: number | null = null;
-  filterVille                     = '';
+  filterTypeBienId: number | null     = null;
+  filterVille                         = '';
   filterLocalisationId: number | null = null;
-  filterPrixMin                   = 0;
-  filterPrixMax                   = 2_000_000;
-  readonly PRIX_MAX               = 2_000_000;
+  filterPrixMin                       = 0;
+  filterPrixMax                       = 2_000_000;
+  readonly PRIX_MAX                   = 2_000_000;
 
-  private readonly PAGE_SIZE      = 8;
-  private currentPage             = 0;
+  searchVille    = '';
+  searchQuartier = '';
+
+  private readonly PAGE_SIZE = 8;
+  private currentPage        = 0;
+
+  // ── Computed ────────────────────────────────────────────────────────────────
 
   readonly prixError = computed(() =>
     this.filterPrixMin > 0 && this.filterPrixMax > 0 && this.filterPrixMin > this.filterPrixMax,
   );
 
+  // ── Formatage prix ───────────────────────────────────────────────────────────
+
+  /** Séparateurs de milliers, style fr-FR : 1 500 000 */
+  formatPrix(n: number): string {
+    return new Intl.NumberFormat('fr-FR').format(n);
+  }
+
+  /** Version courte pour les bornes du slider : "2 M" */
+  formatPrixShort(n: number): string {
+    if (n >= 1_000_000) {
+      const m = n / 1_000_000;
+      return (Number.isInteger(m) ? m : m.toFixed(1)) + ' M';
+    }
+    if (n >= 1_000) return new Intl.NumberFormat('fr-FR').format(n);
+    return String(n);
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
   hasActiveFilters(): boolean {
     return (
-      !!this.filterVille ||
+      !!this.filterVille          ||
       this.filterTypeBienId !== null ||
-      this.filterPrixMin > 0 ||
+      this.filterPrixMin > 0      ||
       this.filterPrixMax < this.PRIX_MAX ||
       this.filterLocalisationId !== null
     );
@@ -439,6 +462,24 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
   quartierLabel(): string {
     return this.quartiers().find(q => q.id === this.filterLocalisationId)?.quartier ?? '';
   }
+
+  // ── Double slider ────────────────────────────────────────────────────────────
+
+  onRangeMinInput(e: Event): void {
+    const val = Number((e.target as HTMLInputElement).value);
+    // On empêche le curseur min de dépasser le max
+    this.filterPrixMin = Math.min(val, this.filterPrixMax - 10_000);
+    this.applyFilters();
+  }
+
+  onRangeMaxInput(e: Event): void {
+    const val = Number((e.target as HTMLInputElement).value);
+    // On empêche le curseur max de passer sous le min
+    this.filterPrixMax = Math.max(val, this.filterPrixMin + 10_000);
+    this.applyFilters();
+  }
+
+  // ── Cycle de vie ─────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
     this.typeBienApi.getAll().pipe(takeUntil(this.destroy$)).subscribe({
@@ -488,13 +529,12 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  // ── Actions ──────────────────────────────────────────────────────────────────
+
   selectType(id: number | null): void {
     this.filterTypeBienId = id;
     this.applyFilters();
   }
-
-  searchVille   = '';
-  searchQuartier = '';
 
   onVilleChange(ville: string): void {
     this.searchVille    = ville;
@@ -538,41 +578,36 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
     this.router.navigate([], { queryParams: {}, replaceUrl: true });
   }
 
-loadMore(): void {
-  // Éviter les appels multiples
-  if (this.loadingMore() || !this.hasMore() || this.isLoadingMoreLock) return;
-  
-  this.isLoadingMoreLock = true;
-  this.loadingMore.set(true);
-  this.currentPage++;
-  
-  this._loadPage(true);
-  
-  // Débloquer après un délai
-  setTimeout(() => {
-    this.isLoadingMoreLock = false;
-  }, 1000);
-}
+  loadMore(): void {
+    if (this.loadingMore() || !this.hasMore() || this.isLoadingMoreLock) return;
+    this.isLoadingMoreLock = true;
+    this.loadingMore.set(true);
+    this.currentPage++;
+    this._loadPage(true);
+    setTimeout(() => { this.isLoadingMoreLock = false; }, 1000);
+  }
+
+  // ── Privé ─────────────────────────────────────────────────────────────────────
 
   private _loadPage(append: boolean): void {
     if (append) this.loadingMore.set(true);
-    else this.loading.set(true);
+    else        this.loading.set(true);
 
     const quartier = this.filterLocalisationId !== null
       ? this.quartiers().find(q => q.id === this.filterLocalisationId)?.quartier
       : undefined;
 
     this.annonceApi.getAnnonces({
-      page: this.currentPage,
-      taille: this.PAGE_SIZE,
-      ville: this.filterVille || undefined,
+      page:       this.currentPage,
+      taille:     this.PAGE_SIZE,
+      ville:      this.filterVille     || undefined,
       typeBienId: this.filterTypeBienId ?? undefined,
-      quartier: quartier || undefined,
-      prixMin: this.filterPrixMin > 0 ? this.filterPrixMin : undefined,
-      prixMax: this.filterPrixMax < this.PRIX_MAX ? this.filterPrixMax : undefined,
+      quartier:   quartier             || undefined,
+      prixMin:    this.filterPrixMin > 0             ? this.filterPrixMin : undefined,
+      prixMax:    this.filterPrixMax < this.PRIX_MAX ? this.filterPrixMax : undefined,
     }).pipe(takeUntil(this.destroy$)).subscribe({
       next: res => {
-        const page = res.data;
+        const page     = res.data;
         const incoming = page?.contenu ?? [];
         this.annonces.set(append ? [...this.annonces(), ...incoming] : incoming);
         this.hasMore.set((page?.page ?? 0) < ((page?.totalPages ?? 1) - 1));
@@ -591,11 +626,11 @@ loadMore(): void {
   private _syncUrl(): void {
     const params: Record<string, string | number> = {};
     const ville = this.filterVille.trim();
-    if (ville)                          params['ville']          = ville;
-    if (this.filterTypeBienId !== null) params['typeBienId']     = this.filterTypeBienId;
+    if (ville)                              params['ville']          = ville;
+    if (this.filterTypeBienId !== null)     params['typeBienId']     = this.filterTypeBienId;
     if (this.filterLocalisationId !== null) params['localisationId'] = this.filterLocalisationId;
-    if (this.filterPrixMin > 0)         params['prixMin']        = this.filterPrixMin;
-    if (this.filterPrixMax < this.PRIX_MAX) params['prixMax']    = this.filterPrixMax;
+    if (this.filterPrixMin > 0)             params['prixMin']        = this.filterPrixMin;
+    if (this.filterPrixMax < this.PRIX_MAX) params['prixMax']        = this.filterPrixMax;
     this.router.navigate([], { queryParams: params, replaceUrl: true });
   }
 
@@ -611,7 +646,13 @@ loadMore(): void {
 
   private _normalizePriceRange(): void {
     this.filterPrixMin = Math.max(0, Math.floor(Number(this.filterPrixMin) || 0));
-    this.filterPrixMax = Math.min(this.PRIX_MAX, Math.max(0, Math.floor(Number(this.filterPrixMax) || this.PRIX_MAX)));
+    this.filterPrixMax = Math.min(
+      this.PRIX_MAX,
+      Math.max(0, Math.floor(Number(this.filterPrixMax) || this.PRIX_MAX))
+    );
+    // Garantit que min ≤ max avec un écart d'au moins 10 000
+    if (this.filterPrixMin >= this.filterPrixMax && this.filterPrixMax > 0) {
+      this.filterPrixMin = Math.max(0, this.filterPrixMax - 10_000);
+    }
   }
-
 }

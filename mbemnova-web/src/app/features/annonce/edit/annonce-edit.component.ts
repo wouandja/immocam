@@ -7,7 +7,6 @@ import {
   computed,
   ViewChild,
   ElementRef,
-  HostListener,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -20,13 +19,11 @@ import { TypeBienApi } from '@core/services/api/typebien.api';
 import { PhotoApi } from '@core/services/api/photo.api';
 import { ToastService } from '@core/services/toast.service';
 import {
-  LocalisationResponse,
   TypeBienResponse,
   PhotoResponse,
   AnnonceDashboardResponse,
 } from '@core/services/models';
 
-/** Photo déjà uploadée côté serveur */
 interface ExistingPhoto {
   kind: 'existing';
   id: number;
@@ -37,7 +34,6 @@ interface ExistingPhoto {
   markedForDelete: boolean;
 }
 
-/** Nouvelle photo sélectionnée localement */
 interface NewPhoto {
   kind: 'new';
   localId: string;
@@ -52,809 +48,1273 @@ type Photo = ExistingPhoto | NewPhoto;
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, ReactiveFormsModule],
-  styles: [
-    `
-      :host { display: block; }
+  styles: [`
+    :host { display: block; }
 
-      /* ── Page ── */
-      .page-bg {
-        min-height: 100vh;
-        background: #f9fafb;
-        padding: 0 0 60px;
-      }
+    /* ── Tokens ── */
+    :host {
+      --navy:      #0A1628;
+      --brand:     #1A237E;
+      --brand2:    #283593;
+      --brand3:    #3949AB;
+      --brand-l:   #E8EAF6;
+      --brand-m:   #C5CAE9;
+      --green:     #00897B;
+      --green-l:   #E0F2F1;
+      --green-d:   #00695C;
+      --red:       #E53935;
+      --red-l:     #FFEBEE;
+      --amber:     #F57F17;
+      --text:      #0D1B2A;
+      --text2:     #1B2A3B;
+      --muted:     #546E7A;
+      --faint:     #90A4AE;
+      --border:    #E0E7EF;
+      --surface:   #F5F7FA;
+      --card:      #FFFFFF;
+      --r-xl:      24px;
+      --r-lg:      16px;
+      --r-md:      12px;
+      --r-sm:      8px;
+    }
 
-      /* ── Top bar ── */
-      .top-bar {
-        position: sticky; top: 0; z-index: 40;
-        background: #fff;
-        border-bottom: 1px solid #f3f4f6;
-        height: 60px;
-        display: flex; align-items: center;
-        padding: 0 24px;
-        margin-bottom: 28px;
-      }
-      .top-bar-center {
-        flex: 1; text-align: center;
-        font-size: 16px; font-weight: 700; color: #111827;
-        letter-spacing: -0.01em;
-      }
-      .top-bar-side { width: 80px; }
-      .btn-ghost {
-        display: inline-flex; align-items: center; gap: 6px;
-        background: none; border: none; cursor: pointer;
-        font-size: 13px; font-weight: 600; color: #6b7280;
-        font-family: inherit; padding: 0;
-        transition: color 0.15s;
-      }
-      .btn-ghost:hover { color: #111827; }
-      .btn-ghost svg { width: 16px; height: 16px; }
+    /* ── Shell ── */
+    .shell {
+      min-height: 100dvh;
+      background: #F0F4FF;
+      background-image:
+        radial-gradient(ellipse at 0% 0%, rgba(26,35,126,.07) 0%, transparent 60%),
+        radial-gradient(ellipse at 100% 100%, rgba(41,53,147,.05) 0%, transparent 55%);
+      display: flex;
+      flex-direction: column;
+      font-family: 'DM Sans', system-ui, sans-serif;
+    }
 
-      /* ── Stepper ── */
-      .stepper-wrap {
-        max-width: 460px; margin: 0 auto 24px;
-        padding: 0 24px;
-        display: flex; align-items: center;
-      }
-      .step-node { display: flex; flex-direction: column; align-items: center; gap: 5px; flex-shrink: 0; }
-      .step-bubble {
-        width: 36px; height: 36px; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 13px; font-weight: 600;
-        transition: all 0.25s;
-      }
-      .step-bubble.done  { background: #059669; color: #fff; }
-      .step-bubble.active{ background: #1e3a5f; color: #fff; }
-      .step-bubble.idle  { background: #f3f4f6; color: #9ca3af; border: 1.5px solid #e5e7eb; }
-      .step-bubble svg   { width: 15px; height: 15px; }
-      .step-lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
-      .step-lbl.done   { color: #059669; }
-      .step-lbl.active { color: #1e3a5f; }
-      .step-lbl.idle   { color: #9ca3af; }
-      .step-line {
-        flex: 1; height: 2px; margin: 0 8px 16px;
-        border-radius: 99px; transition: background 0.3s;
-      }
-      .step-line.done { background: #059669; }
-      .step-line.idle { background: #e5e7eb; }
+    /* ── Topbar ── */
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      height: 60px;
+      background: rgba(255,255,255,.95);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid rgba(26,35,126,.07);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; gap: 12px;
+    }
+    .topbar-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: none; border: none; cursor: pointer;
+      font: 600 13px/1 inherit; color: var(--muted);
+      padding: 8px 12px; border-radius: 10px;
+      transition: all .15s; min-width: 80px;
+    }
+    .topbar-btn:hover { background: var(--brand-l); color: var(--brand); }
+    .topbar-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .topbar-title {
+      font-size: 15px; font-weight: 800;
+      color: var(--text); letter-spacing: -.4px;
+    }
 
-      /* ── Carte ── */
-      .card {
-        max-width: 460px; margin: 0 auto;
-        background: #fff; border-radius: 20px;
-        box-shadow: 0 8px 40px rgba(30,58,95,0.1);
-        overflow: visible; padding: 0 0 4px;
-      }
+    /* ── Stepper ── */
+    .stepper {
+      padding: 18px 20px 0;
+      display: flex; justify-content: center;
+    }
+    .steps-row {
+      display: flex; align-items: flex-start;
+      width: 100%; max-width: 420px;
+    }
+    .step-item {
+      display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0;
+    }
+    .step-node {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800;
+      transition: all .3s cubic-bezier(.34,1.56,.64,1);
+      position: relative; z-index: 1;
+    }
+    .step-node.done {
+      background: var(--green); color: #fff;
+      box-shadow: 0 4px 12px rgba(0,137,123,.3);
+    }
+    .step-node.active {
+      background: var(--brand); color: #fff;
+      box-shadow: 0 0 0 6px rgba(26,35,126,.1), 0 4px 14px rgba(26,35,126,.3);
+      transform: scale(1.12);
+    }
+    .step-node.idle { background: #DDE3F0; color: var(--faint); }
+    .step-node svg { width: 14px; height: 14px; }
+    .step-lbl {
+      font-size: 10px; font-weight: 600; margin-top: 7px;
+      color: var(--faint); text-transform: uppercase; letter-spacing: .07em;
+      text-align: center; line-height: 1.2;
+      transition: color .2s;
+    }
+    .step-lbl.active { color: var(--brand); }
+    .step-lbl.done   { color: var(--green); }
+    .step-line {
+      flex: 1; height: 2px; border-radius: 2px;
+      margin-top: 17px; transition: background .4s;
+      background: #DDE3F0;
+    }
+    .step-line.done { background: var(--green); }
 
-      /* ── Step header ── */
-      .step-header { padding: 24px 24px 0; margin-bottom: 20px; }
-      .step-title  { font-size: 22px; font-weight: 700; color: #111827; letter-spacing: -0.02em; margin-bottom: 4px; }
-      .step-sub    { font-size: 14px; color: #6b7280; }
+    /* ── Card wrap ── */
+    .card-wrap {
+      flex: 1; padding: 14px 14px 56px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .card {
+      width: 100%; max-width: 480px;
+      background: var(--card);
+      border-radius: var(--r-xl);
+      box-shadow:
+        0 0 0 1px rgba(26,35,126,.06),
+        0 4px 6px rgba(26,35,126,.04),
+        0 24px 64px rgba(26,35,126,.10);
+      overflow: hidden;
+    }
 
-      /* ── Sections ── */
-      .section { padding: 0 24px; margin-bottom: 20px; }
-      .section-label {
-        display: flex; align-items: center; gap: 8px;
-        font-size: 12px; font-weight: 700; color: #374151;
-        text-transform: uppercase; letter-spacing: 0.06em;
-        margin-bottom: 12px;
-      }
-      .section-label svg { width: 14px; height: 14px; color: #9ca3af; }
+    /* ── Step header band ── */
+    .step-band {
+      background: linear-gradient(140deg, var(--brand) 0%, var(--brand3) 100%);
+      padding: 24px 24px 22px;
+      position: relative; overflow: hidden;
+    }
+    .step-band::before {
+      content: '';
+      position: absolute; right: -24px; top: -24px;
+      width: 130px; height: 130px; border-radius: 50%;
+      background: rgba(255,255,255,.06);
+    }
+    .step-band::after {
+      content: '';
+      position: absolute; right: 36px; bottom: -32px;
+      width: 90px; height: 90px; border-radius: 50%;
+      background: rgba(255,255,255,.04);
+    }
+    .step-eyebrow {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: rgba(255,255,255,.55); margin-bottom: 8px;
+    }
+    .edit-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 20px; padding: 3px 9px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+      color: rgba(255,255,255,.85);
+      margin-bottom: 10px;
+    }
+    .edit-badge svg { width: 11px; height: 11px; }
+    .step-h1 {
+      font-size: 26px; font-weight: 900;
+      color: #fff; letter-spacing: -.6px;
+      line-height: 1.1; margin: 0 0 5px;
+    }
+    .step-sub {
+      font-size: 13px; color: rgba(255,255,255,.55); margin: 0;
+    }
 
-      /* ── Type tiles ── */
-      .type-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
-      @media(max-width:420px) { .type-grid { grid-template-columns: repeat(3,1fr); } }
-      .type-tile {
-        position: relative; cursor: pointer;
-        display: flex; flex-direction: column; align-items: center; gap: 6px;
-        padding: 14px 6px 10px;
-        border: 1.5px solid #e5e7eb; border-radius: 12px; background: #fff;
-        transition: border-color 0.15s, background 0.15s;
-        user-select: none; outline: none;
-      }
-      .type-tile:hover  { border-color: #9ca3af; background: #f9fafb; }
-      .type-tile:focus-visible { box-shadow: 0 0 0 3px rgba(30,58,95,0.12); }
-      .type-tile.sel    { border-color: #1e3a5f !important; background: #f0f4f8; }
-      .type-tile-icon   { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; transition: background 0.15s; }
-      .type-tile-icon svg { width: 18px; height: 18px; color: #6b7280; transition: color 0.15s; }
-      .type-tile.sel .type-tile-icon { background: #1e3a5f; }
-      .type-tile.sel .type-tile-icon svg { color: #fff; }
-      .type-tile-name   { font-size: 10px; font-weight: 600; text-align: center; color: #6b7280; line-height: 1.3; }
-      .type-tile.sel .type-tile-name { color: #1e3a5f; }
-      .type-check { position: absolute; top: 5px; right: 5px; width: 16px; height: 16px; border-radius: 50%; background: #059669; display: flex; align-items: center; justify-content: center; }
-      .type-check svg { width: 9px; height: 9px; color: #fff; }
+    /* ── Step body ── */
+    .step-body {
+      padding: 24px 24px 8px;
+      animation: fadeSlide .22s ease;
+    }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-      /* ── Fields ── */
-      .field { margin-bottom: 12px; }
-      .field:last-child { margin-bottom: 0; }
-      .field-label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; }
-      .input {
-        width: 100%; height: 50px; padding: 0 16px;
-        border: 1.5px solid #e5e7eb; border-radius: 10px;
-        font-size: 15px; color: #111827; background: #fff;
-        outline: none; font-family: inherit; box-sizing: border-box;
-        transition: border-color 0.15s, box-shadow 0.15s;
-        appearance: none;
-      }
-      .input::placeholder { color: #9ca3af; }
-      .input:focus  { border-color: #1e3a5f; box-shadow: 0 0 0 3px rgba(30,58,95,0.08); }
-      .input:disabled { background: #f9fafb; color: #9ca3af; cursor: not-allowed; }
-      .input.is-valid { border-color: #059669; }
-      .input.is-error { border-color: #dc2626; }
-      .input.has-icon-l { padding-left: 44px; }
-      .input.has-sfx    { padding-right: 56px; }
-      .input.wa-pad     { padding-left: 90px; }
-      select.input { cursor: pointer; }
-      .input-wrap { position: relative; }
-      .ico-l { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); display: flex; pointer-events: none; }
-      .ico-l svg { width: 17px; height: 17px; color: #9ca3af; }
-      .ico-r { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); display: flex; pointer-events: none; }
-      .ico-r svg { width: 15px; height: 15px; color: #9ca3af; }
-      .sfx-label { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 600; color: #9ca3af; pointer-events: none; }
-      .wa-prefix {
-        position: absolute; left: 0; top: 0; bottom: 0;
-        display: flex; align-items: center; gap: 5px; padding: 0 12px;
-        font-size: 12px; font-weight: 700; color: #374151;
-        border-right: 1.5px solid #e5e7eb; pointer-events: none;
-      }
-      .wa-prefix svg { width: 15px; height: 15px; }
-      textarea.input { height: auto; padding: 14px 16px; resize: none; line-height: 1.6; }
-      .textarea-wrap { position: relative; }
-      .char-count { position: absolute; bottom: 10px; right: 14px; font-size: 11px; color: #9ca3af; pointer-events: none; }
-      .char-count.warn { color: #f59e0b; font-weight: 600; }
+    /* ── Section label ── */
+    .section-label {
+      font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--brand);
+      margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--brand-m); opacity: .4; }
 
-      /* ── Hints ── */
-      .field-hint  { font-size: 11.5px; color: #6b7280; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
-      .field-hint svg  { width: 13px; height: 13px; flex-shrink: 0; }
-      .field-error { font-size: 11.5px; color: #b91c1c; font-weight: 500; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
-      .field-error svg { width: 13px; height: 13px; flex-shrink: 0; }
-      .price-ok { font-size: 15px; font-weight: 600; color: #059669; margin-top: 7px; display: flex; align-items: center; gap: 6px; }
-      .price-ok svg { width: 15px; height: 15px; }
+    /* ── Type grid ── */
+    .type-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px; margin-bottom: 22px;
+    }
+    @media (max-width: 400px) {
+      .type-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    .type-tile {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 7px; padding: 14px 6px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-md);
+      background: var(--surface);
+      cursor: pointer; outline: none;
+      transition: all .2s; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .type-tile:hover { border-color: var(--brand-m); background: var(--brand-l); }
+    .type-tile:active { transform: scale(.93); }
+    .type-tile.sel {
+      border-color: var(--brand);
+      background: var(--brand-l);
+      box-shadow: 0 0 0 3px rgba(26,35,126,.1);
+    }
+    .type-ico {
+      width: 38px; height: 38px; border-radius: 11px;
+      background: #EDF0F7;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+    }
+    .type-ico svg { width: 18px; height: 18px; color: var(--muted); transition: color .2s; }
+    .type-tile.sel .type-ico { background: var(--brand); }
+    .type-tile.sel .type-ico svg { color: #fff; }
+    .type-name {
+      font-size: 10px; font-weight: 600; color: var(--muted);
+      text-align: center; line-height: 1.3; transition: color .2s;
+    }
+    .type-tile.sel .type-name { color: var(--brand); font-weight: 700; }
+    .type-check {
+      position: absolute; top: 5px; right: 5px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--green);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .type-check svg { width: 9px; height: 9px; color: #fff; }
 
-      /* ── Autocomplete ── */
-      .ac-wrap { position: relative; }
-      .ac-dropdown {
-        position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 60;
-        background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px;
-        overflow: hidden; max-height: 220px; overflow-y: auto;
-        box-shadow: 0 8px 24px rgba(30,58,95,0.1);
-      }
-      .ac-item {
-        display: flex; align-items: center; gap: 9px;
-        padding: 11px 16px; font-size: 14px; color: #111827;
-        background: none; border: none; border-bottom: 1px solid #f3f4f6;
-        width: 100%; text-align: left; cursor: pointer; font-family: inherit;
-        transition: background 0.1s;
-      }
-      .ac-item:last-child { border-bottom: none; }
-      .ac-item:hover { background: #f9fafb; }
-      .ac-item svg { width: 15px; height: 15px; color: #9ca3af; flex-shrink: 0; }
+    /* ── Fields ── */
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-label {
+      display: block; font-size: 12px; font-weight: 700;
+      color: var(--text2); margin-bottom: 7px; letter-spacing: -.01em;
+    }
+    .input-wrap { position: relative; }
 
-      /* ── Photos ── */
-      .dropzone {
-        border: 1.5px dashed #e5e7eb; border-radius: 12px;
-        padding: 28px 20px; text-align: center; cursor: pointer;
-        transition: border-color 0.15s, background 0.15s;
-      }
-      .dropzone:hover, .dropzone.drag { border-color: #1e3a5f; background: #f0f4f8; }
-      .dropzone-icon { font-size: 28px; display: block; margin-bottom: 8px; }
-      .dropzone-title { font-size: 14px; font-weight: 600; color: #111827; margin-bottom: 3px; }
-      .dropzone-sub { font-size: 12px; color: #9ca3af; }
+    .input {
+      display: block; width: 100%; height: 50px;
+      padding: 0 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-md);
+      background: var(--surface);
+      color: var(--text);
+      font: 14px/1 'DM Sans', system-ui, sans-serif;
+      outline: none; box-sizing: border-box;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+      appearance: none; -webkit-appearance: none;
+    }
+    .input::placeholder { color: var(--faint); }
+    .input:focus {
+      border-color: var(--brand);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(26,35,126,.1);
+    }
+    .input.err { border-color: var(--red); box-shadow: 0 0 0 3px rgba(229,57,53,.07); }
+    .input.ok  { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,137,123,.07); }
+    .input.with-l  { padding-left: 44px; }
+    .input.with-r  { padding-right: 62px; }
 
-      .photo-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-      .photo-tip   { font-size: 12px; color: #9ca3af; }
-      .photo-count { font-size: 12px; font-weight: 600; color: #374151; }
+    .ico-l {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      display: flex; pointer-events: none; color: var(--faint);
+    }
+    .ico-l svg { width: 17px; height: 17px; }
+    .ico-r-txt {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      font-size: 11px; font-weight: 700; color: var(--faint); pointer-events: none;
+    }
 
-      .photo-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-top: 12px; }
-      @media(max-width:420px) { .photo-grid { grid-template-columns: repeat(3,1fr); } }
+    textarea.input {
+      height: auto; padding: 14px;
+      resize: none; line-height: 1.65;
+    }
+    .char-count {
+      position: absolute; bottom: 11px; right: 14px;
+      font-size: 11px; color: var(--faint); pointer-events: none;
+    }
+    .char-count.warn { color: var(--amber); font-weight: 700; }
 
-      .photo-cell {
-        position: relative; aspect-ratio: 1;
-        border-radius: 10px; overflow: hidden;
-        border: 1.5px solid #e5e7eb;
-      }
-      .photo-cell.to-delete { opacity: 0.35; }
-      .photo-cell.to-delete::after {
-        content: '🗑'; position: absolute; inset: 0;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 22px; background: rgba(220,38,38,0.12);
-      }
-      .photo-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      .photo-main-badge {
-        position: absolute; bottom: 5px; left: 5px;
-        font-size: 9px; font-weight: 700; letter-spacing: 0.4px;
-        text-transform: uppercase; padding: 2px 7px; border-radius: 5px;
-        background: #1e3a5f; color: #fff;
-      }
-      .photo-new-badge {
-        position: absolute; top: 5px; left: 5px;
-        font-size: 9px; font-weight: 700;
-        text-transform: uppercase; padding: 2px 7px; border-radius: 5px;
-        background: #059669; color: #fff;
-      }
-      .photo-del {
-        position: absolute; top: 4px; right: 4px;
-        width: 22px; height: 22px; border-radius: 50%;
-        background: rgba(0,0,0,0.55); border: none; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        opacity: 0; transition: opacity 0.15s; color: #fff;
-      }
-      .photo-del svg { width: 11px; height: 11px; }
-      .photo-cell:hover .photo-del { opacity: 1; }
-      .photo-restore {
-        position: absolute; bottom: 5px; right: 5px;
-        font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 5px;
-        background: #f59e0b; color: #fff; border: none; cursor: pointer;
-        font-family: inherit;
-      }
+    .field-msg {
+      display: flex; align-items: flex-start; gap: 5px;
+      font-size: 11.5px; margin-top: 5px; line-height: 1.4;
+    }
+    .field-msg svg { width: 13px; height: 13px; flex-shrink: 0; margin-top: 1px; }
+    .field-msg.err  { color: var(--red); }
+    .field-msg.hint { color: var(--muted); }
+    .field-msg.ok   { color: var(--green); }
 
-      /* ── Récap ── */
-      .recap-box { background: #f8fafc; border: 1.5px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
-      .recap-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f3f4f6; }
-      .recap-row:last-child { border-bottom: none; }
-      .recap-ico { width: 32px; height: 32px; border-radius: 8px; background: #fff; border: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-      .recap-ico svg { width: 15px; height: 15px; color: #6b7280; }
-      .recap-lbl { font-size: 11px; color: #9ca3af; margin-bottom: 1px; }
-      .recap-val { font-size: 13px; font-weight: 600; color: #111827; }
+    .price-display {
+      display: flex; align-items: baseline; gap: 5px;
+      font-size: 20px; font-weight: 900; color: var(--brand);
+      margin-top: 8px; letter-spacing: -.4px;
+    }
+    .price-display .unit { font-size: 12px; font-weight: 600; color: var(--muted); }
 
-      /* ── Error box ── */
-      .error-box {
-        background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 10px;
-        padding: 12px 16px; margin: 0 24px 16px;
-        display: flex; align-items: flex-start; gap: 10px;
-        font-size: 13px; font-weight: 500; color: #b91c1c; line-height: 1.5;
-      }
-      .error-box svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+    /* ── Autocomplete ── */
+    .ac-wrap { position: relative; }
+    .ac-drop {
+      position: absolute; top: calc(100% + 5px); left: 0; right: 0; z-index: 60;
+      background: #fff; border: 1.5px solid var(--border);
+      border-radius: var(--r-lg);
+      box-shadow: 0 16px 40px rgba(26,35,126,.13);
+      overflow: hidden; max-height: 210px; overflow-y: auto;
+    }
+    .ac-item {
+      display: flex; align-items: center; gap: 9px;
+      width: 100%; padding: 12px 16px;
+      background: none; border: none; border-bottom: 1px solid #F5F7FA;
+      font: 13px/1 'DM Sans', system-ui, sans-serif; color: var(--text);
+      text-align: left; cursor: pointer; transition: background .1s;
+    }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover { background: var(--brand-l); color: var(--brand); }
+    .ac-item svg { width: 14px; height: 14px; color: var(--faint); flex-shrink: 0; }
 
-      /* ── Divider ── */
-      .divider { height: 1px; background: #f3f4f6; margin: 4px 0; }
+    /* ── WhatsApp block ── */
+    .wa-field-wrap { display: flex; flex-direction: column; gap: 0; }
 
-      /* ── Footer buttons ── */
-      .card-foot { padding: 16px 24px; display: flex; gap: 10px; border-top: 1px solid #f3f4f6; margin-top: 8px; }
-      .btn-back {
-        height: 50px; padding: 0 18px;
-        background: #fff; color: #1e3a5f;
-        border: 1.5px solid #e5e7eb; border-radius: 10px;
-        font-size: 14px; font-weight: 600; cursor: pointer;
-        font-family: inherit; flex-shrink: 0;
-        display: flex; align-items: center; gap: 6px;
-        transition: background 0.15s;
-      }
-      .btn-back:hover { background: #f3f4f6; }
-      .btn-back svg { width: 16px; height: 16px; }
-      .btn-next {
-        flex: 1; height: 50px; background: #1e3a5f; color: #fff;
-        border: none; border-radius: 10px;
-        font-size: 15px; font-weight: 600; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; gap: 8px;
-        font-family: inherit;
-        transition: background 0.15s, transform 0.1s;
-      }
-      .btn-next:hover { background: #162d4a; }
-      .btn-next:active { transform: scale(0.99); }
-      .btn-next:disabled { opacity: 0.4; cursor: not-allowed; }
-      .btn-next svg { width: 17px; height: 17px; }
-      .btn-save {
-        flex: 1; height: 50px; background: #059669; color: #fff;
-        border: none; border-radius: 10px;
-        font-size: 15px; font-weight: 600; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; gap: 8px;
-        font-family: inherit;
-        transition: background 0.15s, transform 0.1s;
-      }
-      .btn-save:hover { background: #047857; }
-      .btn-save:active { transform: scale(0.99); }
-      .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
-      .btn-save svg { width: 17px; height: 17px; }
+    /* Bloc numéro actuel */
+    .wa-current-card {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 14px 16px;
+      background: var(--green-l);
+      border: 1.5px solid #B2DFDB;
+      border-radius: var(--r-md);
+      margin-bottom: 10px;
+    }
+    .wa-current-left {
+      display: flex; align-items: center; gap: 12px; min-width: 0;
+    }
+    .wa-current-icon {
+      width: 38px; height: 38px; border-radius: 11px;
+      background: var(--green); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .wa-current-icon svg { width: 18px; height: 18px; color: #fff; }
+    .wa-current-texts { min-width: 0; }
+    .wa-current-texts strong {
+      display: block; font-size: 12px; font-weight: 800; color: #004D40;
+    }
+    .wa-current-number {
+      font-size: 15px; font-weight: 700; color: #00695C;
+      letter-spacing: .5px; margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .wa-edit-btn {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 700; color: var(--brand);
+      background: var(--brand-l); border: 1px solid var(--brand-m);
+      border-radius: 8px; padding: 6px 11px; cursor: pointer;
+      font-family: inherit; transition: all .12s; white-space: nowrap;
+    }
+    .wa-edit-btn:hover { background: var(--brand-m); }
+    .wa-edit-btn svg { width: 13px; height: 13px; }
 
-      /* ── Succès ── */
-      .success-wrap { display: flex; flex-direction: column; align-items: center; padding: 52px 32px; text-align: center; }
-      .success-ring { width: 72px; height: 72px; border-radius: 50%; background: #ecfdf5; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
-      .success-ring svg { width: 34px; height: 34px; color: #059669; }
-      .success-title { font-size: 22px; font-weight: 700; color: #111827; letter-spacing: -0.02em; margin-bottom: 6px; }
-      .success-sub { font-size: 14px; color: #6b7280; line-height: 1.6; margin-bottom: 28px; }
-      .btn-view {
-        display: inline-flex; align-items: center; gap: 8px;
-        padding: 0 28px; height: 50px;
-        background: #1e3a5f; color: #fff; border: none; border-radius: 10px;
-        font-size: 15px; font-weight: 600; cursor: pointer;
-        font-family: inherit; transition: background 0.15s;
-      }
-      .btn-view:hover { background: #162d4a; }
-      .btn-view svg { width: 17px; height: 17px; }
+    /* Bloc saisie nouveau numéro */
+    .wa-input-card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-md);
+      overflow: hidden;
+    }
+    .wa-input-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .wa-input-header-left {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 700; color: var(--text2);
+    }
+    .wa-input-header-left svg { width: 14px; height: 14px; color: #25D366; }
+    .wa-cancel-btn {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      background: none; border: none; cursor: pointer;
+      font-family: inherit; padding: 0; transition: color .1s;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .wa-cancel-btn:hover { color: var(--text); }
+    .wa-cancel-btn svg { width: 12px; height: 12px; }
+    .wa-input-body { padding: 12px 14px; }
+    .wa-pfx-wrap { position: relative; }
+    .wa-pfx {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 12px 0 13px;
+      border-right: 1.5px solid var(--border);
+      font-size: 12px; font-weight: 700; color: var(--text);
+      pointer-events: none; white-space: nowrap;
+    }
+    .wa-pfx svg { width: 13px; height: 13px; }
+    .input.with-wa { padding-left: 90px; }
+    .wa-input-hint {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; color: var(--muted); margin-top: 8px;
+    }
+    .wa-input-hint svg { width: 12px; height: 12px; flex-shrink: 0; }
 
-      /* ── Loading ── */
-      .loading-wrap { display: flex; flex-direction: column; align-items: center; padding: 60px 24px; gap: 16px; }
-      .spinner { width: 36px; height: 36px; border: 3px solid #e5e7eb; border-top-color: #1e3a5f; border-radius: 50%; animation: spin 0.7s linear infinite; }
-      .loading-txt { font-size: 14px; color: #6b7280; font-weight: 500; }
+    /* ── Photos ── */
+    .photos-section { }
 
-      @keyframes spin { to { transform: rotate(360deg); } }
+    .photo-upload-zone {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 12px; padding: 28px 20px;
+      border: 2px dashed var(--brand-m);
+      border-radius: var(--r-lg);
+      background: var(--brand-l);
+      cursor: pointer; text-align: center;
+      transition: all .18s; position: relative;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .photo-upload-zone:hover, .photo-upload-zone.drag {
+      border-color: var(--brand);
+      background: #DDE5F5;
+    }
+    .photo-upload-zone:active { background: #D0DBF5; }
+    .upload-icon-wrap {
+      width: 52px; height: 52px; background: var(--brand);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .upload-icon-wrap svg { width: 24px; height: 24px; color: #fff; }
+    .upload-title { font-size: 14px; font-weight: 700; color: var(--brand); }
+    .upload-sub   { font-size: 12px; color: var(--muted); }
+    .photo-file-input {
+      position: absolute; inset: 0; opacity: 0;
+      cursor: pointer; width: 100%; height: 100%;
+    }
 
-      .fade-in { animation: fadeUp 0.3s ease forwards; }
-      @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-    `,
-  ],
+    .photo-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .photo-label-txt { font-size: 13px; font-weight: 700; color: var(--text); }
+    .photo-count-pill {
+      font-size: 11px; font-weight: 800; color: #fff;
+      background: var(--brand); padding: 4px 10px; border-radius: 20px;
+      letter-spacing: .03em;
+    }
+
+    /* Grid de photos */
+    .photo-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 8px; margin-top: 12px;
+    }
+    @media (max-width: 380px) {
+      .photo-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    .photo-cell {
+      position: relative; aspect-ratio: 1;
+      border-radius: var(--r-md); overflow: hidden;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      /* Les boutons d'action sont toujours visibles sur mobile */
+    }
+    .photo-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* Overlay de suppression — toujours visible sur touch */
+    .photo-actions {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: flex-end; justify-content: flex-start;
+      padding: 5px;
+      background: transparent;
+      transition: background .15s;
+    }
+    .photo-cell:hover .photo-actions { background: rgba(0,0,0,.12); }
+
+    .photo-del-btn {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(0,0,0,.6); border: 1.5px solid rgba(255,255,255,.3);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #fff;
+      /* Toujours visible sur mobile */
+      opacity: 1;
+      transition: background .15s, transform .1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .photo-del-btn:hover { background: var(--red); }
+    .photo-del-btn:active { transform: scale(.88); }
+    .photo-del-btn svg { width: 12px; height: 12px; }
+
+    /* Sur desktop, le bouton s'affiche au hover uniquement */
+    @media (hover: hover) {
+      .photo-del-btn { opacity: 0; }
+      .photo-cell:hover .photo-del-btn { opacity: 1; }
+    }
+
+    .photo-badge {
+      position: absolute; bottom: 5px; left: 5px;
+      font-size: 8.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+      background: var(--brand); color: #fff;
+      padding: 2px 7px; border-radius: 5px;
+    }
+    .photo-badge-new {
+      position: absolute; bottom: 5px; left: 5px;
+      font-size: 8.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+      background: var(--green); color: #fff;
+      padding: 2px 7px; border-radius: 5px;
+    }
+
+    /* Photo marquée pour suppression */
+    .photo-cell.to-delete { opacity: .3; }
+    .photo-cell.to-delete::after {
+      content: '🗑';
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      background: rgba(229,57,53,.12);
+      border-radius: inherit;
+    }
+    .restore-btn {
+      position: absolute; bottom: 5px; right: 5px;
+      font-size: 9px; font-weight: 800; color: #fff;
+      background: var(--amber); border: none; border-radius: 5px;
+      padding: 3px 7px; cursor: pointer; font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Récap ── */
+    .recap {
+      border: 1.5px solid var(--border); border-radius: var(--r-lg); overflow: hidden;
+    }
+    .recap-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px; border-bottom: 1px solid var(--surface);
+    }
+    .recap-row:last-child { border-bottom: none; }
+    .recap-ico {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--brand-l); border: 1px solid var(--brand-m);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .recap-ico svg { width: 16px; height: 16px; color: var(--brand); }
+    .recap-lbl { font-size: 11px; color: var(--faint); margin-bottom: 2px; }
+    .recap-val { font-size: 13px; font-weight: 700; color: var(--text); }
+
+    /* ── Error banner ── */
+    .err-banner {
+      display: flex; align-items: flex-start; gap: 10px;
+      background: var(--red-l); border: 1px solid #FFCDD2;
+      border-radius: var(--r-sm); padding: 13px 16px; margin: 18px 0 0;
+      font-size: 13px; color: #C62828; font-weight: 500; line-height: 1.5;
+    }
+    .err-banner svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Footer ── */
+    .card-foot {
+      display: flex; gap: 10px;
+      padding: 18px 24px; border-top: 1px solid #F0F4F8;
+      margin-top: 20px;
+    }
+    .btn-back {
+      height: 50px; padding: 0 18px;
+      background: var(--surface); color: var(--muted);
+      border: 1.5px solid var(--border); border-radius: var(--r-md);
+      font: 600 13px/1 'DM Sans', system-ui, sans-serif; cursor: pointer;
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+      transition: all .15s;
+    }
+    .btn-back:hover { background: var(--brand-l); color: var(--brand); border-color: var(--brand-m); }
+    .btn-back svg { width: 16px; height: 16px; }
+
+    .btn-next {
+      flex: 1; height: 50px;
+      background: var(--brand); color: #fff;
+      border: none; border-radius: var(--r-md);
+      font: 700 14px/1 'DM Sans', system-ui, sans-serif; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background .15s, transform .1s;
+      box-shadow: 0 4px 16px rgba(26,35,126,.25);
+    }
+    .btn-next:hover:not(:disabled) { background: var(--brand2); }
+    .btn-next:active:not(:disabled) { transform: scale(.98); }
+    .btn-next:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; }
+    .btn-next svg { width: 16px; height: 16px; }
+
+    .btn-save {
+      flex: 1; height: 50px;
+      background: linear-gradient(135deg, var(--green-d) 0%, var(--green) 100%);
+      color: #fff; border: none; border-radius: var(--r-md);
+      font: 700 14px/1 'DM Sans', system-ui, sans-serif; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: opacity .15s, transform .1s;
+      box-shadow: 0 4px 18px rgba(0,137,123,.3);
+    }
+    .btn-save:hover:not(:disabled) { opacity: .9; }
+    .btn-save:active:not(:disabled) { transform: scale(.98); }
+    .btn-save:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+    .btn-save svg { width: 16px; height: 16px; }
+
+    /* ── Loading ── */
+    .loading-card {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 64px 24px; gap: 18px;
+    }
+    .spinner {
+      width: 42px; height: 42px;
+      border: 3px solid var(--brand-m);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    .loading-txt { font-size: 14px; color: var(--muted); font-weight: 500; }
+
+    /* ── Success ── */
+    .success-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      animation: fadeSlide .35s ease;
+    }
+    .success-hero {
+      width: 100%;
+      background: linear-gradient(145deg, var(--green-d) 0%, var(--green) 100%);
+      padding: 52px 24px 40px;
+      display: flex; flex-direction: column; align-items: center;
+      position: relative; overflow: hidden;
+    }
+    .success-hero::before {
+      content: ''; position: absolute;
+      width: 220px; height: 220px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.08);
+      top: -70px; right: -70px;
+    }
+    .success-orbit { position: relative; width: 100px; height: 100px; margin-bottom: 22px; }
+    .success-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 1.5px dashed rgba(255,255,255,.22);
+      animation: rotateRing 12s linear infinite;
+    }
+    @keyframes rotateRing { to { transform: rotate(360deg); } }
+    .success-ring-inner {
+      position: absolute; inset: 18px; border-radius: 50%;
+      background: rgba(255,255,255,.1);
+    }
+    .success-check {
+      position: absolute; inset: 26px; border-radius: 50%;
+      background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,.15);
+      animation: popIn .5s cubic-bezier(.34,1.56,.64,1) .15s both;
+    }
+    @keyframes popIn {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+    .success-check svg { width: 24px; height: 24px; color: var(--green); }
+    .success-headline {
+      font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+      color: rgba(255,255,255,.6); margin-bottom: 6px;
+    }
+    .success-title {
+      font-size: 28px; font-weight: 900; color: #fff;
+      letter-spacing: -.6px; line-height: 1.1; text-align: center;
+    }
+
+    .success-content { padding: 28px 24px 0; width: 100%; }
+    .success-body {
+      font-size: 14px; color: var(--muted);
+      line-height: 1.65; text-align: center; margin-bottom: 28px;
+    }
+    .success-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; padding-bottom: 36px; }
+    .btn-see-primary {
+      width: 100%; height: 52px;
+      background: var(--brand); color: #fff;
+      border: none; border-radius: var(--r-md);
+      font: 700 14px/1 'DM Sans', system-ui, sans-serif; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all .15s;
+      box-shadow: 0 4px 14px rgba(26,35,126,.25);
+    }
+    .btn-see-primary:hover { background: var(--brand2); }
+    .btn-see-primary svg { width: 16px; height: 16px; }
+    .btn-see-secondary {
+      width: 100%; height: 44px;
+      background: none; color: var(--muted);
+      border: 1.5px solid var(--border); border-radius: var(--r-md);
+      font: 600 13px/1 'DM Sans', system-ui, sans-serif; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: all .15s;
+    }
+    .btn-see-secondary:hover { border-color: var(--brand-m); color: var(--brand); background: var(--brand-l); }
+    .btn-see-secondary svg { width: 14px; height: 14px; }
+
+    /* ── Spin ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin .7s linear infinite; display: inline-flex; }
+
+    /* ── Responsive ── */
+    @media (max-width: 400px) {
+      .step-h1 { font-size: 22px; }
+      .step-body { padding: 18px 18px 6px; }
+      .card-foot { padding: 14px 18px; }
+      .success-content { padding: 22px 18px 0; }
+    }
+  `],
   template: `
-    <div class="page-bg">
-      <!-- Top bar -->
-      <header class="top-bar">
-        <div class="top-bar-side">
-          <button type="button" class="btn-ghost" (click)="goBack()">
-            <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-            </svg>
-            Retour
-          </button>
-        </div>
-        <span class="top-bar-center">Modifier l'annonce</span>
-        <div class="top-bar-side"></div>
+    <div class="shell">
+
+      <!-- Topbar -->
+      <header class="topbar">
+        <button type="button" class="topbar-btn" (click)="goBack()">
+          <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+          </svg>
+          Retour
+        </button>
+        <span class="topbar-title">Modifier l'annonce</span>
+        <div style="min-width:80px"></div>
       </header>
 
       <!-- Stepper -->
-      <nav class="stepper-wrap" aria-label="Étapes">
-        @for (s of steps; track s.n; let i = $index) {
-          <div class="step-node">
-            <div class="step-bubble"
-              [class.done]="currentStep() > s.n"
-              [class.active]="currentStep() === s.n"
-              [class.idle]="currentStep() < s.n">
-              @if (currentStep() > s.n) {
-                <svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-              } @else { {{ s.n }} }
-            </div>
-            <span class="step-lbl"
-              [class.done]="currentStep() > s.n"
-              [class.active]="currentStep() === s.n"
-              [class.idle]="currentStep() < s.n">{{ s.label }}</span>
-          </div>
-          @if (i < steps.length - 1) {
-            <div class="step-line"
-              [class.done]="currentStep() > s.n"
-              [class.idle]="currentStep() <= s.n"></div>
-          }
-        }
-      </nav>
-
-      <!-- Carte -->
-      <main>
-        @if (saved()) {
-          <!-- Succès -->
-          <div class="card">
-            <div class="success-wrap fade-in">
-              <div class="success-ring">
-                <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
+      @if (!saved()) {
+        <nav class="stepper" aria-label="Étapes">
+          <div class="steps-row">
+            @for (s of steps; track s.n; let i = $index) {
+              <div class="step-item">
+                <div class="step-node"
+                  [class.done]="currentStep() > s.n"
+                  [class.active]="currentStep() === s.n"
+                  [class.idle]="currentStep() < s.n">
+                  @if (currentStep() > s.n) {
+                    <svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                  } @else { {{ s.n }} }
+                </div>
+                <span class="step-lbl"
+                  [class.active]="currentStep() === s.n"
+                  [class.done]="currentStep() > s.n">{{ s.label }}</span>
               </div>
-              <p class="success-title">Annonce mise à jour !</p>
-              <p class="success-sub">Vos modifications sont en ligne.</p>
-              <button type="button" class="btn-view" (click)="goToAnnonce()">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                </svg>
-                Voir l'annonce
-              </button>
-            </div>
+              @if (i < steps.length - 1) {
+                <div class="step-line" [class.done]="currentStep() > s.n"></div>
+              }
+            }
           </div>
-        } @else {
-          <div class="card">
-            @if (loading()) {
-              <div class="loading-wrap">
-                <div class="spinner"></div>
-                <span class="loading-txt">Chargement de l'annonce…</span>
-              </div>
-            } @else {
-              <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+        </nav>
+      }
 
-                <!-- ══ ÉTAPE 1 — Bien & localisation ══ -->
-                @if (currentStep() === 1) {
-                  <div class="fade-in">
-                    <div class="step-header">
-                      <p class="step-title">Votre bien</p>
-                      <p class="step-sub">Type de logement et localisation</p>
-                    </div>
+      <!-- Card -->
+      <div class="card-wrap">
+        <div class="card">
 
-                    <!-- Type de bien -->
-                    <div class="section">
-                      <div class="section-label">
-                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                        </svg>
-                        Type de bien
-                      </div>
-                      <div class="type-grid" role="radiogroup">
-                        @for (t of typesBiens(); track t.id) {
-                          <div class="type-tile" [class.sel]="form.value.typeBienId === t.id"
-                            (click)="selectType(t.id)"
-                            (keydown.enter)="selectType(t.id)"
-                            (keydown.space)="selectType(t.id)"
-                            role="radio" [attr.aria-checked]="form.value.typeBienId === t.id" tabindex="0">
-                            <div class="type-tile-icon">
-                              <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                  [attr.d]="getTypeIcon(t.libelle) || 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z'"/>
-                              </svg>
-                            </div>
-                            <span class="type-tile-name">{{ t.libelle }}</span>
-                            @if (form.value.typeBienId === t.id) {
-                              <span class="type-check">
-                                <svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                                </svg>
-                              </span>
-                            }
-                          </div>
-                        }
-                      </div>
-                    </div>
-
-                    <div class="divider"></div>
-
-                    <!-- Ville -->
-                    <div class="section" style="margin-top:20px">
-                      <div class="section-label">
-                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                        </svg>
-                        Localisation
-                      </div>
-                      <div class="field">
-                        <label class="field-label">Ville *</label>
-                        <div class="input-wrap">
-                          <span class="ico-l">
-                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-                            </svg>
-                          </span>
-                          <select class="input has-icon-l" formControlName="ville" (change)="onVilleChange($event)">
-                            <option value="">Choisir une ville…</option>
-                            @for (v of villes(); track v) {
-                              <option [value]="v">{{ v }}</option>
-                            }
-                          </select>
-                          <span class="ico-r">
-                            <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                          </span>
-                        </div>
-                      </div>
-
-                      <!-- Quartier -->
-                      <div class="field">
-                        <label class="field-label">Quartier *</label>
-                        <div class="ac-wrap">
-                          <div class="input-wrap">
-                            <span class="ico-l">
-                              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                              </svg>
-                            </span>
-                            <input type="text" class="input has-icon-l" formControlName="quartier"
-                              placeholder="Ex : Akwa" (input)="onQuartierInput()"
-                              (focus)="showSuggestions.set(true)" autocomplete="off"/>
-                          </div>
-                          @if (showSuggestions() && filteredQuartiers().length > 0) {
-                            <div class="ac-dropdown">
-                              @for (q of filteredQuartiers(); track q) {
-                                <button type="button" class="ac-item" (mousedown)="selectQuartier(q)">
-                                  <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                  </svg>
-                                  {{ q }}
-                                </button>
-                              }
-                            </div>
-                          }
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="card-foot">
-                      <button type="button" class="btn-next"
-                        [disabled]="!form.value.typeBienId || !form.value.quartier"
-                        (click)="nextStep()">
-                        Continuer
-                        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                        </svg>
-                      </button>
-                    </div>
+          <!-- ── SUCCESS ── -->
+          @if (saved()) {
+            <div class="success-wrap">
+              <div class="success-hero">
+                <div class="success-orbit">
+                  <div class="success-ring"></div>
+                  <div class="success-ring-inner"></div>
+                  <div class="success-check">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
                   </div>
-                }
+                </div>
+                <p class="success-headline">Modifications enregistrées</p>
+                <p class="success-title">Annonce<br>mise à jour !</p>
+              </div>
+              <div class="success-content">
+                <p class="success-body">
+                  Toutes vos modifications sont désormais en ligne et visibles par les utilisateurs.
+                </p>
+                <div class="success-actions">
+                  <button type="button" class="btn-see-primary" (click)="goToAnnonce()">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    Voir l'annonce
+                  </button>
+                  <button type="button" class="btn-see-secondary" (click)="goBack()">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                    </svg>
+                    Retour aux annonces
+                  </button>
+                </div>
+              </div>
+            </div>
 
-                <!-- ══ ÉTAPE 2 — Description, prix, contact ══ -->
-                @if (currentStep() === 2) {
-                  <div class="fade-in">
-                    <div class="step-header">
-                      <p class="step-title">Les détails</p>
-                      <p class="step-sub">Description, loyer et contact</p>
-                    </div>
+          <!-- ── LOADING ── -->
+          } @else if (loading()) {
+            <div class="loading-card">
+              <div class="spinner"></div>
+              <span class="loading-txt">Chargement de l'annonce…</span>
+            </div>
 
-                    <div class="section">
-                      <div class="section-label">
-                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7"/>
-                        </svg>
-                        Description
-                      </div>
-                      <div class="field">
-                        <div class="textarea-wrap">
-                          <textarea class="input" formControlName="description"
-                            rows="5" maxlength="1000"
-                            [class.is-error]="isFieldError('description')"
-                            placeholder="Superficie, état général, équipements, accès, disponibilité…">
-                          </textarea>
-                          <span class="char-count" [class.warn]="descLen() > 900">{{ descLen() }}/1000</span>
+          <!-- ── FORM ── -->
+          } @else {
+            <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+
+              <!-- ════ ÉTAPE 1 ════ -->
+              @if (currentStep() === 1) {
+                <div class="step-band">
+                  <span class="edit-badge">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Modification
+                  </span>
+                  <p class="step-h1">Bien &<br>localisation</p>
+                  <p class="step-sub">Type de bien et adresse</p>
+                </div>
+                <div class="step-body">
+
+                  <p class="section-label">Type de bien</p>
+                  <div class="type-grid" role="radiogroup">
+                    @for (t of typesBiens(); track t.id) {
+                      <div class="type-tile"
+                        [class.sel]="form.value.typeBienId === t.id"
+                        (click)="selectType(t.id)"
+                        (keydown.enter)="$event.preventDefault(); selectType(t.id)"
+                        (keydown.space)="$event.preventDefault(); selectType(t.id)"
+                        role="radio" [attr.aria-checked]="form.value.typeBienId === t.id" tabindex="0">
+                        <div class="type-ico">
+                          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" [attr.d]="getTypeIcon(t.libelle)"/>
+                          </svg>
                         </div>
-                        @if (descLen() > 0 && descLen() < 30) {
-                          <div class="field-error">
-                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/></svg>
-                            Encore {{ 30 - descLen() }} caractère(s) requis
-                          </div>
-                        }
-                      </div>
-                    </div>
-
-                    <div class="divider"></div>
-
-                    <div class="section" style="margin-top:20px">
-                      <div class="section-label">
-                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
-                        </svg>
-                        Loyer mensuel
-                      </div>
-                      <div class="field">
-                        <label class="field-label">Prix en FCFA / mois *</label>
-                        <div class="input-wrap">
-                          <span class="ico-l">
-                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                          </span>
-                          <input type="number" class="input has-icon-l has-sfx" formControlName="prix"
-                            min="1000"
-                            [class.is-error]="isFieldError('prix')"
-                            [class.is-valid]="(form.value.prix ?? 0) >= 1000"
-                            placeholder="Ex : 75 000"/>
-                          <span class="sfx-label">FCFA</span>
-                        </div>
-                        @if (prixPreview()) {
-                          <div class="price-ok">
-                            <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <span class="type-name">{{ t.libelle }}</span>
+                        @if (form.value.typeBienId === t.id) {
+                          <span class="type-check">
+                            <svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                             </svg>
-                            {{ prixPreview() }} / mois
-                          </div>
+                          </span>
                         }
                       </div>
-                    </div>
+                    }
+                  </div>
 
-                    <div class="divider"></div>
+                  <p class="section-label">Localisation</p>
 
-                    <div class="section" style="margin-top:20px">
-                      <div class="section-label">
+                  <div class="field">
+                    <label class="field-label" for="e-ville">Ville</label>
+                    <div class="input-wrap">
+                      <span class="ico-l">
                         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                         </svg>
-                        Contact WhatsApp
-                      </div>
-                      <div class="field">
-                        <label class="field-label">Numéro WhatsApp *</label>
-                        <div class="input-wrap">
-                          <span class="wa-prefix">
-                            <svg viewBox="0 0 24 24" fill="currentColor" style="color:#25D366;width:15px;height:15px">
-                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                              <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.121 1.531 5.847L.057 23.04l5.36-1.406A11.942 11.942 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.007-1.374l-.36-.213-3.181.835.849-3.101-.234-.378A9.818 9.818 0 012.182 12C2.182 6.578 6.578 2.182 12 2.182S21.818 6.578 21.818 12 17.422 21.818 12 21.818z"/>
-                            </svg>
-                            +237
-                          </span>
-                          <input type="tel" class="input wa-pad" formControlName="whatsappRaw"
-                            [class.is-error]="isFieldError('whatsappRaw')"
-                            placeholder="6 XX XX XX XX"/>
-                        </div>
-                        <div class="field-hint">
-                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                          </svg>
-                          Votre numéro n'est jamais affiché en clair
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="card-foot">
-                      <button type="button" class="btn-back" (click)="prevStep()">
-                        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-                        </svg>
-                        Retour
-                      </button>
-                      <button type="button" class="btn-next" [disabled]="step2Invalid()" (click)="nextStep()">
-                        Continuer
-                        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                        </svg>
-                      </button>
+                      </span>
+                      <select id="e-ville" class="input with-l" formControlName="ville" (change)="onVilleChange($event)">
+                        <option value="">Sélectionner une ville…</option>
+                        @for (v of villes(); track v) {
+                          <option [value]="v">{{ v }}</option>
+                        }
+                      </select>
                     </div>
                   </div>
-                }
 
-                <!-- ══ ÉTAPE 3 — Photos + récap + sauvegarder ══ -->
-                @if (currentStep() === 3) {
-                  <div class="fade-in">
-                    <div class="step-header">
-                      <p class="step-title">Photos</p>
-                      <p class="step-sub">Gérez les photos de votre annonce</p>
-                    </div>
-
-                    <div class="section">
-                      <div class="section-label">
-                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                        </svg>
-                        Photos
+                  <div class="field">
+                    <label class="field-label" for="e-quartier">Quartier</label>
+                    <div class="ac-wrap">
+                      <div class="input-wrap">
+                        <span class="ico-l">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                          </svg>
+                        </span>
+                        <input id="e-quartier" type="text" class="input with-l"
+                          formControlName="quartier"
+                          placeholder="Ex : Akwa, Bonanjo, Makepe…"
+                          autocomplete="off"
+                          (input)="onQuartierInput()"
+                          (focus)="showSuggestions.set(true)"
+                          (blur)="onQuartierBlur()" />
                       </div>
-
-                      <div class="photo-meta">
-                        <span class="photo-tip">Cliquez sur 🗑 pour supprimer une photo existante</span>
-                        <span class="photo-count">{{ activePhotoCount() }} / 4</span>
-                      </div>
-
-                      @if (activePhotoCount() < 4) {
-                        <div class="dropzone" [class.drag]="isDragging()"
-                          (click)="fileInputRef.nativeElement.click()"
-                          (keydown.enter)="fileInputRef.nativeElement.click()"
-                          (dragover)="onDragOver($event)"
-                          (dragleave)="isDragging.set(false)"
-                          (drop)="onDrop($event)"
-                          role="button" tabindex="0">
-                          <span class="dropzone-icon">📷</span>
-                          <div class="dropzone-title">Glisser-déposer ou cliquer</div>
-                          <div class="dropzone-sub">JPG, PNG, WebP — max 4 Mo par photo</div>
+                      @if (showSuggestions() && filteredQuartiers().length > 0) {
+                        <div class="ac-drop">
+                          @for (q of filteredQuartiers(); track q) {
+                            <button type="button" class="ac-item" (mousedown)="selectQuartier(q)">
+                              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                              </svg>
+                              {{ q }}
+                            </button>
+                          }
                         </div>
                       }
+                    </div>
+                  </div>
+                </div>
 
-                      <input #fileInput type="file" style="display:none"
-                        accept="image/jpeg,image/png,image/webp" multiple
-                        (change)="onFilesSelected($event)"/>
+                <div class="card-foot">
+                  <button type="button" class="btn-next"
+                    [disabled]="!form.value.typeBienId || !form.value.quartier"
+                    (click)="nextStep()">
+                    Continuer
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+              }
 
-                      @if (allPhotos().length > 0) {
-                        <div class="photo-grid">
-                          @for (p of allPhotos(); track photoKey(p); let i = $index) {
-                            <div class="photo-cell" [class.to-delete]="p.kind === 'existing' && p.markedForDelete">
-                              <img [src]="p.kind === 'existing' ? p.urlThumb || p.url : p.previewUrl"
-                                [alt]="'Photo ' + (i + 1)" loading="lazy"/>
-                              @if (i === 0 && !(p.kind === 'existing' && p.markedForDelete)) {
-                                <span class="photo-main-badge">Principale</span>
-                              }
-                              @if (p.kind === 'new') {
-                                <span class="photo-new-badge">Nouveau</span>
-                              }
-                              @if (p.kind === 'existing' && p.markedForDelete) {
-                                <button type="button" class="photo-restore" (click)="restorePhoto(p.id)">Annuler</button>
-                              } @else {
-                                <button type="button" class="photo-del" (click)="removePhoto(p)">
+              <!-- ════ ÉTAPE 2 ════ -->
+              @if (currentStep() === 2) {
+                <div class="step-band">
+                  <span class="edit-badge">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Modification
+                  </span>
+                  <p class="step-h1">Détails<br>de l'annonce</p>
+                  <p class="step-sub">Prix, description et contact</p>
+                </div>
+                <div class="step-body">
+
+                  <div class="field">
+                    <label class="field-label" for="e-prix">Loyer mensuel</label>
+                    <div class="input-wrap">
+                      <span class="ico-l">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                      </span>
+                      <input id="e-prix" type="text" inputmode="numeric"
+                        class="input with-l with-r"
+                        [class.ok]="prixValide()"
+                        [class.err]="isErr('prix')"
+                        [value]="prixDisplay()"
+                        placeholder="75 000"
+                        (input)="onPrixInput($event)"
+                        (blur)="form.get('prix')!.markAsTouched()" />
+                      <span class="ico-r-txt">FCFA</span>
+                    </div>
+                    @if (prixValide()) {
+                      <div class="price-display">
+                        {{ prixPreview() }}<span class="unit">par mois</span>
+                      </div>
+                    }
+                    @if (isErr('prix')) {
+                      <div class="field-msg err">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path stroke-linecap="round" d="M12 8v4m0 4h.01"/>
+                        </svg>
+                        Minimum 1 000 FCFA requis
+                      </div>
+                    }
+                  </div>
+
+                  <div class="field">
+                    <label class="field-label" for="e-desc">Description</label>
+                    <div class="input-wrap">
+                      <textarea id="e-desc" class="input"
+                        [class.err]="isErr('description')"
+                        formControlName="description"
+                        rows="5" maxlength="1000"
+                        placeholder="Superficie, équipements, état du bien, disponibilité…"></textarea>
+                      <span class="char-count" [class.warn]="descLen() > 900">{{ descLen() }}/1000</span>
+                    </div>
+                    @if (descLen() > 0 && descLen() < 30) {
+                      <div class="field-msg err">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/>
+                        </svg>
+                        Encore {{ 30 - descLen() }} caractère(s) requis
+                      </div>
+                    } @else if (descLen() === 0) {
+                      <div class="field-msg hint">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/>
+                        </svg>
+                        Minimum 30 caractères
+                      </div>
+                    }
+                  </div>
+
+                  <!-- WhatsApp -->
+                  <div class="field">
+                    <label class="field-label">Contact WhatsApp</label>
+                    <div class="wa-field-wrap">
+
+                      @if (!editingWa()) {
+                        <!-- Affichage du numéro actuel (chargé depuis le compte) -->
+                        <div class="wa-current-card">
+                          <div class="wa-current-left">
+                            <div class="wa-current-icon">
+                              <svg viewBox="0 0 24 24" fill="#fff" width="18" height="18">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                              </svg>
+                            </div>
+                            <div class="wa-current-texts">
+                              <strong>Numéro WhatsApp actuel</strong>
+                              <div class="wa-current-number">{{ currentWaDisplay() }}</div>
+                            </div>
+                          </div>
+                          <button type="button" class="wa-edit-btn" (click)="startEditWa()">
+                            <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            Modifier
+                          </button>
+                        </div>
+                      } @else {
+                        <!-- Saisie d'un nouveau numéro -->
+                        <div class="wa-input-card">
+                          <div class="wa-input-header">
+                            <div class="wa-input-header-left">
+                              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                              </svg>
+                              Nouveau numéro
+                            </div>
+                            <button type="button" class="wa-cancel-btn" (click)="cancelEditWa()">
+                              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+                              </svg>
+                              Annuler
+                            </button>
+                          </div>
+                          <div class="wa-input-body">
+                            <div class="wa-pfx-wrap">
+                              <span class="wa-pfx">
+                                <svg viewBox="0 0 24 24" fill="#25D366" width="13" height="13">
+                                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                                </svg>
+                                +237
+                              </span>
+                              <input type="tel" inputmode="numeric"
+                                class="input with-wa"
+                                [class.err]="isErr('whatsappRaw')"
+                                [value]="waInputDisplay()"
+                                placeholder="6XX XX XX XX"
+                                (input)="onWaInput($event)"
+                                (blur)="form.get('whatsappRaw')!.markAsTouched()" />
+                            </div>
+                            <div class="wa-input-hint">
+                              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                              </svg>
+                              Votre numéro n'est jamais affiché en clair
+                            </div>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+
+                </div>
+
+                <div class="card-foot">
+                  <button type="button" class="btn-back" (click)="prevStep()">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Retour
+                  </button>
+                  <button type="button" class="btn-next"
+                    [disabled]="step2Invalid()" (click)="nextStep()">
+                    Continuer
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+              }
+
+              <!-- ════ ÉTAPE 3 ════ -->
+              @if (currentStep() === 3) {
+                <div class="step-band">
+                  <span class="edit-badge">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Modification
+                  </span>
+                  <p class="step-h1">Photos &<br>confirmation</p>
+                  <p class="step-sub">Gérez les photos et validez</p>
+                </div>
+                <div class="step-body">
+
+                  <!-- Photos -->
+                  <div class="photos-section">
+                    <div class="photo-header">
+                      <span class="photo-label-txt">Photos</span>
+                      <span class="photo-count-pill">{{ activePhotoCount() }} / 4</span>
+                    </div>
+
+                    @if (activePhotoCount() < 4) {
+                      <div class="photo-upload-zone"
+                        [class.drag]="isDragging()"
+                        (dragover)="onDragOver($event)"
+                        (dragleave)="isDragging.set(false)"
+                        (drop)="onDrop($event)">
+                        <div class="upload-icon-wrap">
+                          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                          </svg>
+                        </div>
+                        <span class="upload-title">Ajouter des photos</span>
+                        <span class="upload-sub">JPG, PNG, WebP · max 4 Mo · tap ou glisser</span>
+                        <input #fileInput type="file" class="photo-file-input"
+                          accept="image/jpeg,image/png,image/webp,image/*"
+                          multiple (change)="onFilesSelected($event)" />
+                      </div>
+                    }
+
+                    @if (allPhotos().length > 0) {
+                      <div class="photo-grid">
+                        @for (p of allPhotos(); track photoKey(p); let i = $index) {
+                          <div class="photo-cell"
+                            [class.to-delete]="p.kind === 'existing' && p.markedForDelete">
+                            <img
+                              [src]="p.kind === 'existing' ? (p.urlThumb || p.url) : p.previewUrl"
+                              [alt]="'Photo ' + (i + 1)"
+                              loading="lazy" />
+
+                            @if (!(p.kind === 'existing' && p.markedForDelete)) {
+                              <div class="photo-actions">
+                                <button type="button" class="photo-del-btn"
+                                  (click)="removePhoto(p)"
+                                  [attr.aria-label]="'Supprimer la photo ' + (i + 1)">
                                   <svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                                   </svg>
                                 </button>
+                              </div>
+                              @if (i === 0) {
+                                <span class="photo-badge">Principale</span>
                               }
-                            </div>
-                          }
-                        </div>
-                      }
-                    </div>
-
-                    <div class="divider"></div>
-
-                    <!-- Récap -->
-                    <div class="section" style="margin-top:20px">
-                      <div class="section-label">
-                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                        </svg>
-                        Récapitulatif
-                      </div>
-                      <div class="recap-box">
-                        @if (recapTypeBien()) {
-                          <div class="recap-row">
-                            <div class="recap-ico">
-                              <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                              </svg>
-                            </div>
-                            <div>
-                              <div class="recap-lbl">Type de bien</div>
-                              <div class="recap-val">{{ recapTypeBien() }}</div>
-                            </div>
+                              @if (p.kind === 'new') {
+                                <span class="photo-badge-new">Nouveau</span>
+                              }
+                            } @else {
+                              <button type="button" class="restore-btn" (click)="restorePhoto((p).id)">
+                                Annuler
+                              </button>
+                            }
                           </div>
                         }
-                        @if (recapLieu()) {
-                          <div class="recap-row">
-                            <div class="recap-ico">
-                              <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                              </svg>
-                            </div>
-                            <div>
-                              <div class="recap-lbl">Localisation</div>
-                              <div class="recap-val">{{ recapLieu() }}</div>
-                            </div>
-                          </div>
-                        }
-                        @if (prixPreview()) {
-                          <div class="recap-row">
-                            <div class="recap-ico">
-                              <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                              </svg>
-                            </div>
-                            <div>
-                              <div class="recap-lbl">Loyer mensuel</div>
-                              <div class="recap-val">{{ prixPreview() }}</div>
-                            </div>
-                          </div>
-                        }
-                        <div class="recap-row">
-                          <div class="recap-ico">
-                            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                            </svg>
-                          </div>
-                          <div>
-                            <div class="recap-lbl">Photos</div>
-                            <div class="recap-val">
-                              {{ activePhotoCount() }} photo{{ activePhotoCount() !== 1 ? 's' : '' }}
-                              @if (photosToDelete().length > 0) { ({{ photosToDelete().length }} à supprimer) }
-                              @if (newPhotos().length > 0) { ({{ newPhotos().length }} nouveau{{ newPhotos().length > 1 ? 'x' : '' }}) }
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    @if (submitError()) {
-                      <div class="error-box">
-                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                          <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/>
-                        </svg>
-                        {{ submitError() }}
                       </div>
                     }
+                  </div>
 
-                    <div class="card-foot">
-                      <button type="button" class="btn-back" (click)="prevStep()">
-                        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+                  <!-- Récap -->
+                  <p class="section-label" style="margin-top:24px">Récapitulatif</p>
+                  <div class="recap">
+                    @if (recapTypeBien()) {
+                      <div class="recap-row">
+                        <div class="recap-ico">
+                          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <div class="recap-lbl">Type de bien</div>
+                          <div class="recap-val">{{ recapTypeBien() }}</div>
+                        </div>
+                      </div>
+                    }
+                    @if (recapLieu()) {
+                      <div class="recap-row">
+                        <div class="recap-ico">
+                          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <div class="recap-lbl">Localisation</div>
+                          <div class="recap-val">{{ recapLieu() }}</div>
+                        </div>
+                      </div>
+                    }
+                    @if (prixPreview()) {
+                      <div class="recap-row">
+                        <div class="recap-ico">
+                          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <div class="recap-lbl">Loyer mensuel</div>
+                          <div class="recap-val">{{ prixPreview() }}</div>
+                        </div>
+                      </div>
+                    }
+                    <div class="recap-row">
+                      <div class="recap-ico">
+                        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                         </svg>
-                        Retour
-                      </button>
-                      <button type="submit" class="btn-save" [disabled]="submitting()">
-                        @if (submitting()) {
-                          <svg class="spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="animation:spin 0.8s linear infinite">
-                            <path stroke-linecap="round" d="M12 2a10 10 0 0 1 10 10"/>
-                          </svg>
-                          Enregistrement…
-                        } @else {
-                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                          </svg>
-                          Sauvegarder
-                        }
-                      </button>
+                      </div>
+                      <div>
+                        <div class="recap-lbl">Photos</div>
+                        <div class="recap-val">
+                          {{ activePhotoCount() === 0 ? 'Aucune photo' : activePhotoCount() + ' photo' + (activePhotoCount() > 1 ? 's' : '') }}
+                          @if (photosToDelete().length > 0) {
+                            <span style="color:var(--red);font-size:11px;margin-left:5px">
+                              ({{ photosToDelete().length }} à supprimer)
+                            </span>
+                          }
+                          @if (newPhotos().length > 0) {
+                            <span style="color:var(--green);font-size:11px;margin-left:5px">
+                              (+{{ newPhotos().length }} nouveau{{ newPhotos().length > 1 ? 'x' : '' }})
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                    <div class="recap-row">
+                      <div class="recap-ico">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 015 12.84 19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="recap-lbl">Contact WhatsApp</div>
+                        <div class="recap-val">
+                          {{ editingWa() ? 'Nouveau numéro saisi' : currentWaDisplay() }}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                }
 
-              </form>
-            }
-          </div>
-        }
-      </main>
+                  @if (submitError()) {
+                    <div class="err-banner">
+                      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/>
+                      </svg>
+                      {{ submitError() }}
+                    </div>
+                  }
+                </div>
+
+                <div class="card-foot">
+                  <button type="button" class="btn-back" (click)="prevStep()">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Retour
+                  </button>
+                  <button type="submit" class="btn-save" [disabled]="submitting()">
+                    @if (submitting()) {
+                      <span class="spin">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" d="M12 2a10 10 0 010 10"/>
+                        </svg>
+                      </span>
+                      Enregistrement…
+                    } @else {
+                      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                      </svg>
+                      Sauvegarder
+                    }
+                  </button>
+                </div>
+              }
+
+            </form>
+          }
+        </div>
+      </div>
     </div>
   `,
 })
@@ -874,19 +1334,28 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
   private annonceId!: number;
 
   /* ── State ── */
-  readonly currentStep  = signal(1);
-  readonly loading      = signal(true);
-  readonly submitting   = signal(false);
-  readonly submitError  = signal<string | null>(null);
-  readonly saved        = signal(false);
-  readonly typesBiens   = signal<TypeBienResponse[]>([]);
-  readonly villesAvecId = signal<{ id: number; ville: string }[]>([]);
-  readonly allQuartiers = signal<string[]>([]);
+  readonly currentStep     = signal(1);
+  readonly loading         = signal(true);
+  readonly submitting      = signal(false);
+  readonly submitError     = signal<string | null>(null);
+  readonly saved           = signal(false);
+  readonly typesBiens      = signal<TypeBienResponse[]>([]);
+  readonly villesAvecId    = signal<{ id: number; ville: string }[]>([]);
+  readonly allQuartiers    = signal<string[]>([]);
   readonly showSuggestions = signal(false);
-  readonly isDragging   = signal(false);
+  readonly isDragging      = signal(false);
+  readonly allPhotos       = signal<Photo[]>([]);
 
-  /** Toutes les photos (existantes + nouvelles) */
-  readonly allPhotos = signal<Photo[]>([]);
+  /** Numéro WhatsApp actuel (chargé depuis le backend, formaté pour affichage) */
+  readonly currentWaDisplay  = signal<string>('Chargement…');
+  /** Numéro brut stocké côté serveur (digits uniquement, avec indicatif) */
+  readonly currentWaRaw      = signal<string>('');
+  /** true = l'utilisateur veut saisir un nouveau numéro */
+  readonly editingWa         = signal(false);
+  /** Affichage formaté du champ de saisie nouveau numéro */
+  readonly waInputDisplay    = signal('');
+  /** Valeur formatée du prix dans l'input */
+  readonly prixDisplay       = signal('');
 
   readonly steps = [
     { n: 1, label: 'Bien & lieu' },
@@ -894,7 +1363,6 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
     { n: 3, label: 'Photos' },
   ];
 
-  /* ── Form ── */
   readonly form = this.fb.group({
     typeBienId:     [null as number | null, Validators.required],
     ville:          [''],
@@ -902,7 +1370,11 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
     quartier:       ['', Validators.required],
     description:    ['', [Validators.required, Validators.minLength(30), Validators.maxLength(1000)]],
     prix:           [null as number | null, [Validators.required, Validators.min(1000)]],
-    whatsappRaw:    ['', Validators.required],
+    /**
+     * whatsappRaw est utilisé SEULEMENT quand editingWa() = true.
+     * Sinon on envoie currentWaRaw() tel quel.
+     */
+    whatsappRaw:    [''],
   });
 
   readonly formValue = signal(this.form.getRawValue());
@@ -910,50 +1382,52 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
   /* ── Computed ── */
   readonly villes = computed(() => this.villesAvecId().map(v => v.ville));
 
-  readonly descLen = computed(() => this.form.value.description?.length ?? 0);
+  readonly descLen = computed(() => (this.formValue()?.description ?? '').length);
+
+  readonly prixValide = computed(() => {
+    const p = this.formValue()?.prix;
+    return p != null && p >= 1000;
+  });
 
   readonly prixPreview = computed(() => {
-    const p = this.form.value.prix;
+    const p = this.formValue()?.prix;
     if (!p || p < 1000) return null;
-    return new Intl.NumberFormat('fr-CM').format(p) + ' FCFA';
+    return new Intl.NumberFormat('fr-FR').format(p) + ' FCFA';
   });
 
   readonly filteredQuartiers = computed(() => {
-    const s = (this.form.value.quartier ?? '').toLowerCase().trim();
+    const s = (this.formValue()?.quartier ?? '').toLowerCase().trim();
     const all = this.allQuartiers();
     return (s ? all.filter(q => q.toLowerCase().includes(s)) : all).slice(0, 10);
   });
 
   readonly recapTypeBien = computed(
-    () => this.typesBiens().find(t => t.id === this.form.value.typeBienId)?.libelle ?? ''
+    () => this.typesBiens().find(t => t.id === this.formValue()?.typeBienId)?.libelle ?? ''
   );
 
   readonly recapLieu = computed(() => {
-    const ville    = this.form.value.ville ?? '';
-    const quartier = this.form.value.quartier ?? '';
-    return quartier && ville ? `${quartier}, ${ville}` : ville || '';
+    const q = this.formValue()?.quartier ?? '';
+    const v = this.formValue()?.ville ?? '';
+    return q && v ? `${q}, ${v}` : v || q || '';
   });
 
   readonly step2Invalid = computed(() => {
     const v = this.formValue();
-    return (
-      !v.description || (v.description?.length ?? 0) < 30 ||
-      !v.prix || v.prix < 1000 ||
-      !v.whatsappRaw || v.whatsappRaw.replace(/\D/g, '').length < 9
-    );
+    if (!v) return true;
+    const descOk = (v.description?.length ?? 0) >= 30;
+    const prixOk = v.prix != null && v.prix >= 1000;
+    // Si on édite le WA, il faut un numéro valide
+    const waOk = !this.editingWa() ||
+      (v.whatsappRaw ?? '').replace(/\D/g, '').length >= 9;
+    return !descOk || !prixOk || !waOk;
   });
 
-  /** Photos existantes marquées pour suppression */
   readonly photosToDelete = computed(() =>
     this.allPhotos().filter((p): p is ExistingPhoto => p.kind === 'existing' && p.markedForDelete)
   );
-
-  /** Nouvelles photos à uploader */
   readonly newPhotos = computed(() =>
     this.allPhotos().filter((p): p is NewPhoto => p.kind === 'new')
   );
-
-  /** Nombre de photos actives (existantes non supprimées + nouvelles) */
   readonly activePhotoCount = computed(() =>
     this.allPhotos().filter(p =>
       p.kind === 'new' || (p.kind === 'existing' && !p.markedForDelete)
@@ -964,26 +1438,19 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.annonceId = +this.route.snapshot.paramMap.get('id')!;
 
-    // Charger types + villes en parallèle
     forkJoin({
-      types: this.typeBienApi.getAll(),
-      villes: this.locApi.getVillesAvecId(),
+      types:   this.typeBienApi.getAll(),
+      villes:  this.locApi.getVillesAvecId(),
       annonce: this.annonceApi.getAnnonce(this.annonceId),
     }).subscribe({
       next: ({ types, villes, annonce }) => {
-        // Types de bien
         this.typesBiens.set(
           (types.data ?? []).filter((t: TypeBienResponse) => t.estActif !== false)
         );
-
-        // Villes
         this.villesAvecId.set(villes.data ?? []);
 
-        // Pré-remplir le formulaire
         const a = annonce.data;
         const villeNom = a.ville ?? '';
-
-        // Trouver le localisationId depuis la ville
         const foundVille = (villes.data ?? []).find((v: { id: number; ville: string }) => v.ville === villeNom);
 
         this.form.patchValue({
@@ -993,17 +1460,36 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
           quartier:       a.quartier ?? '',
           description:    a.description ?? '',
           prix:           a.prix ?? null,
-          whatsappRaw:    '',  // sécurité : ne pas pré-remplir le numéro
         });
 
-        // Charger les quartiers de la ville
+        // Format prix pour affichage
+        if (a.prix) {
+          this.prixDisplay.set(
+            new Intl.NumberFormat('fr-FR').format(a.prix)
+          );
+        }
+
+        // Pré-charger le numéro WhatsApp depuis les données du compte
+        // lienWhatsApp est du type "https://wa.me/237XXXXXXXXX" ou "+237XXXXXXXXX"
+        if (a.lienWhatsApp) {
+          const raw = a.lienWhatsApp
+            .replace('https://wa.me/', '')
+            .replace('wa.me/', '')
+            .replace(/\D/g, '');
+          this.currentWaRaw.set(raw);
+          this.currentWaDisplay.set(this.formatWaForDisplay(raw));
+        } else {
+          // Fallback : numéro du compte utilisateur
+          this.currentWaDisplay.set('Numéro de votre compte');
+          this.currentWaRaw.set('');
+        }
+
         if (villeNom) {
           this.locApi.getQuartiers(villeNom).subscribe(
             r => this.allQuartiers.set(r.data ?? [])
           );
         }
 
-        // Charger les photos existantes
         if (a.photos && a.photos.length > 0) {
           this.allPhotos.set(
             (a.photos as PhotoResponse[]).map(p => ({
@@ -1018,54 +1504,83 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
           );
         }
 
+        this.formValue.set(this.form.getRawValue());
         this.loading.set(false);
       },
       error: () => {
-        this.toast.error('Impossible de charger l\'annonce');
+        this.toast.error("Impossible de charger l'annonce");
         this.loading.set(false);
         this.router.navigate(['/dashboard/mes-annonces']);
       },
     });
 
-    // Sync formValue signal
     this.form.valueChanges.pipe(debounceTime(0), takeUntil(this.destroy$)).subscribe(() => {
       this.formValue.set(this.form.getRawValue());
     });
-
-    document.addEventListener('click', this.onDocClick);
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    document.removeEventListener('click', this.onDocClick);
-    // Libérer les object URLs des nouvelles photos
     this.newPhotos().forEach(p => URL.revokeObjectURL(p.previewUrl));
   }
 
-  @HostListener('document:click')
-  private readonly onDocClick = () => this.showSuggestions.set(false);
-
-  /* ── Helpers privés ── */
-
-  private findTypeBienId(libelle: string, types: TypeBienResponse[]): number | null {
-    return types.find(t => t.libelle === libelle)?.id ?? null;
+  /* ── WhatsApp ── */
+  startEditWa(): void {
+    this.editingWa.set(true);
+    this.waInputDisplay.set('');
+    this.form.patchValue({ whatsappRaw: '' });
   }
 
-  photoKey(p: Photo): string {
-    return p.kind === 'existing' ? `e-${p.id}` : `n-${p.localId}`;
+  cancelEditWa(): void {
+    this.editingWa.set(false);
+    this.waInputDisplay.set('');
+    this.form.patchValue({ whatsappRaw: '' });
+  }
+
+  onWaInput(event: Event): void {
+    const el = event.target as HTMLInputElement;
+    const digits = el.value.replace(/\D/g, '').slice(0, 9);
+    const f = this.formatWaDigits(digits);
+    el.value = f;
+    this.waInputDisplay.set(f);
+    this.form.patchValue({ whatsappRaw: digits });
+    this.form.get('whatsappRaw')!.markAsDirty();
+  }
+
+  private formatWaDigits(digits: string): string {
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 5) return digits.slice(0,3) + ' ' + digits.slice(3);
+    if (digits.length <= 7) return digits.slice(0,3) + ' ' + digits.slice(3,5) + ' ' + digits.slice(5);
+    return digits.slice(0,3) + ' ' + digits.slice(3,5) + ' ' + digits.slice(5,7) + ' ' + digits.slice(7);
+  }
+
+  private formatWaForDisplay(raw: string): string {
+    // raw = "237XXXXXXXXX" ou "XXXXXXXXX"
+    const local = raw.startsWith('237') ? raw.slice(3) : raw;
+    return '+237 ' + this.formatWaDigits(local.slice(0, 9));
+  }
+
+  /* ── Prix ── */
+  onPrixInput(event: Event): void {
+    const el = event.target as HTMLInputElement;
+    const raw = el.value.replace(/\D/g, '');
+    const num = raw ? parseInt(raw, 10) : null;
+    const formatted = num != null
+      ? new Intl.NumberFormat('fr-FR').format(num)
+      : '';
+    el.value = formatted;
+    this.prixDisplay.set(formatted);
+    this.form.patchValue({ prix: num });
+    this.form.get('prix')!.markAsDirty();
   }
 
   /* ── Localisation ── */
-  onVilleChange(event?: Event): void {
-    const villeNom = event
-      ? (event.target as HTMLSelectElement).value
-      : this.form.value.ville ?? '';
-
+  onVilleChange(event: Event): void {
+    const villeNom = (event.target as HTMLSelectElement).value;
     this.form.patchValue({ localisationId: null, quartier: '' });
     this.allQuartiers.set([]);
     this.showSuggestions.set(false);
-
     if (villeNom) {
       const found = this.villesAvecId().find(v => v.ville === villeNom);
       if (found) this.form.patchValue({ localisationId: found.id });
@@ -1073,19 +1588,15 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  onQuartierInput(): void { this.showSuggestions.set(true); }
-
-  selectQuartier(q: string): void {
-    this.form.patchValue({ quartier: q });
-    this.showSuggestions.set(false);
-  }
-
+  onQuartierInput(): void  { this.showSuggestions.set(true); }
+  onQuartierBlur(): void   { setTimeout(() => this.showSuggestions.set(false), 150); }
+  selectQuartier(q: string): void { this.form.patchValue({ quartier: q }); this.showSuggestions.set(false); }
   selectType(id: number): void { this.form.patchValue({ typeBienId: id }); }
 
   /* ── Photos ── */
   onFilesSelected(e: Event): void {
     const input = e.target as HTMLInputElement;
-    if (input.files) this.addFiles(Array.from(input.files));
+    if (input.files?.length) this.addFiles(Array.from(input.files));
     input.value = '';
   }
 
@@ -1100,24 +1611,17 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
   private addFiles(files: File[]): void {
     const remaining = 4 - this.activePhotoCount();
     if (remaining <= 0) { this.toast.info('Maximum 4 photos'); return; }
-
-    const valid = files
-      .filter(f => {
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
-          this.toast.error(`${f.name} : format non supporté`); return false;
-        }
-        if (f.size > 4 * 1024 * 1024) {
-          this.toast.error(`${f.name} : trop lourd (max 4 Mo)`); return false;
-        }
-        return true;
-      })
-      .slice(0, remaining);
-
+    const valid = files.filter(f => {
+      const okType = ['image/jpeg','image/png','image/webp'].includes(f.type) || f.type.startsWith('image/');
+      if (!okType) { this.toast.error(`${f.name} : format non supporté`); return false; }
+      if (f.size > 4 * 1024 * 1024) { this.toast.error(`${f.name} : max 4 Mo`); return false; }
+      return true;
+    }).slice(0, remaining);
     this.allPhotos.update(list => [
       ...list,
       ...valid.map(f => ({
         kind: 'new' as const,
-        localId: crypto.randomUUID(),
+        localId: this.generateId(),
         file: f,
         previewUrl: URL.createObjectURL(f),
       })),
@@ -1126,14 +1630,14 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
 
   removePhoto(p: Photo): void {
     if (p.kind === 'existing') {
-      // Marquer pour suppression côté serveur
       this.allPhotos.update(list =>
         list.map(x => x.kind === 'existing' && x.id === p.id ? { ...x, markedForDelete: true } : x)
       );
     } else {
-      // Supprimer directement (pas encore uploadée)
       URL.revokeObjectURL(p.previewUrl);
-      this.allPhotos.update(list => list.filter(x => !(x.kind === 'new' && x.localId === p.localId)));
+      this.allPhotos.update(list =>
+        list.filter(x => !(x.kind === 'new' && x.localId === p.localId))
+      );
     }
   }
 
@@ -1143,32 +1647,22 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
     );
   }
 
+  photoKey(p: Photo): string {
+    return p.kind === 'existing' ? `e-${p.id}` : `n-${p.localId}`;
+  }
+
   /* ── Navigation ── */
   nextStep(): void { if (this.currentStep() < 3) this.currentStep.update(v => v + 1); }
-  prevStep(): void { if (this.currentStep() > 1) this.currentStep.update(v => v - 1); }
-  goBack():  void { window.history.back(); }
+  prevStep(): void { if (this.currentStep() > 1)  this.currentStep.update(v => v - 1); }
+  goBack(): void   { window.history.back(); }
   goToAnnonce(): void { this.router.navigate(['/annonces', this.annonceId]); }
 
-  isFieldError(ctrl: string): boolean {
+  isErr(ctrl: string): boolean {
     const c = this.form.get(ctrl);
     return !!(c?.invalid && c?.touched);
   }
 
-  /* ── Icônes ── */
-  getTypeIcon(nom: string): string {
-    const n = nom.toLowerCase();
-    if (n.includes('appartement')) return 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4';
-    if (n.includes('studio'))     return 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6';
-    if (n.includes('villa'))      return 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z';
-    if (n.includes('maison'))     return 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6';
-    if (n.includes('bureau'))     return 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z';
-    if (n.includes('boutique'))   return 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z';
-    if (n.includes('chambre'))    return 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6';
-    if (n.includes('terrain'))    return 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z';
-    return 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z';
-  }
-
-  /* ── Soumission ── */
+  /* ── Submit ── */
   onSubmit(): void {
     if (this.submitting()) return;
     this.form.markAllAsTouched();
@@ -1176,22 +1670,34 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
     this.submitting.set(true);
 
     const v = this.form.getRawValue();
-    const digits = (v.whatsappRaw ?? '').replace(/\D/g, '');
-    const whatsApp = digits.startsWith('237') ? `+${digits}` : `+237${digits}`;
 
-    // 1. Modifier les champs texte
+    // Construire le numéro WhatsApp à envoyer
+    let whatsApp: string | undefined;
+    if (this.editingWa()) {
+      const digits = (v.whatsappRaw ?? '').replace(/\D/g, '');
+      if (digits.length >= 9) {
+        whatsApp = digits.startsWith('237') ? `+${digits}` : `+237${digits}`;
+      }
+    } else {
+      // Conserver l'existant
+      const raw = this.currentWaRaw();
+      if (raw) {
+        whatsApp = raw.startsWith('237') ? `+${raw}` : `+237${raw}`;
+      }
+    }
+
     this.annonceApi.modifier(this.annonceId, {
       typeBienId:     v.typeBienId!,
       localisationId: v.localisationId!,
       quartier:       (v.quartier ?? '').trim(),
       description:    v.description!,
       prix:           v.prix!,
-      ...(digits.length >= 9 ? { numeroWhatsApp: whatsApp } : {}),
+      ...(whatsApp ? { numeroWhatsApp: whatsApp } : {}),
     }).subscribe({
       next: () => this.handlePhotos(),
       error: (err) => {
         this.submitting.set(false);
-        this.submitError.set(err?.error?.message ?? 'Erreur lors de la modification.');
+        this.submitError.set(err?.error?.message ?? 'Une erreur est survenue. Veuillez réessayer.');
       },
     });
   }
@@ -1205,33 +1711,59 @@ export class AnnonceEditComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Supprimer les photos marquées
-    const deleteOps$ = toDelete.map(p =>
-      this.photoApi.supprimerPhoto(this.annonceId, p.id)
-    );
+    const ops$ = [
+      ...toDelete.map(p => this.photoApi.supprimerPhoto(this.annonceId, p.id)),
+      ...(toUpload.length > 0
+        ? [this.photoApi.uploadPhotos(this.annonceId, toUpload.map(p => p.file))]
+        : []),
+    ];
 
-    // Uploader les nouvelles
-    const uploadOp$ = toUpload.length > 0
-      ? [this.photoApi.uploadPhotos(this.annonceId, toUpload.map(p => p.file))]
-      : [];
-
-    const allOps$ = [...deleteOps$, ...uploadOp$];
-
-    forkJoin(allOps$).subscribe({
-      next: () => this.finalize(),
+    forkJoin(ops$).subscribe({
+      next:  () => this.finalize(),
       error: () => {
-        // Les modifications texte ont réussi, photos partiellement
-        this.toast.info('Annonce modifiée. Certaines photos n\'ont pas pu être traitées.');
+        this.toast.info("Annonce modifiée. Certaines photos n'ont pas pu être traitées.");
         this.finalize();
       },
     });
   }
 
   private finalize(): void {
-    // Libérer les object URLs
     this.newPhotos().forEach(p => URL.revokeObjectURL(p.previewUrl));
     this.submitting.set(false);
     this.toast.success('Annonce mise à jour avec succès !');
     this.saved.set(true);
+  }
+
+  /* ── Helpers ── */
+  private findTypeBienId(libelle: string, types: TypeBienResponse[]): number | null {
+    return types.find(t => t.libelle === libelle)?.id ?? null;
+  }
+
+  private generateId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+  }
+
+  getTypeIcon(nom: string): string {
+    const n = (nom ?? '').toLowerCase();
+    if (n.includes('appartement'))
+      return 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4';
+    if (n.includes('studio'))
+      return 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6';
+    if (n.includes('villa'))
+      return 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z';
+    if (n.includes('maison') || n.includes('duplex'))
+      return 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6';
+    if (n.includes('bureau'))
+      return 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z';
+    if (n.includes('boutique') || n.includes('commerce'))
+      return 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5';
+    if (n.includes('chambre'))
+      return 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4';
+    if (n.includes('terrain'))
+      return 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z';
+    return 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z';
   }
 }
