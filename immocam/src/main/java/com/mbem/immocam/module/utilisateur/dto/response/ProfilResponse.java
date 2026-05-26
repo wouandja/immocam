@@ -24,6 +24,7 @@ public class ProfilResponse {
     private String email;
     /** Numéro masqué : "+237 *** **** 567" */
     private String telephoneMasque;
+    private String telephone;
     private String ville;
     private String role;
     private String statut;

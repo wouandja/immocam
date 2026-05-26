@@ -62,6 +62,7 @@ export interface UtilisateurProfil {
   prenom: string;
   nom: string;
   email: string;
+   telephone?: string;
   telephoneMasque?: string;   // ← backend retourne telephoneMasque
   ville?: string;
   role: RoleUtilisateur;

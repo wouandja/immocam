@@ -36,7 +36,7 @@
           font-size:clamp(13px,2vw,15px);
           font-family:'Inter',sans-serif;font-weight:400;
           margin:0;
-        ">Douala, Yaoundé et 18 autres villes · Annonces vérifiées</p>
+        ">Douala, Yaoundé et plus de 18 villes couvertes</p>
       </div>
 
       <!-- ── SEARCH CARD ── -->
@@ -76,7 +76,7 @@
 
           <!-- Ville -->
           <div class="field-cell" style="border-bottom:1px solid #f1f5f9;border-right:1px solid #f1f5f9;">
-            <label class="field-label"> Ville</label>
+            <label class="field-label">Ville</label>
             <div style="position:relative;">
               <select
                 class="field-select"
@@ -96,7 +96,7 @@
 
           <!-- Quartier -->
           <div class="field-cell" style="border-bottom:1px solid #f1f5f9;">
-            <label class="field-label" [style.color]="searchVille ? '#94a3b8' : '#cbd5e1'">🏘 Quartier</label>
+            <label class="field-label" [style.color]="searchVille ? '#94a3b8' : '#cbd5e1'">Quartier</label>
 
             @if (loadingQuartiers()) {
               <div style="display:flex;align-items:center;gap:6px;">
@@ -125,48 +125,44 @@
             }
           </div>
 
-          <!-- Prix min -->
+          <!-- ── PRIX MIN ── -->
           <div class="field-cell" style="border-right:1px solid #f1f5f9;">
-            <label class="field-label">Prix min</label>
-            <input
-              type="number"
-              class="field-number"
-              [(ngModel)]="prixMinVal"
-              (ngModelChange)="onPrixMinChange($event)"
-              min="0"
-              [max]="prixMaxVal"
-              placeholder="0"
-            />
+            <label class="field-label">Prix minimum</label>
+
+            <!-- Valeur affichée -->
+            <span class="field-hint">{{ hintPrixMin() }}</span>
+            <span class="field-hint-sub">0 — {{ formatPrixShort(PRIX_MAX) }}</span>
+
+            <!-- Slider -->
             <input
               type="range"
-              [(ngModel)]="prixMinVal"
-              (ngModelChange)="onPrixMinChange($event)"
-              min="0" [max]="PRIX_MAX" step="10000"
+              [value]="prixMinVal"
+              (input)="onPrixMinChange(+($any($event.target).value))"
+              min="1000"
+              [max]="PRIX_MAX"
+              step="10000"
             />
-            <span class="field-hint">{{ prixMinVal | number:'1.0-0' }} FCFA</span>
           </div>
 
-          <!-- Prix max -->
+          <!-- ── PRIX MAX ── -->
           <div class="field-cell">
-            <label class="field-label">Prix max</label>
-            <input
-              type="number"
-              class="field-number"
-              [(ngModel)]="prixMaxVal"
-              (ngModelChange)="onPrixMaxChange($event)"
-              [min]="prixMinVal" [max]="PRIX_MAX"
-              placeholder="Illimité"
-            />
+            <label class="field-label">Prix maximum</label>
+
+            <!-- Valeur affichée -->
+            <span class="field-hint">{{ hintPrixMax() }}</span>
+            <span class="field-hint-sub">0 — {{ formatPrixShort(PRIX_MAX) }}</span>
+
+            <!-- Slider -->
             <input
               type="range"
-              [(ngModel)]="prixMaxVal"
-              (ngModelChange)="onPrixMaxChange($event)"
-              [min]="prixMinVal" [max]="PRIX_MAX" step="10000"
+              [value]="prixMaxVal"
+              (input)="onPrixMaxChange(+($any($event.target).value))"
+              min="0"
+              [max]="PRIX_MAX"
+              step="10000"
             />
-            <span class="field-hint">
-              {{ prixMaxVal < PRIX_MAX ? (prixMaxVal | number:'1.0-0') + ' FCFA' : 'Illimité' }}
-            </span>
           </div>
+
         </div>
 
         <!-- Erreur prix -->
@@ -183,16 +179,14 @@
           <div style="padding:10px 16px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             @if (searchVille) {
               <span class="filter-tag">
-                📍 {{ searchVille }}{{ selectedQuartierLabel() ? ' · ' + selectedQuartierLabel() : '' }}
+                {{ searchVille }}{{ selectedQuartierLabel() ? ' · ' + selectedQuartierLabel() : '' }}
               </span>
             }
             @if (selectedTypeBienId() !== null) {
               <span class="filter-tag">{{ selectedTypeBienLabel() }}</span>
             }
             @if (prixMinVal > 0 || prixMaxVal < PRIX_MAX) {
-              <span class="filter-tag">
-                {{ prixMinVal | number:'1.0-0' }} – {{ prixMaxVal < PRIX_MAX ? (prixMaxVal | number:'1.0-0') + ' FCFA' : '∞' }}
-              </span>
+              <span class="filter-tag">{{ tagPrix() }}</span>
             }
             <button
               (click)="onReset()"
@@ -202,6 +196,8 @@
             >Réinitialiser</button>
           </div>
         }
+
+
 
         <!-- Bouton rechercher -->
         <div style="padding:14px 16px 16px;">
@@ -213,7 +209,11 @@
             <svg style="width:15px;height:15px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            Voir les annonces
+            @if (hasActiveFilters()) {
+              Rechercher avec ces filtres
+            } @else {
+              Découvrir les annonces
+            }
             <svg style="width:13px;height:13px;flex-shrink:0;opacity:0.6;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </div>
@@ -221,13 +221,11 @@
 
       <!-- Stats bar -->
       <div class="stats-bar fade-up" style="animation-delay:160ms;">
-        <span class="stat-item">
-          <strong style="color:rgba(255,255,255,0.8);font-weight:600;">{{ annonces().length }}</strong> annonces actives
-        </span>
-        <span class="stat-sep"></span>
-        <span class="stat-item">20 villes couvertes</span>
+        <span class="stat-item">+18 villes couvertes</span>
         <span class="stat-sep"></span>
         <span class="stat-item">Publication gratuite</span>
+        <span class="stat-sep"></span>
+        <span class="stat-item">Mise en relation directe</span>
       </div>
 
     </div>
@@ -244,7 +242,6 @@
     <!-- Offline -->
     @if (isOffline()) {
       <div class="alert-offline" style="margin-top:24px;">
-        <span style="font-size:22px;">📡</span>
         <div>
           <p style="font-size:13px;font-weight:600;color:#92400e;margin:0;font-family:'Inter',sans-serif;">Vous êtes hors connexion</p>
           <p style="font-size:11px;color:#b45309;margin:4px 0 0;font-family:'Inter',sans-serif;">ImmoCam nécessite une connexion internet.</p>
@@ -272,13 +269,7 @@
     <!-- En-tête section -->
     @if (!loading() && !serverError()) {
       <div class="section-header">
-        <h2 class="section-title">
-          @if (searchVille) {
-            Annonces à <span style="color:#1e3a5f;">{{ searchVille }}</span>
-          } @else {
-            Dernières annonces
-          }
-        </h2>
+        <h2 class="section-title">Dernières annonces</h2>
         @if (annonces().length > 0) {
           <span class="section-count">
             <strong style="color:#1e3a5f;">{{ annonces().length }}</strong> résultat{{ annonces().length > 1 ? 's' : '' }}
@@ -355,22 +346,12 @@
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
           </div>
-
-          @if (hasActiveFilters()) {
-            <p style="font-size:15px;font-weight:600;color:#334155;font-family:'Inter',sans-serif;margin:0;">Aucune annonce trouvée</p>
-            <p style="font-size:12px;color:#94a3b8;font-family:'Inter',sans-serif;margin:0;max-width:260px;">Essayez de modifier ou supprimer certains filtres.</p>
-            <button
-              (click)="onReset()"
-              style="margin-top:8px;padding:11px 24px;background:#1e3a5f;color:#fff;font-size:13px;font-weight:600;border-radius:10px;border:none;cursor:pointer;font-family:'Inter',sans-serif;"
-            >Voir toutes les annonces</button>
-          } @else {
-            <p style="font-size:15px;font-weight:600;color:#334155;font-family:'Inter',sans-serif;margin:0;">Aucune annonce pour le moment</p>
-            <p style="font-size:12px;color:#94a3b8;font-family:'Inter',sans-serif;margin:0;max-width:260px;">Revenez bientôt ou soyez le premier à publier !</p>
-            <a
-              routerLink="/annonces/creer"
-              style="margin-top:8px;display:inline-block;padding:11px 24px;background:#1e3a5f;color:#fff;font-size:13px;font-weight:600;border-radius:10px;text-decoration:none;font-family:'Inter',sans-serif;"
-            >Publier une annonce</a>
-          }
+          <p style="font-size:15px;font-weight:600;color:#334155;font-family:'Inter',sans-serif;margin:0;">Aucune annonce pour le moment</p>
+          <p style="font-size:12px;color:#94a3b8;font-family:'Inter',sans-serif;margin:0;max-width:260px;">Revenez bientôt ou soyez le premier à publier.</p>
+          <a
+            routerLink="/annonces/creer"
+            style="margin-top:8px;display:inline-block;padding:11px 24px;background:#1e3a5f;color:#fff;font-size:13px;font-weight:600;border-radius:10px;text-decoration:none;font-family:'Inter',sans-serif;"
+          >Publier une annonce</a>
         </div>
       }
     }

@@ -50,7 +50,6 @@ function shuffle<T>(arr: T[]): T[] {
   styles: [`
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
 
-    /* ── HERO ── */
     .hero-wrap {
       position: relative;
       min-height: clamp(480px, 60vh, 680px);
@@ -84,16 +83,12 @@ function shuffle<T>(arr: T[]): T[] {
       width: 100%;
       padding: 24px 16px 48px;
     }
-
-    /* ── SEARCH CARD ── */
     .search-card {
       background: #fff;
       border-radius: 20px;
       overflow: hidden;
       box-shadow: 0 24px 80px rgba(5,20,45,0.4), 0 4px 20px rgba(5,20,45,0.15);
     }
-
-    /* ── PILLS ── */
     .pills-track {
       padding: 14px 16px 0;
       border-bottom: 1px solid #f1f5f9;
@@ -130,8 +125,6 @@ function shuffle<T>(arr: T[]): T[] {
       background: #f1f5f9;
       animation: pulse 1.5s ease-in-out infinite;
     }
-
-    /* ── GRID FIELDS ── */
     .fields-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -161,29 +154,21 @@ function shuffle<T>(arr: T[]): T[] {
       -webkit-appearance: none;
       padding-right: 20px;
     }
-    .field-number {
-      width: 100%;
-      font-size: 13px;
-      color: #1e293b;
-      background: transparent;
-      border: none;
-      outline: none;
-      font-family: 'Inter', sans-serif;
-      font-weight: 500;
-      margin-bottom: 8px;
-    }
-    .field-number::-webkit-inner-spin-button,
-    .field-number::-webkit-outer-spin-button { -webkit-appearance: none; }
-    .field-number { -moz-appearance: textfield; }
     .field-hint {
+      font-size: 11px;
+      font-weight: 600;
+      color: #1e293b;
+      font-family: 'Inter', sans-serif;
+      margin-top: 6px;
+      display: block;
+    }
+    .field-hint-sub {
       font-size: 9px;
       color: #94a3b8;
       font-family: 'Inter', sans-serif;
-      margin-top: 3px;
+      margin-top: 2px;
       display: block;
     }
-
-    /* ── RANGE SLIDER ── */
     input[type='range'] {
       -webkit-appearance: none;
       appearance: none;
@@ -193,24 +178,24 @@ function shuffle<T>(arr: T[]): T[] {
       outline: none;
       width: 100%;
       cursor: pointer;
+      margin-top: 10px;
     }
     input[type='range']::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 14px; height: 14px;
+      width: 16px; height: 16px;
       border-radius: 50%;
       background: #1E3A8A;
       cursor: pointer;
-      box-shadow: 0 1px 4px rgba(30,58,95,0.35);
+      border: 2.5px solid #fff;
+      box-shadow: 0 0 0 1.5px #1E3A8A40;
     }
     input[type='range']::-moz-range-thumb {
-      width: 14px; height: 14px;
+      width: 16px; height: 16px;
       border-radius: 50%;
       background: #1E3A8A;
       cursor: pointer;
-      border: none;
+      border: 2.5px solid #fff;
     }
-
-    /* ── SEARCH BTN ── */
     .btn-search {
       width: 100%;
       display: flex;
@@ -231,14 +216,11 @@ function shuffle<T>(arr: T[]): T[] {
       box-shadow: 0 4px 16px rgba(30,58,95,0.3);
     }
     .btn-search:hover:not(:disabled) {
-      background: #1E3A8A;
       box-shadow: 0 6px 24px rgba(30,58,95,0.4);
       transform: translateY(-1px);
     }
     .btn-search:active:not(:disabled) { transform: scale(0.99); }
     .btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* ── ACTIVE FILTERS TAGS ── */
     .filter-tag {
       display: inline-flex;
       align-items: center;
@@ -250,8 +232,6 @@ function shuffle<T>(arr: T[]): T[] {
       border-radius: 20px;
       font-family: 'Inter', sans-serif;
     }
-
-    /* ── STATS BAR ── */
     .stats-bar {
       display: flex;
       align-items: center;
@@ -270,8 +250,6 @@ function shuffle<T>(arr: T[]): T[] {
       width: 1px; height: 12px;
       background: rgba(255,255,255,0.15);
     }
-
-    /* ── SECTION TITRE ── */
     .section-header {
       display: flex;
       align-items: center;
@@ -290,8 +268,6 @@ function shuffle<T>(arr: T[]): T[] {
       color: #94a3b8;
       font-family: 'Inter', sans-serif;
     }
-
-    /* ── GRID ANNONCES ── */
     .annonces-grid {
       display: grid;
       grid-template-columns: repeat(1, 1fr);
@@ -300,8 +276,6 @@ function shuffle<T>(arr: T[]): T[] {
     @media (min-width: 480px)  { .annonces-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (min-width: 768px)  { .annonces-grid { grid-template-columns: repeat(3, 1fr); } }
     @media (min-width: 1024px) { .annonces-grid { grid-template-columns: repeat(4, 1fr); } }
-
-    /* ── BOUTON VOIR PLUS ── */
     .btn-load-more {
       display: flex;
       align-items: center;
@@ -327,8 +301,6 @@ function shuffle<T>(arr: T[]): T[] {
     }
     .btn-load-more:active:not(:disabled) { transform: scale(0.99); }
     .btn-load-more:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* ── SPINNER ── */
     .spinner {
       width: 16px; height: 16px;
       border: 2px solid #e2e8f0;
@@ -337,8 +309,6 @@ function shuffle<T>(arr: T[]): T[] {
       animation: spin 0.7s linear infinite;
       flex-shrink: 0;
     }
-
-    /* ── FIN DE LISTE ── */
     .end-line {
       display: flex;
       align-items: center;
@@ -352,8 +322,6 @@ function shuffle<T>(arr: T[]): T[] {
       white-space: nowrap;
       font-family: 'Inter', sans-serif;
     }
-
-    /* ── EMPTY STATE ── */
     .empty-state {
       display: flex;
       flex-direction: column;
@@ -372,8 +340,6 @@ function shuffle<T>(arr: T[]): T[] {
       justify-content: center;
       margin-bottom: 4px;
     }
-
-    /* ── ERREUR / OFFLINE ── */
     .alert-offline {
       background: #fffbeb;
       border: 1px solid #fde68a;
@@ -384,8 +350,6 @@ function shuffle<T>(arr: T[]): T[] {
       align-items: center;
       gap: 12px;
     }
-
-    /* ── ANIMATIONS ── */
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(16px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -395,14 +359,13 @@ function shuffle<T>(arr: T[]): T[] {
       50%       { opacity: 0.5; }
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
+    @keyframes pulse-btn {
+      0%, 100% { box-shadow: 0 4px 20px rgba(22,163,74,0.45); transform: scale(1); }
+      50%       { box-shadow: 0 6px 28px rgba(22,163,74,0.65); transform: scale(1.012); }
+    }
     .fade-up { animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
-
-    /* ── CARD HOVER ── */
     .card-wrap { transition: transform 0.2s cubic-bezier(0.22,1,0.36,1); }
     .card-wrap:hover { transform: translateY(-3px); }
-
-    /* ── CHEVRON ── */
     .chevron-wrap {
       position: absolute;
       right: 0; top: 50%;
@@ -410,11 +373,7 @@ function shuffle<T>(arr: T[]): T[] {
       pointer-events: none;
       color: #94a3b8;
     }
-
-    /* ── SKELETONS LOAD MORE ── */
-    .skeletons-more {
-      margin-top: 14px;
-    }
+    .skeletons-more { margin-top: 14px; }
   `],
   templateUrl: './home.html',
 })
@@ -445,7 +404,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   readonly selectedTypeBienId = signal<number | null>(null);
   searchVille    = '';
   searchQuartier = '';
-  prixMinVal     = 0;
+  prixMinVal     = 1_000;
   prixMaxVal     = PRIX_MAX_DEFAULT;
   readonly PRIX_MAX = PRIX_MAX_DEFAULT;
 
@@ -456,21 +415,10 @@ export class HomeComponent implements OnInit, OnDestroy {
   // ── Pagination ─────────────────────────────────────────────────────────────
   private currentPage   = 0;
   private activeFilters: AnnonceFilters = { page: 0, taille: PAGE_SIZE };
-
-  /**
-   * Verrou principal contre les appels API successifs.
-   *
-   * Il est mis à TRUE dès le dispatch et remis à FALSE uniquement
-   * lorsque le signal `loadingMore` repasse à false (via l'effect ci-dessous).
-   * Ainsi, même un clic ultrarapide ne peut pas déclencher deux requêtes.
-   */
   private _loadMoreLocked = false;
 
-  // ── Effect : libère le verrou dès que le store a fini de charger ───────────
   constructor() {
     effect(() => {
-      // Cet effect se ré-évalue à chaque changement de loadingMore().
-      // Quand il passe de true → false, on déverrouille.
       if (!this.loadingMore()) {
         this._loadMoreLocked = false;
       }
@@ -479,13 +427,15 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   // ── Computed ───────────────────────────────────────────────────────────────
   readonly prixError = computed(
-    () => this.prixMinVal > 0 && this.prixMaxVal > 0 && this.prixMinVal > this.prixMaxVal,
+    () => this.prixMinVal > 0
+       && this.prixMaxVal < this.PRIX_MAX
+       && this.prixMinVal > this.prixMaxVal,
   );
 
   readonly hasActiveFilters = computed(
     () => !!this.searchVille || !!this.searchQuartier
        || this.selectedTypeBienId() !== null
-       || this.prixMinVal > 0 || this.prixMaxVal < this.PRIX_MAX,
+       || this.prixMinVal > 1_000 || this.prixMaxVal < this.PRIX_MAX,
   );
 
   readonly selectedTypeBienLabel = computed(
@@ -496,19 +446,53 @@ export class HomeComponent implements OnInit, OnDestroy {
     () => this.quartiers().find(q => q === this.searchQuartier) ?? '',
   );
 
-  /**
-   * Expose un signal booléen utilisable directement dans le template
-   * pour désactiver le bouton "Voir plus" de façon fiable.
-   */
   readonly canLoadMore = computed(
     () => this.hasMore() && !this.loadingMore() && !this._loadMoreLocked,
   );
 
-  /**
-   * Annonces mélangées aléatoirement (Fisher-Yates).
-   * Recalculé à chaque émission du store (chargement initial + append).
-   */
   readonly annoncesShuffled = computed(() => shuffle([...this.annonces()]));
+
+  // ── Formatage prix ─────────────────────────────────────────────────────────
+
+  /** Séparateurs de milliers fr-FR : 1 500 000 */
+  formatPrix(n: number): string {
+    return new Intl.NumberFormat('fr-FR').format(n);
+  }
+
+  /** Version courte pour les bornes du slider : "2 M" */
+  formatPrixShort(n: number): string {
+    if (n >= 1_000_000) {
+      const m = n / 1_000_000;
+      return (Number.isInteger(m) ? m : m.toFixed(1)) + ' M';
+    }
+    if (n >= 1_000) return new Intl.NumberFormat('fr-FR').format(n);
+    return String(n);
+  }
+
+  /** Hint affiché sous le slider min */
+  hintPrixMin(): string {
+    return this.prixMinVal <= 1_000
+      ? 'Aucun minimum'
+      : this.formatPrix(this.prixMinVal) + ' FCFA';
+  }
+
+  /** Hint affiché sous le slider max */
+  hintPrixMax(): string {
+    return this.prixMaxVal >= this.PRIX_MAX
+      ? 'Illimité'
+      : this.formatPrix(this.prixMaxVal) + ' FCFA';
+  }
+
+  /** Tag résumé prix dans les filtres actifs */
+  tagPrix(): string {
+    const min = this.prixMinVal > 0
+      ? this.formatPrix(this.prixMinVal) + ' FCFA'
+      : '0 FCFA';
+    const max = this.prixMaxVal < this.PRIX_MAX
+      ? this.formatPrix(this.prixMaxVal) + ' FCFA'
+      : 'Illimité';
+    return min + ' – ' + max;
+  }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   ngOnInit(): void {
@@ -559,8 +543,26 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  onPrixMinChange(val: number): void { this.prixMinVal = Number(val); }
-  onPrixMaxChange(val: number): void { this.prixMaxVal = Number(val); }
+  /**
+   * Slider / input MIN
+   * Le min ne peut pas dépasser (max - 10 000).
+   */
+  onPrixMinChange(val: number | string | null): void {
+    const v = Math.max(0, Math.floor(Number(val ?? 0)));
+    // On bloque le min à max - 10 000 pour garantir un écart minimum
+    this.prixMinVal = Math.min(v, this.prixMaxVal - 10_000);
+  }
+
+  /**
+   * Slider / input MAX
+   * Le max ne peut pas descendre en dessous de (min + 10 000).
+   */
+  onPrixMaxChange(val: number | string | null): void {
+    const raw = val === null || val === undefined ? this.PRIX_MAX : Number(val);
+    const v   = Math.min(this.PRIX_MAX, Math.max(0, Math.floor(raw)));
+    // On bloque le max à min + 10 000 pour garantir un écart minimum
+    this.prixMaxVal = Math.max(v, this.prixMinVal + 10_000);
+  }
 
   onSearch(): void {
     if (this.prixError()) return;
@@ -577,7 +579,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.selectedTypeBienId.set(null);
     this.searchVille    = '';
     this.searchQuartier = '';
-    this.prixMinVal     = 0;
+    this.prixMinVal     = 1_000;
     this.prixMaxVal     = this.PRIX_MAX;
     this.quartiers.set([]);
     this.currentPage      = 0;
@@ -591,27 +593,16 @@ export class HomeComponent implements OnInit, OnDestroy {
     this._loadAnnonces(this.activeFilters);
   }
 
-  // ── Bouton "Voir plus" ────────────────────────────────────────────────────
-  /**
-   * Protection triple couche :
-   *  1. `_loadMoreLocked`  — verrou posé dès le dispatch, levé par l'effect
-   *                          quand loadingMore() repasse à false
-   *  2. `loadingMore()`    — signal NgRx (doublon de sécurité)
-   *  3. `hasMore()`        — inutile de charger s'il n'y a plus de pages
-   */
+  // ── Bouton "Voir plus" ─────────────────────────────────────────────────────
   loadMore(): void {
     if (this._loadMoreLocked || this.loadingMore() || !this.hasMore()) return;
-
-    // Pose le verrou AVANT le dispatch pour bloquer tout clic simultané
     this._loadMoreLocked = true;
-
     this.currentPage++;
     this.activeFilters = { ...this.activeFilters, page: this.currentPage };
     this.store.dispatch(annonceActions.loadAnnonces({
       filters: this.activeFilters,
       append: true,
     }));
-    // Le verrou est levé par l'effect dès que loadingMore() → false
   }
 
   // ── Chargement initial ─────────────────────────────────────────────────────

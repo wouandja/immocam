@@ -22,9 +22,10 @@ export class UtilisateurApi {
     return this.http.put<ApiResponse<UtilisateurProfil >>(`${this.base}/profil`, req);
   }
 
-  modifierMotDePasse(req: ModifierMotDePasseRequest): Observable<ApiResponse<void>> {
-    return this.http.put<ApiResponse<void>>(`${this.base}/me/password`, req);
-  }
+ modifierMotDePasse(req: ModifierMotDePasseRequest): Observable<ApiResponse<void>> {
+  // était : /me/password  ← n'existait pas
+  return this.http.put<ApiResponse<void>>(`${this.base}/profil/password`, req);
+}
 
   supprimerCompte(): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.base}/compte`);

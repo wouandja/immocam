@@ -1,5 +1,6 @@
 package com.mbem.immocam.module.utilisateur.service;
 
+import com.mbem.immocam.module.utilisateur.dto.request.ModifierMotDePasseRequest;
 import com.mbem.immocam.module.utilisateur.dto.request.UpdateProfilRequest;
 import com.mbem.immocam.module.utilisateur.dto.response.ProfilResponse;
 
@@ -21,4 +22,7 @@ public interface UtilisateurService {
      * - Données personnelles anonymisées sous 30 jours
      */
     void supprimerCompte(Long utilisateurId);
+
+    void modifierMotDePasse(Long utilisateurId, ModifierMotDePasseRequest request);
+    
 }

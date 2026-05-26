@@ -1,6 +1,7 @@
 package com.mbem.immocam.module.utilisateur.controller;
 
 import com.mbem.immocam.infrastructure.security.config.SecurityUtils;
+import com.mbem.immocam.module.utilisateur.dto.request.ModifierMotDePasseRequest;
 import com.mbem.immocam.module.utilisateur.dto.request.UpdateProfilRequest;
 import com.mbem.immocam.module.utilisateur.dto.response.ProfilResponse;
 import com.mbem.immocam.module.utilisateur.repository.UtilisateurRepository;
@@ -71,4 +72,20 @@ public class UtilisateurController {
                 .orElseThrow(() -> new com.mbem.immocam.infrastructure.exception
                     .custom.RessourceNotFoundException("Utilisateur non trouvé"));
     }
+
+
+
+
+ 
+
+// Ajouter dans la classe
+@Operation(summary = "Changer mon mot de passe",
+           security = @SecurityRequirement(name = "bearerAuth"))
+@PutMapping("/profil/password")
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<ApiResponse<Void>> modifierMotDePasse(
+        @Valid @RequestBody ModifierMotDePasseRequest request) {
+    utilisateurService.modifierMotDePasse(getId(), request);
+    return ResponseEntity.ok(ApiResponse.message("Mot de passe modifié avec succès."));
+}
 }

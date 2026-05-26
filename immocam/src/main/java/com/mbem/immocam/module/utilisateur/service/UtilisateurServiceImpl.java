@@ -3,6 +3,7 @@ package com.mbem.immocam.module.utilisateur.service;
 import com.mbem.immocam.infrastructure.exception.custom.RessourceNotFoundException;
 import com.mbem.immocam.module.annonce.entity.Annonce;
 import com.mbem.immocam.module.annonce.repository.AnnonceRepository;
+import com.mbem.immocam.module.utilisateur.dto.request.ModifierMotDePasseRequest;
 import com.mbem.immocam.module.utilisateur.dto.request.UpdateProfilRequest;
 import com.mbem.immocam.module.utilisateur.dto.response.ProfilResponse;
 import com.mbem.immocam.module.utilisateur.entity.Utilisateur;
@@ -13,6 +14,7 @@ import com.mbem.immocam.shared.utils.PhoneUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
 
     private final UtilisateurRepository utilisateurRepository;
     private final AnnonceRepository annonceRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional(readOnly = true)
@@ -43,6 +46,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 .nom(u.getNom())
                 .email(u.getEmail())
                 .telephoneMasque(PhoneUtils.masquer(u.getTelephone()))
+                 .telephone(u.getTelephone())  
                 .ville(u.getVille())
                 .role(u.getRole().name())
                 .statut(u.getStatut().name())
@@ -89,4 +93,31 @@ public class UtilisateurServiceImpl implements UtilisateurService {
         return utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RessourceNotFoundException("Utilisateur", id));
     }
+
+
+
+
+
+
+    // Ajouter les injections manquantes dans la classe
+
+
+// Ajouter la méthode
+@Override
+@Transactional
+public void modifierMotDePasse(Long utilisateurId, ModifierMotDePasseRequest request) {
+    if (!request.getNouveauMotDePasse().equals(request.getConfirmationMotDePasse())) {
+        throw new IllegalArgumentException("Les mots de passe ne correspondent pas.");
+    }
+
+    Utilisateur u = obtenirOuErreur(utilisateurId);
+
+    if (!passwordEncoder.matches(request.getAncienMotDePasse(), u.getMotDePasseHash())) {
+        throw new IllegalArgumentException("Mot de passe actuel incorrect.");
+    }
+
+    u.setMotDePasseHash(passwordEncoder.encode(request.getNouveauMotDePasse()));
+    log.info("Mot de passe modifié pour l'utilisateur {}", utilisateurId);
+}
+    
 }
