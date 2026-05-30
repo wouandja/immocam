@@ -14,7 +14,6 @@ import lombok.Data;
 public class PublierCommentaireRequest {
 
     @NotBlank(message = "Le contenu est obligatoire")
-    @Size(min = 5, max = 500,
-          message = "Le commentaire doit contenir entre 5 et 500 caractères")
+    @Size(min = 1, max = 500,message = "Le commentaire doit contenir entre 1 et 500 caractères")
     private String contenu;
 }

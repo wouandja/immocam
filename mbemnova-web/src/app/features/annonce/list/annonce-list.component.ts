@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, debounceTime, takeUntil } from 'rxjs';
 
 import { AnnonceCardComponent } from '@shared/components/annonce-card/annonce-card.component';
 import { AnnonceCardSkeletonComponent } from '@shared/components/annonce-card-skeleton/annonce-card-skeleton.component';
@@ -35,7 +35,6 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
 
     select { appearance: none; -webkit-appearance: none; }
 
-    /* Double range slider */
     .range-wrap { position: relative; height: 20px; }
     .range-wrap input[type=range] {
       position: absolute;
@@ -190,12 +189,11 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
             }
           </div>
 
-          <!-- PRIX — double slider sur toute la colonne restante -->
+          <!-- PRIX -->
           <div class="p-3 col-span-2 sm:col-span-1 border-t border-slate-50 sm:border-t-0">
             <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400 mb-2"
                style="font-family:'DM Sans',sans-serif;">Fourchette de prix</p>
 
-            <!-- Affichage min / max -->
             <div class="flex items-center justify-between mb-2">
               <span class="text-[14.5px] font-medium text-slate-800"
                     style="font-family:'DM Sans',sans-serif;">
@@ -208,7 +206,6 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
               </span>
             </div>
 
-            <!-- Double slider -->
             <div class="relative px-0">
               <div class="range-track"></div>
               <div class="range-fill"
@@ -231,7 +228,6 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
               </div>
             </div>
 
-            <!-- Bornes lisibles -->
             <div class="flex justify-between mt-1">
               <span class="text-[9px] text-slate-300" style="font-family:'DM Sans',sans-serif;">0</span>
               <span class="text-[9px] text-slate-300" style="font-family:'DM Sans',sans-serif;">
@@ -299,7 +295,6 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
     <main class="bg-slate-50 min-h-screen">
       <div class="max-w-screen-xl mx-auto px-3 sm:px-6 pt-6 pb-16">
 
-        <!-- Compteur -->
         @if (!loading() && annonces().length > 0) {
           <div class="flex items-center justify-between mb-4 fade-up">
             <p class="text-[11.5px]" style="color:#94a3b8;font-family:'DM Sans',sans-serif;">
@@ -312,7 +307,6 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
           </div>
         }
 
-        <!-- Skeletons -->
         @if (loading()) {
           <div class="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             @for (i of skeletons; track i) {
@@ -371,8 +365,8 @@ import { AnnonceListResponse, LocalisationResponse, TypeBienResponse } from '@co
                   style="background:#1E3A8A;color:#fff!important;font-family:'DM Sans',sans-serif;"
                 >Voir toutes les annonces</button>
               } @else {
-                <a
-                  routerLink="/annonces/creer"
+                
+                 <a routerLink="/annonces/creer"
                   class="mt-3 inline-block px-5 py-2.5 text-[13px] font-medium rounded-[10px]"
                   style="background:#1E3A8A;color:#fff!important;text-decoration:none;font-family:'DM Sans',sans-serif;"
                 >Publier une annonce</a>
@@ -394,12 +388,17 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
   private readonly typeBienApi = inject(TypeBienApi);
   private readonly destroy$    = new Subject<void>();
 
-  readonly annonces          = signal<AnnonceListResponse[]>([]);
-  readonly loading           = signal(true);
-  readonly loadingMore       = signal(false);
-  readonly hasMore           = signal(false);
-  readonly skeletons         = [1,2,3,4,5,6,7,8];
-  private isLoadingMoreLock  = false;
+  // Subject dédié au debounce des sliders prix
+  // → émet à chaque mouvement du slider, mais _loadPage ne part
+  //   qu'après 600ms de silence (un seul appel API par geste).
+  private readonly priceChange$ = new Subject<void>();
+
+  readonly annonces         = signal<AnnonceListResponse[]>([]);
+  readonly loading          = signal(true);
+  readonly loadingMore      = signal(false);
+  readonly hasMore          = signal(false);
+  readonly skeletons        = [1,2,3,4,5,6,7,8];
+  private isLoadingMoreLock = false;
 
   readonly typesBiens        = signal<TypeBienResponse[]>([]);
   readonly villes            = signal<string[]>([]);
@@ -414,9 +413,6 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
   filterPrixMax                       = 2_000_000;
   readonly PRIX_MAX                   = 2_000_000;
 
-  searchVille    = '';
-  searchQuartier = '';
-
   private readonly PAGE_SIZE = 8;
   private currentPage        = 0;
 
@@ -428,12 +424,10 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
 
   // ── Formatage prix ───────────────────────────────────────────────────────────
 
-  /** Séparateurs de milliers, style fr-FR : 1 500 000 */
   formatPrix(n: number): string {
     return new Intl.NumberFormat('fr-FR').format(n);
   }
 
-  /** Version courte pour les bornes du slider : "2 M" */
   formatPrixShort(n: number): string {
     if (n >= 1_000_000) {
       const m = n / 1_000_000;
@@ -447,9 +441,9 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
 
   hasActiveFilters(): boolean {
     return (
-      !!this.filterVille          ||
+      !!this.filterVille             ||
       this.filterTypeBienId !== null ||
-      this.filterPrixMin > 0      ||
+      this.filterPrixMin > 0         ||
       this.filterPrixMax < this.PRIX_MAX ||
       this.filterLocalisationId !== null
     );
@@ -463,25 +457,22 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
     return this.quartiers().find(q => q.id === this.filterLocalisationId)?.quartier ?? '';
   }
 
-  // ── Double slider ────────────────────────────────────────────────────────────
-
-  onRangeMinInput(e: Event): void {
-    const val = Number((e.target as HTMLInputElement).value);
-    // On empêche le curseur min de dépasser le max
-    this.filterPrixMin = Math.min(val, this.filterPrixMax - 10_000);
-    this.applyFilters();
-  }
-
-  onRangeMaxInput(e: Event): void {
-    const val = Number((e.target as HTMLInputElement).value);
-    // On empêche le curseur max de passer sous le min
-    this.filterPrixMax = Math.max(val, this.filterPrixMin + 10_000);
-    this.applyFilters();
-  }
-
   // ── Cycle de vie ─────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
+    // Debounce des sliders prix : 600ms après le dernier mouvement
+    // → une seule requête API par geste, pas une par pixel déplacé.
+    this.priceChange$.pipe(
+      debounceTime(600),
+      takeUntil(this.destroy$),
+    ).subscribe(() => {
+      this._normalizePriceRange();
+      if (this.prixError()) return;
+      this.currentPage = 0;
+      this._loadPage(false);
+      this._syncUrl();
+    });
+
     this.typeBienApi.getAll().pipe(takeUntil(this.destroy$)).subscribe({
       next:  r => { this.typesBiens.set(r.data ?? []); this.loadingTypesBiens.set(false); },
       error: ()  => this.loadingTypesBiens.set(false),
@@ -495,8 +486,8 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
       this.filterVille          = typeof params['ville'] === 'string' ? params['ville'].trim() : '';
       this.filterTypeBienId     = this._toPositiveInt(params['typeBienId']);
       this.filterLocalisationId = this._toPositiveInt(params['localisationId']);
-      this.filterPrixMin        = this._toNonNegativeInt(params['prixMin'])  ?? 0;
-      this.filterPrixMax        = this._toNonNegativeInt(params['prixMax'])  ?? this.PRIX_MAX;
+      this.filterPrixMin        = this._toNonNegativeInt(params['prixMin']) ?? 0;
+      this.filterPrixMax        = this._toNonNegativeInt(params['prixMax']) ?? this.PRIX_MAX;
       this._normalizePriceRange();
 
       if (this.filterVille) {
@@ -533,14 +524,14 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
 
   selectType(id: number | null): void {
     this.filterTypeBienId = id;
+    // Requête immédiate — ce n'est pas un slider, pas de debounce nécessaire
     this.applyFilters();
   }
 
   onVilleChange(ville: string): void {
-    this.searchVille    = ville;
-    this.searchQuartier = '';
-    this.quartiers.set([]);
+    this.filterVille          = ville;
     this.filterLocalisationId = null;
+    this.quartiers.set([]);
 
     if (!ville) { this.applyFilters(); return; }
 
@@ -552,18 +543,35 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
         }));
         this.quartiers.set(mapped);
         this.loadingQuartiers.set(false);
+        // Requête immédiate après sélection de ville
         this.applyFilters();
       },
       error: () => this.loadingQuartiers.set(false),
     });
   }
 
+  // applyFilters : utilisé pour tous les filtres SAUF les sliders prix
+  // (qui passent par priceChange$ + debounce)
   applyFilters(): void {
     this._normalizePriceRange();
     if (this.prixError()) return;
     this.currentPage = 0;
     this._loadPage(false);
     this._syncUrl();
+  }
+
+  // Slider MIN → met à jour la valeur locale + émet dans priceChange$ (debounced)
+  onRangeMinInput(e: Event): void {
+    const val = Number((e.target as HTMLInputElement).value);
+    this.filterPrixMin = Math.min(val, this.filterPrixMax - 10_000);
+    this.priceChange$.next();
+  }
+
+  // Slider MAX → met à jour la valeur locale + émet dans priceChange$ (debounced)
+  onRangeMaxInput(e: Event): void {
+    const val = Number((e.target as HTMLInputElement).value);
+    this.filterPrixMax = Math.max(val, this.filterPrixMin + 10_000);
+    this.priceChange$.next();
   }
 
   resetFilters(): void {
@@ -600,11 +608,11 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
     this.annonceApi.getAnnonces({
       page:       this.currentPage,
       taille:     this.PAGE_SIZE,
-      ville:      this.filterVille     || undefined,
+      ville:      this.filterVille      || undefined,
       typeBienId: this.filterTypeBienId ?? undefined,
-      quartier:   quartier             || undefined,
-      prixMin:    this.filterPrixMin > 0             ? this.filterPrixMin : undefined,
-      prixMax:    this.filterPrixMax < this.PRIX_MAX ? this.filterPrixMax : undefined,
+      quartier:   quartier              || undefined,
+      prixMin:    this.filterPrixMin > 0              ? this.filterPrixMin : undefined,
+      prixMax:    this.filterPrixMax < this.PRIX_MAX  ? this.filterPrixMax : undefined,
     }).pipe(takeUntil(this.destroy$)).subscribe({
       next: res => {
         const page     = res.data;
@@ -648,9 +656,8 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
     this.filterPrixMin = Math.max(0, Math.floor(Number(this.filterPrixMin) || 0));
     this.filterPrixMax = Math.min(
       this.PRIX_MAX,
-      Math.max(0, Math.floor(Number(this.filterPrixMax) || this.PRIX_MAX))
+      Math.max(0, Math.floor(Number(this.filterPrixMax) || this.PRIX_MAX)),
     );
-    // Garantit que min ≤ max avec un écart d'au moins 10 000
     if (this.filterPrixMin >= this.filterPrixMax && this.filterPrixMax > 0) {
       this.filterPrixMin = Math.max(0, this.filterPrixMax - 10_000);
     }

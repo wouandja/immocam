@@ -223,6 +223,14 @@ public class AnnonceController {
     }
 
 
+    @PatchMapping("/{id}/desarchiver")
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<ApiResponse<Void>> desarchiver(@PathVariable Long id) {
+    annonceService.desarchiver(id, obtenirUtilisateurCourantId());
+    return ResponseEntity.ok(ApiResponse.message("Annonce désarchivée."));
+}
+
+
 
     @Operation(summary = "Statistiques du dashboard", 
            security = @SecurityRequirement(name = "bearerAuth"))

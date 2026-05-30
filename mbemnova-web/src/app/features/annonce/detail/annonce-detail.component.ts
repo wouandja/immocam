@@ -1,4 +1,6 @@
-import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
+import {
+  Component, OnInit, inject, signal, computed, HostListener
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -6,786 +8,513 @@ import { Store } from '@ngrx/store';
 import { annonceActions } from '@store/annonce/annonce.actions';
 import { favoriActions } from '@store/favori/favori.actions';
 import { selectAnnonceDetail, selectDetailLoading } from '@store/annonce/annonce.selectors';
-import { selectIsLoggedIn, selectCurrentUser } from '@store/auth/auth.selectors';
-import { isFavori } from '@store/favori/favori.selectors';
+import { selectFavoriIds } from '@store/favori/favori.selectors';
 import { BackButtonComponent } from '@shared/components/back-button/back-button.component';
-import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
 import { LoadingSpinnerComponent } from '@shared/components/loading-spinner/loading-spinner.component';
 import { FcfaPipe } from '@shared/pipes/fcfa.pipe';
 import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
-import { StatutAnnonce, CommentaireRequest } from '@core/services/models';
 import { ContactApi } from '@core/services/api/contact.api';
 import { CommentaireApi } from '@core/services/api/commentaire.api';
 import { SignalementApi } from '@core/services/api/signalement.api';
 import { ToastService } from '@core/services/toast.service';
-import { MOTIF_SIGNALEMENT_LABELS, MotifSignalement } from '@core/services/models';
-import { StorageService } from '@core/services/storage.service';
+import { MOTIF_SIGNALEMENT_LABELS } from '@core/services/models';
 import { AuthService } from '@core/services/auth.service';
 
 @Component({
   selector: 'app-annonce-detail',
   standalone: true,
   imports: [
-    CommonModule,
-    RouterLink,
-    FormsModule,
-    BackButtonComponent,
-    StatusBadgeComponent,
-    LoadingSpinnerComponent,
-    FcfaPipe,
-    TimeAgoPipe,
+    CommonModule, RouterLink, FormsModule,
+    BackButtonComponent, LoadingSpinnerComponent,
+    FcfaPipe, TimeAgoPipe,
   ],
-  styles: [
-    `
-      /* ── Reset & Base ── */
-      * { box-sizing: border-box; }
+  styles: [`
+    * { box-sizing: border-box; }
 
-      /* ── Layout ── */
-      .detail-wrap {
-        max-width: 960px;
-        margin: 16px auto 0 auto;
-        padding: 18px 16px 64px;
-      }
+    /* ══ LAYOUT ══ */
+    .detail-wrap {
+      max-width: 960px; margin: 0 auto;
+      padding: 16px 16px 80px;
+    }
 
-      /* ── Galerie ── */
-      .gallery {
-        border-radius: 16px;
-        overflow: hidden;
-        background: #f3f4f6;
-        margin: 16px 0 28px;
-      }
+    /* ══ GALERIE ══ */
+    .gallery {
+      border-radius: 18px; overflow: hidden;
+      background: #eef0fb; margin: 14px 0 24px;
+      box-shadow: 0 4px 20px rgba(26,35,126,.08);
+    }
+    .gallery-main {
+      position: relative; aspect-ratio: 16/9;
+      overflow: hidden; cursor: grab; user-select: none;
+      background: #eef0fb;
+    }
+    .gallery-main:active { cursor: grabbing; }
 
-      .gallery-main {
-        position: relative;
-        aspect-ratio: 16/9;
-        overflow: hidden;
-        cursor: grab;
-        user-select: none;
-      }
-      .gallery-main:active {
-        cursor: grabbing;
-      }
+    /* Skeleton shimmer */
+    .gallery-main::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg,#eef0fb 25%,#dde1f5 50%,#eef0fb 75%);
+      background-size: 200% 100%;
+      animation: shim 1.6s infinite; z-index: 0;
+    }
+    @keyframes shim { to { background-position: -200% 0; } }
+    .gallery-main.loaded::before { display: none; }
 
-      .gallery-slides {
-        display: flex;
-        width: 100%;
-        height: 100%;
-        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-        will-change: transform;
-      }
-      .gallery-slides.no-transition {
-        transition: none;
-      }
+    .gallery-slides {
+      position: relative; display: flex;
+      width: 100%; height: 100%;
+      transition: transform .35s cubic-bezier(.4,0,.2,1);
+      will-change: transform; z-index: 1;
+    }
+    .gallery-slides.no-transition { transition: none; }
+    .gallery-slide { flex-shrink: 0; width: 100%; height: 100%; }
+    .gallery-slide img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      pointer-events: none; -webkit-user-drag: none;
+      transition: opacity .3s;
+    }
 
-      .gallery-slide {
-        flex-shrink: 0;
-        width: 100%;
-        height: 100%;
-      }
-      .gallery-slide img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-        pointer-events: none;
-        -webkit-user-drag: none;
-      }
+    .gallery-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 38px; height: 38px;
+      background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+      border: none; border-radius: 50%; color: #1A237E;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,.15);
+      transition: background .15s, transform .15s, box-shadow .15s; z-index: 3;
+    }
+    .gallery-nav:hover {
+      background: #fff; box-shadow: 0 4px 18px rgba(0,0,0,.2);
+      transform: translateY(-50%) scale(1.06);
+    }
+    .gallery-nav.prev { left: 12px; }
+    .gallery-nav.next { right: 12px; }
+    .gallery-nav svg { width: 18px; height: 18px; }
 
-      .gallery-nav {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 40px;
-        height: 40px;
-        background: rgba(255, 255, 255, 0.92);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        border: none;
-        border-radius: 50%;
-        color: #1e3a5f;
-        font-size: 20px;
-        font-weight: 700;
-        line-height: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-        transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
-        z-index: 2;
-      }
-      .gallery-nav:hover {
-        background: #fff;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-        transform: translateY(-50%) scale(1.05);
-      }
-      .gallery-nav:active {
-        transform: translateY(-50%) scale(0.95);
-      }
-      .gallery-nav.prev { left: 12px; }
-      .gallery-nav.next { right: 12px; }
+    .gallery-counter {
+      position: absolute; bottom: 14px; right: 14px;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
+      color: #fff; font-size: 12px; font-weight: 600;
+      padding: 4px 10px; border-radius: 20px; z-index: 3;
+    }
+    .gallery-dots {
+      position: absolute; bottom: 14px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 6px; z-index: 3;
+    }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(255,255,255,.5); border: none;
+      cursor: pointer; padding: 0;
+      transition: background .2s, transform .2s, width .2s;
+    }
+    .dot.active { background: #fff; transform: scale(1.3); width: 18px; border-radius: 3px; }
 
-      .gallery-counter {
-        position: absolute;
-        bottom: 14px;
-        right: 14px;
-        background: rgba(0,0,0,0.55);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        color: #fff;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 4px 10px;
-        border-radius: 20px;
-        letter-spacing: 0.02em;
-        z-index: 2;
-      }
+    .gallery-thumbs {
+      display: flex; gap: 8px; padding: 8px;
+      overflow-x: auto; scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .gallery-thumbs::-webkit-scrollbar { display: none; }
+    .thumb {
+      flex-shrink: 0; width: 64px; height: 64px;
+      border-radius: 10px; overflow: hidden;
+      border: 2px solid transparent; cursor: pointer;
+      transition: border-color .2s, opacity .2s, transform .15s;
+      opacity: .5; position: relative; background: #dde1f5;
+    }
+    .thumb::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg,#dde1f5 25%,#c5cbe8 50%,#dde1f5 75%);
+      background-size: 200% 100%; animation: shim 1.6s infinite;
+    }
+    .thumb.loaded::after { display: none; }
+    .thumb:hover { opacity: .82; transform: scale(1.05); }
+    .thumb.active { border-color: #1A237E; opacity: 1; transform: scale(1.05); }
+    .thumb img {
+      width: 100%; height: 100%; object-fit: cover;
+      display: block; pointer-events: none; position: relative; z-index: 1;
+    }
 
-      .gallery-dots {
-        position: absolute;
-        bottom: 14px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        gap: 6px;
-        z-index: 2;
-      }
-      .dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.5);
-        border: none;
-        cursor: pointer;
-        padding: 0;
-        transition: background 0.2s, transform 0.2s, width 0.2s;
-      }
-      .dot.active {
-        background: #fff;
-        transform: scale(1.3);
-        width: 18px;
-        border-radius: 3px;
-      }
+    /* ══ GRID ══ */
+    .detail-grid {
+      display: grid; grid-template-columns: 1fr 300px;
+      gap: 20px; align-items: start;
+    }
+    @media(max-width: 768px) {
+      .detail-grid { grid-template-columns: 1fr; }
+      .col-aside { order: -1; }
+    }
+    .col-main { min-width: 0; overflow: hidden; }
 
-      .gallery-thumbs {
-        display: flex;
-        gap: 8px;
-        padding: 8px;
-        overflow-x: auto;
-        scrollbar-width: none;
-        -webkit-overflow-scrolling: touch;
-      }
-      .gallery-thumbs::-webkit-scrollbar { display: none; }
+    /* ══ CARDS ══ */
+    .card {
+      background: #fff; border: 0.5px solid rgba(0,0,0,.08);
+      border-radius: 16px; padding: 20px;
+      overflow: hidden; word-break: break-word;
+    }
+    .card + .card { margin-top: 14px; }
 
-      .thumb {
-        flex-shrink: 0;
-        width: 64px;
-        height: 64px;
-        border-radius: 10px;
-        overflow: hidden;
-        border: 2px solid transparent;
-        cursor: pointer;
-        transition: border-color 0.2s, opacity 0.2s, transform 0.15s;
-        opacity: 0.5;
-      }
-      .thumb:hover {
-        opacity: 0.8;
-        transform: scale(1.04);
-      }
-      .thumb.active {
-        border-color: #1e3a5f;
-        opacity: 1;
-        transform: scale(1.04);
-      }
-      .thumb img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-        pointer-events: none;
-      }
+    /* ══ BADGE STATUT ══ */
+    .badge-statut {
+      display: inline-flex; align-items: center;
+      border-radius: 8px; padding: 4px 10px;
+      font-size: 10.5px; font-weight: 700;
+      letter-spacing: .04em; line-height: 1; margin-bottom: 10px;
+    }
+    .s-active  { background: #E8EAF6; color: #1A237E; border: 0.5px solid rgba(26,35,126,.25); }
+    .s-pause   { background: #FFF3E0; color: #BF360C; }
+    .s-expired { background: #FFEBEE; color: #B71C1C; }
+    .s-arch    { background: #ECEFF1; color: #37474F; }
 
-      /* ── Grid ── */
-      .detail-grid {
-        display: grid;
-        grid-template-columns: 1fr 300px;
-        gap: 24px;
-        align-items: start;
-      }
-      @media (max-width: 768px) {
-        .detail-grid {
-          grid-template-columns: 1fr;
-        }
-        .col-aside {
-          order: -1;
-        }
-      }
+    /* ══ PRIX ══ */
+    .prix-label {
+      font-size: 26px; font-weight: 700; color: #0f172a;
+      letter-spacing: -.02em; line-height: 1.2;
+    }
+    .prix-meta { font-size: 11px; color: #9ca3af; margin-top: 5px; }
 
-      .col-main {
-        min-width: 0;
-        overflow: hidden;
-        width: 100%;
-      }
+    /* ══ TITRE ══ */
+    .annonce-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 22px; font-weight: 500; color: #0f172a;
+      letter-spacing: -.01em; margin: 0 0 6px; word-break: break-word;
+    }
+    .annonce-loc {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 13px; color: #6b7280;
+    }
+    .annonce-loc svg { width: 13px; height: 13px; flex-shrink: 0; }
 
-      /* ── Cards ── */
-      .card {
-        background: #fff;
-        border: 0.5px solid rgba(0, 0, 0, 0.08);
-        border-radius: 14px;
-        padding: 20px;
-        overflow: hidden;
-        word-break: break-word;
-      }
-      .card + .card { margin-top: 16px; }
+    .section-title {
+      font-size: 12px; font-weight: 600;
+      letter-spacing: .05em; text-transform: uppercase;
+      color: #94a3b8; margin-bottom: 14px;
+    }
 
-      /* ── Prix ── */
-      .prix-label {
-        font-size: 26px;
-        font-weight: 700;
-        color: #0f172a;
-        letter-spacing: -0.02em;
-        line-height: 1.2;
-      }
-      .prix-meta {
-        font-size: 11px;
-        color: #9ca3af;
-        margin-top: 4px;
-      }
+    .desc-text {
+      font-size: 14px; color: #374151; line-height: 1.75;
+      white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
+    }
 
-      /* ── Titre ── */
-      .annonce-title {
-        font-family: 'Playfair Display', Georgia, serif;
-        font-size: 22px;
-        font-weight: 500;
-        color: #0f172a;
-        letter-spacing: -0.01em;
-        margin: 0 0 6px;
-        word-break: break-word;
-      }
-      .annonce-loc {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 13px;
-        color: #6b7280;
-      }
-      .annonce-loc svg {
-        width: 13px;
-        height: 13px;
-        flex-shrink: 0;
-      }
+    /* ══ STATS ══ */
+    .stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+    .stat-box {
+      background: #f8fafc; border: 0.5px solid rgba(0,0,0,.06);
+      border-radius: 12px; padding: 14px 10px; text-align: center;
+    }
+    .stat-val { font-size: 22px; font-weight: 700; color: #0f172a; }
+    .stat-lbl { font-size: 11px; color: #94a3b8; margin-top: 3px; }
 
-      /* ── Section title ── */
-      .section-title {
-        font-size: 13px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: #94a3b8;
-        margin-bottom: 14px;
-      }
+    /* ══ BTN WHATSAPP ══ */
+    .btn-whatsapp {
+      width: 100%; display: flex; align-items: center;
+      justify-content: center; gap: 10px; padding: 14px;
+      background: #22c55e; color: #fff; font-size: 14px; font-weight: 600;
+      border: none; border-radius: 12px; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(34,197,94,.3);
+      transition: background .15s, transform .1s; text-decoration: none;
+    }
+    .btn-whatsapp:hover { background: #16a34a; }
+    .btn-whatsapp:active { transform: scale(.98); }
+    .btn-whatsapp:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-whatsapp svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-      /* ── Description ── */
-      .desc-text {
-        font-size: 14px;
-        color: #374151;
-        line-height: 1.75;
-        white-space: pre-wrap;
-        word-break: break-word;
-        overflow-wrap: break-word;
-        max-width: 100%;
-      }
+    /* ══ BTN FAVORI ══ */
+    .btn-favori {
+      width: 100%; display: flex; align-items: center;
+      justify-content: center; gap: 8px; padding: 11px;
+      background: #fff; font-size: 13px; font-weight: 500;
+      border: 0.5px solid rgba(0,0,0,.12); border-radius: 12px;
+      cursor: pointer; margin-top: 10px; color: #374151;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+    .btn-favori:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+    .btn-favori.active { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+    .btn-favori svg { width: 16px; height: 16px; }
 
-      /* ── Stats ── */
-      .stats-row {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-      }
-      .stat-box {
-        background: #f8fafc;
-        border: 0.5px solid rgba(0, 0, 0, 0.06);
-        border-radius: 10px;
-        padding: 14px 10px;
-        text-align: center;
-      }
-      .stat-val {
-        font-size: 20px;
-        font-weight: 600;
-        color: #0f172a;
-      }
-      .stat-lbl {
-        font-size: 11px;
-        color: #94a3b8;
-        margin-top: 3px;
-      }
+    /* ══ BTN SIGNALER ══ */
+    .btn-signaler {
+      width: 100%; padding: 10px; background: none; border: none;
+      font-size: 12px; color: #94a3b8; cursor: pointer; margin-top: 6px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: color .15s; border-radius: 8px;
+    }
+    .btn-signaler:hover { color: #ef4444; }
+    .btn-signaler.already-reported {
+      color: #F57C00 !important; cursor: default; pointer-events: none;
+    }
 
-      /* ── CTA WhatsApp ── */
-      .btn-whatsapp {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        padding: 14px;
-        background: #22c55e;
-        color: #fff;
-        font-size: 14px;
-        font-weight: 600;
-        border: none;
-        border-radius: 12px;
-        cursor: pointer;
-        transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-        box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
-      }
-      .btn-whatsapp:hover {
-        background: #16a34a;
-        box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4);
-      }
-      .btn-whatsapp:active { transform: scale(0.98); }
-      .btn-whatsapp:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
-      .btn-whatsapp svg { width: 20px; height: 20px; flex-shrink: 0; }
+    /* ══ BTN PARTAGER ══ */
+    .btn-share {
+      width: 38px; height: 38px; background: #f8fafc;
+      border: 0.5px solid rgba(0,0,0,.1); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: background .15s, transform .15s;
+    }
+    .btn-share:hover { background: #e2e8f0; transform: scale(1.06); }
+    .btn-share svg { width: 16px; height: 16px; color: #64748b; }
 
-      /* ── Btn favori ── */
-      .btn-favori {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 11px;
-        background: #fff;
-        font-size: 13px;
-        font-weight: 500;
-        border: 0.5px solid rgba(0, 0, 0, 0.12);
-        border-radius: 12px;
-        cursor: pointer;
-        transition: background 0.15s, border-color 0.15s, color 0.15s;
-        margin-top: 10px;
-        color: #374151;
-      }
-      .btn-favori:hover {
-        background: #fef2f2;
-        border-color: #fca5a5;
-        color: #dc2626;
-      }
-      .btn-favori.active {
-        background: #fef2f2;
-        border-color: #fca5a5;
-        color: #dc2626;
-      }
-      .btn-favori svg { width: 16px; height: 16px; }
+    /* ══ SHARE SHEET ══ */
+    .share-overlay {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(0,0,0,.45); backdrop-filter: blur(4px);
+      display: flex; align-items: flex-end; justify-content: center;
+      animation: fadeIn .18s ease;
+    }
+    @media(min-width: 640px) {
+      .share-overlay { align-items: center; }
+      .share-box { border-radius: 20px !important; max-width: 380px !important; }
+    }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes slideUp {
+      from { transform: translateY(60px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .share-box {
+      width: 100%; max-width: 520px; background: #fff;
+      border-radius: 20px 20px 0 0; padding: 8px 20px 32px;
+      animation: slideUp .22s cubic-bezier(.4,0,.2,1);
+    }
+    .share-handle {
+      width: 36px; height: 4px; background: #e2e8f0;
+      border-radius: 2px; margin: 12px auto 20px;
+    }
+    .share-title {
+      font-size: 15px; font-weight: 600; color: #111827;
+      margin-bottom: 20px; text-align: center;
+    }
+    .share-grid {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 12px; margin-bottom: 20px;
+    }
+    .share-item {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      cursor: pointer; border: none; background: none;
+      padding: 12px 6px; border-radius: 12px;
+      transition: background .15s, transform .15s;
+    }
+    .share-item:hover { background: #f8fafc; transform: translateY(-2px); }
+    .share-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .share-icon svg { width: 26px; height: 26px; }
+    .share-icon-wa   { background: #dcfce7; color: #16a34a; }
+    .share-icon-fb   { background: #dbeafe; color: #1d4ed8; }
+    .share-icon-tw   { background: #f1f5f9; color: #0f172a; }
+    .share-icon-copy { background: #f1f5f9; color: #475569; }
+    .share-label { font-size: 11px; font-weight: 500; color: #374151; text-align: center; }
+    .share-divider { height: .5px; background: rgba(0,0,0,.07); margin-bottom: 16px; }
+    .share-url-row {
+      display: flex; gap: 10px; align-items: center;
+      background: #f8fafc; border: .5px solid rgba(0,0,0,.09);
+      border-radius: 10px; padding: 10px 14px;
+    }
+    .share-url-text {
+      flex: 1; font-size: 12px; color: #6b7280;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .share-copy-btn {
+      flex-shrink: 0; padding: 6px 14px; background: #1A237E; color: #fff;
+      font-size: 12px; font-weight: 600; border: none; border-radius: 8px;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .share-copy-btn:hover { opacity: .88; }
+    .share-copy-btn.copied { background: #22c55e; }
 
-      /* ── Btn signaler ── */
-      .btn-signaler {
-        width: 100%;
-        padding: 10px;
-        background: none;
-        border: none;
-        font-size: 12px;
-        color: #94a3b8;
-        cursor: pointer;
-        transition: color 0.15s;
-        margin-top: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-      }
-      .btn-signaler:hover { color: #ef4444; }
+    /* ══ COMMENTAIRES ══ */
+    .comment-bubble {
+      background: #f8fafc; border: .5px solid rgba(0,0,0,.06);
+      border-radius: 12px; border-top-left-radius: 3px;
+      padding: 10px 13px; word-break: break-word;
+    }
+    .comment-author { font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; }
+    .comment-text {
+      font-size: 13px; color: #475569; line-height: 1.6;
+      word-break: break-word; overflow-wrap: break-word;
+    }
+    .comment-time { font-size: 11px; color: #94a3b8; margin-top: 5px; padding-left: 2px; }
+    .reply-bubble {
+      background: #eff6ff; border: .5px solid rgba(37,99,235,.12);
+      border-radius: 12px; border-top-left-radius: 3px;
+      padding: 10px 13px; margin-top: 8px; margin-left: 16px;
+      word-break: break-word;
+    }
+    .reply-author { font-size: 12px; font-weight: 600; color: #1E3A8A; margin-bottom: 4px; }
+    .reply-text { font-size: 13px; color: #1E3A8A; line-height: 1.6; word-break: break-word; }
 
-      /* ── Btn partager ── */
-      .btn-share {
-        width: 38px;
-        height: 38px;
-        background: #f8fafc;
-        border: 0.5px solid rgba(0, 0, 0, 0.1);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        flex-shrink: 0;
-        transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
-      }
-      .btn-share:hover {
-        background: #e2e8f0;
-        transform: scale(1.06);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      }
-      .btn-share:active { transform: scale(0.95); }
-      .btn-share svg { width: 16px; height: 16px; color: #64748b; }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; flex-shrink: 0;
+    }
+    .avatar-blue { background: #dbeafe; color: #1E3A8A; }
+    .avatar-dark { background: #1E3A8A; color: #fff; }
 
-      /* ── Share bottom sheet ── */
-      .share-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 60;
-        background: rgba(0, 0, 0, 0.45);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-        animation: fadeIn 0.18s ease;
-      }
-      @media (min-width: 640px) {
-        .share-overlay {
-          align-items: center;
-        }
-        .share-box {
-          border-radius: 20px !important;
-          max-width: 380px !important;
-        }
-      }
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      @keyframes slideUp {
-        from { transform: translateY(60px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-      }
-      .share-box {
-        width: 100%;
-        max-width: 520px;
-        background: #fff;
-        border-radius: 20px 20px 0 0;
-        padding: 8px 20px 32px;
-        animation: slideUp 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      .share-handle {
-        width: 36px;
-        height: 4px;
-        background: #e2e8f0;
-        border-radius: 2px;
-        margin: 12px auto 20px;
-      }
-      .share-title {
-        font-size: 15px;
-        font-weight: 600;
-        color: #111827;
-        margin-bottom: 20px;
-        text-align: center;
-      }
-      .share-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
-        margin-bottom: 20px;
-      }
-      .share-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        border: none;
-        background: none;
-        padding: 12px 6px;
-        border-radius: 12px;
-        transition: background 0.15s, transform 0.15s;
-      }
-      .share-item:hover {
-        background: #f8fafc;
-        transform: translateY(-2px);
-      }
-      .share-item:active { transform: scale(0.95); }
-      .share-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
-      .share-icon svg { width: 26px; height: 26px; }
-      .share-icon-wa { background: #dcfce7; color: #16a34a; }
-      .share-icon-fb { background: #dbeafe; color: #1d4ed8; }
-      .share-icon-tw { background: #f1f5f9; color: #0f172a; }
-      .share-icon-copy { background: #f1f5f9; color: #475569; }
-      .share-label {
-        font-size: 11px;
-        font-weight: 500;
-        color: #374151;
-        text-align: center;
-      }
-      .share-divider {
-        height: 0.5px;
-        background: rgba(0,0,0,0.07);
-        margin-bottom: 16px;
-      }
-      .share-url-row {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        background: #f8fafc;
-        border: 0.5px solid rgba(0,0,0,0.09);
-        border-radius: 10px;
-        padding: 10px 14px;
-      }
-      .share-url-text {
-        flex: 1;
-        font-size: 12px;
-        color: #6b7280;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .share-copy-btn {
-        flex-shrink: 0;
-        padding: 6px 14px;
-        background: #1e3a5f;
-        color: #fff;
-        font-size: 12px;
-        font-weight: 600;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: opacity 0.15s;
-      }
-      .share-copy-btn:hover { opacity: 0.88; }
-      .share-copy-btn.copied { background: #22c55e; }
+    .comment-input {
+      width: 100%; padding: 11px 14px;
+      border: .5px solid rgba(0,0,0,.1); border-radius: 12px;
+      background: #f8fafc; font-size: 13px; color: #111827;
+      resize: none; outline: none;
+      transition: border-color .15s, background .15s;
+      font-family: inherit;
+    }
+    .comment-input:focus { border-color: rgba(0,0,0,.2); background: #fff; }
+    .btn-post {
+      padding: 8px 18px; background: #1E3A8A; color: #fff;
+      font-size: 12px; font-weight: 600; border: none;
+      border-radius: 20px; cursor: pointer; transition: opacity .15s;
+    }
+    .btn-post:hover { opacity: .88; }
+    .btn-post:disabled { opacity: .45; cursor: not-allowed; }
+    .char-count { font-size: 11px; color: #9ca3af; }
 
-      /* ── Commentaires ── */
-      .comment-bubble {
-        background: #f8fafc;
-        border: 0.5px solid rgba(0, 0, 0, 0.06);
-        border-radius: 12px;
-        border-top-left-radius: 3px;
-        padding: 10px 13px;
-        overflow: hidden;
-        word-break: break-word;
+    /* ══ MODAL SIGNALEMENT ══ */
+    .sig-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: flex-end; justify-content: center;
+      background: rgba(10,20,50,.5); backdrop-filter: blur(5px);
+      animation: fadeIn .18s ease;
+    }
+    @media(min-width: 640px) {
+      .sig-overlay { align-items: center; padding: 20px; }
+      .sig-box {
+        border-radius: 20px !important;
+        max-width: 420px !important;
+        padding-bottom: 28px !important;
+        box-shadow: 0 32px 80px rgba(10,20,50,.2) !important;
       }
-      .comment-author {
-        font-size: 12px;
-        font-weight: 600;
-        color: #334155;
-        margin-bottom: 4px;
-        word-break: break-word;
-      }
-      .comment-text {
-        font-size: 13px;
-        color: #475569;
-        line-height: 1.6;
-        word-break: break-word;
-        overflow-wrap: break-word;
-      }
-      .comment-time {
-        font-size: 11px;
-        color: #94a3b8;
-        margin-top: 5px;
-        padding-left: 2px;
-      }
+      .sig-handle { display: none !important; }
+    }
+    .sig-box {
+      width: 100%; max-width: 520px; background: #fff;
+      border-radius: 24px 24px 0 0;
+      padding: 10px 18px 72px;
+      animation: slideUp .25s cubic-bezier(.34,1.56,.64,1);
+    }
+    .sig-handle {
+      width: 38px; height: 4px; background: #E0E7EF;
+      border-radius: 4px; margin: 0 auto 18px;
+    }
+    .sig-title {
+      font-size: 16px; font-weight: 800; color: #0D1B2A;
+      text-align: center; margin-bottom: 4px;
+    }
+    .sig-sub {
+      font-size: 12px; color: #90A4AE;
+      text-align: center; margin-bottom: 18px;
+    }
 
-      .reply-bubble {
-        background: #eff6ff;
-        border: 0.5px solid rgba(37, 99, 235, 0.12);
-        border-radius: 12px;
-        border-top-left-radius: 3px;
-        padding: 10px 13px;
-        margin-top: 8px;
-        margin-left: 16px;
-        word-break: break-word;
-      }
-      .reply-author {
-        font-size: 12px;
-        font-weight: 600;
-        color: #1E3A8A;
-        margin-bottom: 4px;
-      }
-      .reply-text {
-        font-size: 13px;
-        color: #1E3A8A;
-        line-height: 1.6;
-        word-break: break-word;
-        overflow-wrap: break-word;
-      }
+    /* Ligne motif — TOUTE cliquable */
+    .motif-row {
+      display: flex; align-items: center; gap: 13px;
+      padding: 12px 14px; border-radius: 12px; cursor: pointer;
+      border: 1.5px solid transparent; margin-bottom: 6px;
+      transition: background .12s, border-color .12s;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .motif-row:hover { background: #F5F7FA; }
+    .motif-row:active { background: #EEF0FB; }
+    .motif-row.sel {
+      background: #E8EAF6; border-color: #C5CAE9;
+    }
 
-      .avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 600;
-        flex-shrink: 0;
-      }
-      .avatar-blue { background: #dbeafe; color: #1E3A8A; }
-      .avatar-dark { background: #1E3A8A; color: #fff; }
+    /* Cercle checkbox custom */
+    .motif-radio {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+      border: 2px solid #D1D5DB; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .15s, background .15s;
+    }
+    .motif-row.sel .motif-radio {
+      border-color: #1A237E; background: #1A237E;
+    }
+    .motif-radio-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #fff; opacity: 0;
+      transform: scale(.4);
+      transition: opacity .15s, transform .15s;
+    }
+    .motif-row.sel .motif-radio-dot { opacity: 1; transform: scale(1); }
 
-      /* ── Textarea ── */
-      .comment-input {
-        width: 100%;
-        padding: 11px 14px;
-        border: 0.5px solid rgba(0, 0, 0, 0.1);
-        border-radius: 12px;
-        background: #f8fafc;
-        font-size: 13px;
-        color: #111827;
-        resize: none;
-        outline: none;
-        transition: border-color 0.15s, background 0.15s;
-        font-family: inherit;
-        box-sizing: border-box;
-      }
-      .comment-input:focus {
-        border-color: rgba(0, 0, 0, 0.2);
-        background: #fff;
-      }
+    .motif-text {
+      font-size: 14px; color: #374151; flex: 1; line-height: 1.3;
+    }
+    .motif-row.sel .motif-text { color: #1A237E; font-weight: 600; }
 
-      .btn-post {
-        padding: 8px 18px;
-        background: #1E3A8A;
-        color: #fff;
-        font-size: 12px;
-        font-weight: 600;
-        border: none;
-        border-radius: 20px;
-        cursor: pointer;
-        transition: opacity 0.15s;
-      }
-      .btn-post:hover { opacity: 0.88; }
-      .btn-post:disabled { opacity: 0.45; cursor: not-allowed; }
+    /* Zone textarea AUTRE */
+    .sig-autre {
+      margin-top: 8px; margin-bottom: 2px;
+      animation: fadeIn .15s ease;
+    }
 
-      .char-count { font-size: 11px; color: #9ca3af; }
+    /* Actions */
+    .sig-actions { display: flex; gap: 10px; margin-top: 18px; }
+    .sig-cancel {
+      flex: 1; height: 50px; background: #F5F7FA;
+      border: 1.5px solid #E0E7EF; border-radius: 14px;
+      font: 600 14px/1 'DM Sans', system-ui, sans-serif;
+      color: #546E7A; cursor: pointer; transition: background .15s;
+    }
+    .sig-cancel:hover { background: #E8EAF6; color: #1A237E; border-color: #C5CAE9; }
 
-      /* ── Modal signalement ── */
-      .modal-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 50;
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-        padding: 0;
-        background: rgba(0, 0, 0, 0.4);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-        animation: fadeIn 0.18s ease;
-      }
-      @media (min-width: 640px) {
-        .modal-overlay { align-items: center; padding: 16px; }
-        .modal-box { border-radius: 20px !important; max-width: 400px !important; }
-      }
-      .modal-box {
-        position: relative;
-        width: 100%;
-        max-width: 100%;
-        background: #fff;
-        border-radius: 20px 20px 0 0;
-        padding: 8px 24px 32px;
-        animation: slideUp 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      .modal-handle {
-        width: 36px;
-        height: 4px;
-        background: #e2e8f0;
-        border-radius: 2px;
-        margin: 12px auto 20px;
-      }
-      .modal-title {
-        font-size: 15px;
-        font-weight: 600;
-        color: #111827;
-        margin-bottom: 16px;
-        text-align: center;
-      }
-      .motif-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: background 0.12s;
-      }
-      .motif-row:hover { background: #f8fafc; }
-      .motif-row label { font-size: 13px; color: #374151; cursor: pointer; }
-      .modal-actions {
-        display: flex;
-        gap: 10px;
-        margin-top: 16px;
-      }
-      .btn-cancel {
-        flex: 1;
-        padding: 12px;
-        background: #f8fafc;
-        border: 0.5px solid rgba(0, 0, 0, 0.1);
-        border-radius: 10px;
-        font-size: 13px;
-        color: #374151;
-        cursor: pointer;
-        transition: background 0.15s;
-      }
-      .btn-cancel:hover { background: #f1f5f9; }
-      .btn-report {
-        flex: 1;
-        padding: 12px;
-        background: #ef4444;
-        border: none;
-        border-radius: 10px;
-        font-size: 13px;
-        font-weight: 600;
-        color: #fff;
-        cursor: pointer;
-        transition: background 0.15s;
-      }
-      .btn-report:hover { background: #dc2626; }
-      .btn-report:disabled { opacity: 0.45; cursor: not-allowed; }
+    .sig-submit {
+      flex: 2; height: 50px; border: none; border-radius: 14px;
+      font: 700 14px/1 'DM Sans', system-ui, sans-serif;
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: #E53935;
+      box-shadow: 0 4px 14px rgba(229,57,53,.3);
+      transition: background .15s, opacity .15s, transform .1s;
+    }
+    .sig-submit:hover:not(:disabled) { background: #C62828; }
+    .sig-submit:active:not(:disabled) { transform: scale(.98); }
+    .sig-submit:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+    .sig-submit svg { width: 16px; height: 16px; flex-shrink: 0; }
 
-      /* ── Not found ── */
-      .not-found {
-        text-align: center;
-        padding: 80px 16px;
-      }
-      .not-found p {
-        font-size: 14px;
-        color: #6b7280;
-        margin-bottom: 20px;
-      }
-      .btn-back-list {
-        display: inline-block;
-        padding: 11px 24px;
-        background: #1e3a5f;
-        color: #fff;
-        font-size: 13px;
-        font-weight: 600;
-        border-radius: 12px;
-        text-decoration: none;
-        transition: opacity 0.15s;
-      }
-      .btn-back-list:hover { opacity: 0.88; }
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px; border-radius: 50; flex-shrink: 0;
+      border: 2.5px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-      /* ── Login prompt ── */
-      .login-prompt {
-        text-align: center;
-        padding: 20px 0 8px;
-        border-top: 0.5px solid rgba(0, 0, 0, 0.07);
-        margin-top: 16px;
-      }
-      .login-prompt p {
-        font-size: 13px;
-        color: #6b7280;
-        margin-bottom: 12px;
-      }
-      .btn-login {
-        display: inline-block;
-        padding: 9px 22px;
-        background: #1E3A8A;
-        color: #fff;
-        font-size: 13px;
-        font-weight: 600;
-        border-radius: 10px;
-        text-decoration: none;
-        transition: opacity 0.15s;
-      }
-      .btn-login:hover { opacity: 0.88; }
-    `,
-  ],
+    /* ══ NOT FOUND ══ */
+    .not-found { text-align: center; padding: 80px 16px; }
+    .not-found p { font-size: 14px; color: #6b7280; margin-bottom: 20px; }
+    .btn-back-list {
+      display: inline-block; padding: 11px 24px; background: #1A237E; color: #fff;
+      font-size: 13px; font-weight: 600; border-radius: 12px;
+      text-decoration: none; transition: opacity .15s;
+    }
+    .btn-back-list:hover { opacity: .88; }
+
+    /* ══ LOGIN PROMPT ══ */
+    .login-prompt {
+      text-align: center; padding: 20px 0 8px;
+      border-top: .5px solid rgba(0,0,0,.07); margin-top: 16px;
+    }
+    .login-prompt p { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
+    .btn-login {
+      display: inline-block; padding: 9px 22px; background: #1E3A8A; color: #fff;
+      font-size: 13px; font-weight: 600; border-radius: 10px;
+      text-decoration: none; transition: opacity .15s;
+    }
+    .btn-login:hover { opacity: .88; }
+
+    /* ══ NO PHOTO ══ */
+    .no-photo-ph {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+      background: linear-gradient(135deg,#EEF0FB,#C5CAE9);
+    }
+    .no-photo-ph svg { width: 48px; height: 48px; color: #1A237E; opacity: .25; }
+    .no-photo-ph span { font-size: 13px; color: #1A237E; opacity: .4; font-weight: 600; }
+  `],
   template: `
     <div class="detail-wrap">
       <app-back-button />
@@ -794,114 +523,118 @@ import { AuthService } from '@core/services/auth.service';
         <app-loading-spinner />
       } @else if (annonce()) {
 
-        <!-- ── Galerie ── -->
+        <!-- ══ GALERIE ══ -->
         <div class="gallery">
-          <div
-            class="gallery-main"
-            (mousedown)="onDragStart($event)"
-            (mousemove)="onDragMove($event)"
-            (mouseup)="onDragEnd($event)"
-            (mouseleave)="onDragEnd($event)"
-            (touchstart)="onTouchStart($event)"
-            (touchmove)="onTouchMove($event)"
-            (touchend)="onTouchEnd($event)"
-          >
-            <div
-              class="gallery-slides"
+          <div class="gallery-main" [class.loaded]="mainImgLoaded()"
+            (mousedown)="onDragStart($event)" (mousemove)="onDragMove($event)"
+            (mouseup)="onDragEnd($event)"   (mouseleave)="onDragEnd($event)"
+            (touchstart)="onTouchStart($event)" (touchmove)="onTouchMove($event)"
+            (touchend)="onTouchEnd($event)">
+
+            <div class="gallery-slides"
               [class.no-transition]="isDragging()"
-              [style.transform]="slidesTransform()"
-            >
-              @for (p of annonce()!.photos; track p.id) {
+              [style.transform]="slidesTransform()">
+
+              @if (photos().length > 0) {
+                @for (p of photos(); track p.id; let i = $index) {
+                  <div class="gallery-slide">
+                    <img [src]="p.url" [alt]="annonce()!.typeBien"
+                      [loading]="i === 0 ? 'eager' : 'lazy'"
+                      [attr.fetchpriority]="i === 0 ? 'high' : 'low'"
+                      (load)="onMainImgLoad(i)" (error)="onImgError($event)"/>
+                  </div>
+                }
+              } @else {
                 <div class="gallery-slide">
-                  <img [src]="p.url" [alt]="annonce()!.typeBien" (error)="onImgError($event)" loading="lazy" />
-                </div>
-              }
-              @if (annonce()!.photos.length === 0) {
-                <div class="gallery-slide">
-                  <img [src]="annonce()!.photoPrincipale ?? '/assets/images/no-photo.svg'" [alt]="annonce()!.typeBien" (error)="onImgError($event)" />
+                  <div class="no-photo-ph">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586
+                           a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6
+                           a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <span>Aucune photo disponible</span>
+                  </div>
                 </div>
               }
             </div>
 
-            @if (annonce()!.photos.length > 1) {
+            @if (photos().length > 1) {
               <button class="gallery-nav prev" (click)="prevPhoto()" aria-label="Photo précédente">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
                 </svg>
               </button>
               <button class="gallery-nav next" (click)="nextPhoto()" aria-label="Photo suivante">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                 </svg>
               </button>
-
-              <div class="gallery-counter">{{ photoIndex() + 1 }} / {{ annonce()!.photos.length }}</div>
-
+              <div class="gallery-counter">{{ photoIndex() + 1 }} / {{ photos().length }}</div>
               <div class="gallery-dots">
-                @for (p of annonce()!.photos; track p.id; let i = $index) {
-                  <button
-                    class="dot"
-                    [class.active]="i === photoIndex()"
-                    (click)="photoIndex.set(i)"
-                    [attr.aria-label]="'Photo ' + (i+1)"
-                  ></button>
+                @for (p of photos(); track p.id; let i = $index) {
+                  <button class="dot" [class.active]="i === photoIndex()"
+                    (click)="photoIndex.set(i)" [attr.aria-label]="'Photo ' + (i+1)">
+                  </button>
                 }
               </div>
             }
           </div>
 
-          @if (annonce()!.photos.length > 1) {
+          @if (photos().length > 1) {
             <div class="gallery-thumbs">
-              @for (p of annonce()!.photos; track p.id; let i = $index) {
-                <button
-                  class="thumb"
-                  [class.active]="i === photoIndex()"
-                  (click)="photoIndex.set(i)"
-                  [attr.aria-label]="'Vignette ' + (i+1)"
-                >
-                  <img [src]="p.urlThumb" alt="" loading="lazy" />
+              @for (p of photos(); track p.id; let i = $index) {
+                <button class="thumb" [class.active]="i === photoIndex()"
+                  (click)="photoIndex.set(i)" [attr.aria-label]="'Vignette ' + (i+1)">
+                  <img [src]="p.urlThumb" alt="" loading="lazy"
+                    (load)="onThumbLoad($event)" (error)="onImgError($event)"/>
                 </button>
               }
             </div>
           }
         </div>
 
-        <!-- ── Grid ── -->
+        <!-- ══ GRID ══ -->
         <div class="detail-grid">
 
           <!-- Colonne principale -->
-          <div class="col-main" style="margin-top:16px;">
-
-            <!-- En-tête annonce -->
+          <div class="col-main">
+            <!-- En-tête -->
             <div class="card" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
               <div style="flex:1;min-width:0;overflow:hidden;">
-                <div style="margin-bottom:8px;">
-                  <app-status-badge [statut]="annonce()!.statut" />
-                </div>
+                <span class="badge-statut" [ngClass]="getStatutClass(annonce()!.statut)">
+                  {{ getStatutLabel(annonce()!.statut) }}
+                </span>
                 <h1 class="annonce-title">{{ annonce()!.typeBien }}</h1>
                 <div class="annonce-loc">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;width:14px;height:14px;">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
                   </svg>
                   <span style="word-break:break-word;">{{ annonce()!.quartier }}, {{ annonce()!.ville }}</span>
                 </div>
               </div>
               <button class="btn-share" (click)="openShare()" aria-label="Partager">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342
+                       m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316
+                       m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316
+                       a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
                 </svg>
               </button>
             </div>
 
             <!-- Description -->
-            <div class="card" style="margin-top:16px;">
+            <div class="card">
               <p class="section-title">Description</p>
               <p class="desc-text">{{ annonce()!.description }}</p>
             </div>
 
             <!-- Stats -->
-            <div class="card" style="margin-top:16px;">
+            <div class="card">
               <div class="stats-row">
                 <div class="stat-box">
                   <div class="stat-val">{{ annonce()!.nombreVues }}</div>
@@ -919,7 +652,7 @@ import { AuthService } from '@core/services/auth.service';
             </div>
 
             <!-- Commentaires -->
-            <div class="card" style="margin-top:16px;">
+            <div class="card">
               <p class="section-title">Commentaires ({{ annonce()!.commentaires.length }})</p>
 
               @if (annonce()!.commentaires.length > 0) {
@@ -938,7 +671,6 @@ import { AuthService } from '@core/services/auth.service';
                           <p class="comment-text">{{ c.contenu }}</p>
                         </div>
                         <p class="comment-time">{{ c.dateCreation | timeAgo }}</p>
-
                         @if (c.reponse) {
                           <div class="reply-bubble">
                             <div class="reply-author">Propriétaire</div>
@@ -955,25 +687,17 @@ import { AuthService } from '@core/services/auth.service';
                 </p>
               }
 
-              <!-- Formulaire commentaire -->
               @if (isLoggedIn()) {
-                <div style="display:flex;gap:10px;padding-top:16px;border-top:0.5px solid rgba(0,0,0,.07);min-width:0;">
+                <div style="display:flex;gap:10px;padding-top:16px;border-top:.5px solid rgba(0,0,0,.07);min-width:0;">
                   <div class="avatar avatar-dark" style="flex-shrink:0;">{{ userInitial() }}</div>
                   <div style="flex:1;min-width:0;overflow:hidden;">
-                    <textarea
-                      class="comment-input"
-                      [(ngModel)]="newComment"
+                    <textarea class="comment-input" [(ngModel)]="newComment"
                       placeholder="Poser une question sur cette annonce…"
-                      rows="2"
-                      maxlength="500"
-                    ></textarea>
+                      rows="2" maxlength="500"></textarea>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
                       <span class="char-count">{{ newComment.length }}/500</span>
-                      <button
-                        class="btn-post"
-                        (click)="postComment()"
-                        [disabled]="newComment.trim().length < 5 || postingComment()"
-                      >
+                      <button class="btn-post" (click)="postComment()"
+                        [disabled]="newComment.trim().length < 1 || postingComment()">
                         {{ postingComment() ? 'Envoi…' : 'Commenter' }}
                       </button>
                     </div>
@@ -988,17 +712,15 @@ import { AuthService } from '@core/services/auth.service';
             </div>
           </div>
 
-          <!-- ── Aside ── -->
+          <!-- ══ ASIDE ══ -->
           <div class="col-aside">
             <div style="position:sticky;top:80px;">
-              <!-- Prix -->
               <div class="card">
                 <div class="prix-label">{{ annonce()!.prix | fcfa }}</div>
                 <p class="prix-meta">Publié {{ annonce()!.datePublication | timeAgo }}</p>
                 <p class="prix-meta">Expire le {{ formatExpiry(annonce()!.dateExpiration) }}</p>
               </div>
 
-              <!-- Actions -->
               <div style="margin-top:12px;">
                 @if (annonce()!.statut === 'ACTIVE') {
                   @if (isLoggedIn()) {
@@ -1009,7 +731,8 @@ import { AuthService } from '@core/services/auth.service';
                       {{ contactLoading() ? 'Ouverture…' : 'Contacter via WhatsApp' }}
                     </button>
                   } @else {
-                    <a routerLink="/auth/login" class="btn-whatsapp" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:10px;">
+                    <a routerLink="/auth/login" class="btn-whatsapp"
+                      style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:10px;">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                         <path d="M7 11V7a5 5 0 0110 0v4"/>
@@ -1021,76 +744,102 @@ import { AuthService } from '@core/services/auth.service';
 
                 @if (isLoggedIn()) {
                   <button class="btn-favori" [class.active]="isFavori()" (click)="toggleFavori()">
-                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0;" [attr.fill]="isFavori() ? '#dc2626' : 'none'">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                      [attr.fill]="isFavori() ? '#dc2626' : 'none'">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682
+                           a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318
+                           a4.5 4.5 0 00-6.364 0z"/>
                     </svg>
                     {{ isFavori() ? 'Retirer des favoris' : 'Ajouter aux favoris' }}
                   </button>
 
-                  <button class="btn-signaler" (click)="openSignalement()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
-                    </svg>
-                    Signaler cette annonce
-                  </button>
+                  <!-- Bouton signaler — masqué si c'est l'annonce du user -->
+                  @if (!annonce()!.estMienne) {
+                    <button class="btn-signaler"
+                      [class.already-reported]="alreadyReported()"
+                      (click)="!alreadyReported() && openSignalement()">
+                      @if (alreadyReported()) {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Signalement envoyé
+                      } @else {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                          <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5
+                               a2 2 0 00-2 2zm9-13.5V9"/>
+                        </svg>
+                        Signaler cette annonce
+                      }
+                    </button>
+                  }
                 }
               </div>
             </div>
           </div>
         </div>
 
-        <!-- ── Modal signalement ── -->
+        <!-- ══ MODAL SIGNALEMENT ══ -->
         @if (showSignalement()) {
-          <div class="modal-overlay" (click)="showSignalement.set(false)">
-            <div class="modal-box" (click)="$event.stopPropagation()">
-              <div class="modal-handle"></div>
-              <p class="modal-title">Signaler cette annonce</p>
-              <div>
-                @for (motif of motifs; track motif.value) {
-                  <div class="motif-row">
-                    <input
-                      type="radio"
-                      name="motif"
-                      [value]="motif.value"
-                      [(ngModel)]="selectedMotif"
-                      style="accent-color:#1e3a5f;"
-                    />
-                    <label>{{ motif.label }}</label>
+          <div class="sig-overlay" (click)="showSignalement.set(false)">
+            <div class="sig-box" (click)="$event.stopPropagation()">
+              <div class="sig-handle"></div>
+              <p class="sig-title">Signaler cette annonce</p>
+              <p class="sig-sub">Quel problème avez-vous constaté ?</p>
+
+              <!-- Motifs — toute la ligne est cliquable -->
+              @for (motif of motifs; track motif.value) {
+                <div class="motif-row"
+                  [class.sel]="selectedMotif === motif.value"
+                  (click)="selectedMotif = motif.value">
+                  <div class="motif-radio">
+                    <div class="motif-radio-dot"></div>
                   </div>
-                }
-              </div>
-              @if (selectedMotif === 'AUTRE') {
-                <textarea
-                  class="comment-input"
-                  [(ngModel)]="signalementDesc"
-                  placeholder="Précisez le motif…"
-                  rows="3"
-                  style="margin-top:12px;"
-                ></textarea>
+                  <span class="motif-text">{{ motif.label }}</span>
+                </div>
               }
-              <div class="modal-actions">
-                <button class="btn-cancel" (click)="showSignalement.set(false)">Annuler</button>
-                <button
-                  class="btn-report"
-                  [disabled]="!selectedMotif"
-                  (click)="submitSignalement()"
-                >
-                  Signaler
+
+              <!-- Textarea si AUTRE -->
+              @if (selectedMotif === 'AUTRE') {
+                <div class="sig-autre">
+                  <textarea class="comment-input" [(ngModel)]="signalementDesc"
+                    placeholder="Précisez le motif…" rows="3">
+                  </textarea>
+                </div>
+              }
+
+              <div class="sig-actions">
+                <button class="sig-cancel" (click)="showSignalement.set(false)">
+                  Annuler
+                </button>
+                <button class="sig-submit"
+                  [disabled]="!selectedMotif || submittingReport()"
+                  (click)="submitSignalement()">
+                  @if (submittingReport()) {
+                    <div class="spinner"></div>
+                    Envoi en cours…
+                  } @else {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5
+                           a2 2 0 00-2 2zm9-13.5V9"/>
+                    </svg>
+                    Envoyer le signalement
+                  }
                 </button>
               </div>
             </div>
           </div>
         }
 
-        <!-- ── Share bottom sheet ── -->
+        <!-- ══ SHARE SHEET ══ -->
         @if (showShare()) {
           <div class="share-overlay" (click)="closeShare()">
             <div class="share-box" (click)="$event.stopPropagation()">
               <div class="share-handle"></div>
               <p class="share-title">Partager cette annonce</p>
               <div class="share-grid">
-
-                <!-- WhatsApp -->
                 <button class="share-item" (click)="shareVia('whatsapp')">
                   <div class="share-icon share-icon-wa">
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -1099,8 +848,6 @@ import { AuthService } from '@core/services/auth.service';
                   </div>
                   <span class="share-label">WhatsApp</span>
                 </button>
-
-                <!-- Facebook -->
                 <button class="share-item" (click)="shareVia('facebook')">
                   <div class="share-icon share-icon-fb">
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -1109,8 +856,6 @@ import { AuthService } from '@core/services/auth.service';
                   </div>
                   <span class="share-label">Facebook</span>
                 </button>
-
-                <!-- X / Twitter -->
                 <button class="share-item" (click)="shareVia('twitter')">
                   <div class="share-icon share-icon-tw">
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -1119,8 +864,6 @@ import { AuthService } from '@core/services/auth.service';
                   </div>
                   <span class="share-label">X (Twitter)</span>
                 </button>
-
-                <!-- Copier le lien -->
                 <button class="share-item" (click)="shareVia('copy')">
                   <div class="share-icon share-icon-copy">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1128,17 +871,14 @@ import { AuthService } from '@core/services/auth.service';
                       <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                     </svg>
                   </div>
-                  <span class="share-label">{{ linkCopied() ? 'Copié !' : 'Copier le lien' }}</span>
+                  <span class="share-label">{{ linkCopied() ? 'Copié !' : 'Copier' }}</span>
                 </button>
-
               </div>
-
               <div class="share-divider"></div>
-
               <div class="share-url-row">
                 <span class="share-url-text">{{ currentUrl() }}</span>
                 <button class="share-copy-btn" [class.copied]="linkCopied()" (click)="copyLink()">
-                  {{ linkCopied() ? 'Copié' : 'Copier' }}
+                  {{ linkCopied() ? 'Copié ✓' : 'Copier' }}
                 </button>
               </div>
             </div>
@@ -1155,124 +895,143 @@ import { AuthService } from '@core/services/auth.service';
   `,
 })
 export class AnnonceDetailComponent implements OnInit {
-  private readonly store = inject(Store);
-  private readonly route = inject(ActivatedRoute);
+  private readonly store      = inject(Store);
+  private readonly route      = inject(ActivatedRoute);
+  private readonly router     = inject(Router);
   private readonly contactApi = inject(ContactApi);
   private readonly commentApi = inject(CommentaireApi);
-  private readonly signalApi = inject(SignalementApi);
-  private readonly toast = inject(ToastService);
-  private readonly auth = inject(AuthService);
-  private readonly storage = inject(StorageService);
-  private readonly router = inject(Router);
+  private readonly signalApi  = inject(SignalementApi);
+  private readonly toast      = inject(ToastService);
+  private readonly auth       = inject(AuthService);
 
-  readonly annonce = this.store.selectSignal(selectAnnonceDetail);
-  readonly loading = this.store.selectSignal(selectDetailLoading);
+  readonly annonce    = this.store.selectSignal(selectAnnonceDetail);
+  readonly loading    = this.store.selectSignal(selectDetailLoading);
   readonly isLoggedIn = this.auth.isLoggedIn;
-  readonly user = this.auth.currentUser;
 
-  // ── Galerie ──
-  photoIndex = signal(0);
+  // Photos avec fallback
+  readonly photos = computed(() => {
+    const a = this.annonce();
+    if (!a) return [];
+    if (a.photos?.length > 0) return a.photos;
+    if (a.photoPrincipale) return [{
+      id: 0, url: a.photoPrincipale,
+      urlThumb: a.photoPrincipaleThumb ?? a.photoPrincipale,
+      ordre: 0, principale: true,
+    }];
+    return [];
+  });
 
-  // Swipe / drag state
-  isDragging = signal(false);
-  private dragStartX = 0;
-  private dragCurrentX = 0;
-  private dragOffset = 0;
+  // Galerie
+  photoIndex    = signal(0);
+  isDragging    = signal(false);
+  mainImgLoaded = signal(false);
+
+  private dragStartX    = 0;
+  private dragCurrentX  = 0;
+  private dragOffset    = 0;
+  private touchStartX   = 0;
+  private touchCurrentX = 0;
 
   readonly slidesTransform = computed(() => {
-    const base = -(this.photoIndex() * 100);
+    const base   = -(this.photoIndex() * 100);
     const offset = this.isDragging() ? this.dragOffset : 0;
     return `translateX(calc(${base}% + ${offset}px))`;
   });
 
-  // ── UI state ──
-  contactLoading = signal(false);
-  postingComment = signal(false);
-  showSignalement = signal(false);
-  showShare = signal(false);
-  linkCopied = signal(false);
+  // État UI
+  contactLoading   = signal(false);
+  postingComment   = signal(false);
+  showSignalement  = signal(false);
+  showShare        = signal(false);
+  linkCopied       = signal(false);
+  alreadyReported  = signal(false);
+  submittingReport = signal(false);
 
-  newComment = '';
-  selectedMotif = '';
+  newComment      = '';
+  selectedMotif   = '';
   signalementDesc = '';
 
-  readonly motifs = Object.entries(MOTIF_SIGNALEMENT_LABELS).map(([value, label]) => ({
-    value,
-    label,
-  }));
+  readonly motifs = Object.entries(MOTIF_SIGNALEMENT_LABELS)
+    .map(([value, label]) => ({ value, label }));
 
   readonly userInitial = computed(() =>
     this.auth.currentUser()?.prenom?.[0]?.toUpperCase() ?? 'U'
   );
 
-  readonly isFavori = computed(() => this.annonce()?.isFavori ?? false);
+  private readonly favoriIds = this.store.selectSignal(selectFavoriIds);
+  private readonly annonceId = computed(() => this.annonce()?.id ?? 0);
+  readonly isFavori = computed(() => this.favoriIds().has(this.annonceId()));
 
   readonly currentUrl = computed(() =>
     typeof window !== 'undefined' ? window.location.href : ''
   );
 
-  // ── Lifecycle ──
   ngOnInit(): void {
     const id = +this.route.snapshot.paramMap.get('id')!;
     this.store.dispatch(annonceActions.loadDetail({ id }));
-    if (this.isLoggedIn()) this.store.dispatch(favoriActions.load());
+    if (this.isLoggedIn()) {
+      this.store.dispatch(favoriActions.load());
+      if (sessionStorage.getItem(`reported_${id}`)) {
+        this.alreadyReported.set(true);
+      }
+    }
   }
 
-  // ── Keyboard navigation ──
+  getStatutClass(s: string): string {
+    return { ACTIVE: 's-active', EN_PAUSE: 's-pause', EXPIREE: 's-expired', ARCHIVEE: 's-arch' }[s] ?? 's-active';
+  }
+  getStatutLabel(s: string): string {
+    return { ACTIVE: 'Active', EN_PAUSE: 'En pause', EXPIREE: 'Expirée', ARCHIVEE: 'Archivée' }[s] ?? s;
+  }
+
+  onMainImgLoad(index: number): void {
+    if (index === 0) this.mainImgLoaded.set(true);
+  }
+  onThumbLoad(e: Event): void {
+    (e.target as HTMLElement).closest('.thumb')?.classList.add('loaded');
+  }
+  onImgError(e: Event): void {
+    (e.target as HTMLImageElement).src = '/assets/images/no-photo.svg';
+  }
+
   @HostListener('document:keydown', ['$event'])
   onKeydown(e: KeyboardEvent): void {
     if (this.showShare() || this.showSignalement()) return;
-    const len = this.annonce()?.photos?.length ?? 0;
-    if (len <= 1) return;
-    if (e.key === 'ArrowLeft') this.prevPhoto();
+    if (this.photos().length <= 1) return;
+    if (e.key === 'ArrowLeft')  this.prevPhoto();
     if (e.key === 'ArrowRight') this.nextPhoto();
   }
 
-  // ── Galerie ──
   prevPhoto(): void {
-    const len = this.annonce()!.photos?.length ?? 0;
-    this.photoIndex.update((i) => (i - 1 + len) % len);
+    const len = this.photos().length;
+    this.photoIndex.update(i => (i - 1 + len) % len);
   }
   nextPhoto(): void {
-    const len = this.annonce()!.photos?.length ?? 0;
-    this.photoIndex.update((i) => (i + 1) % len);
+    const len = this.photos().length;
+    this.photoIndex.update(i => (i + 1) % len);
   }
 
-  // Mouse drag
   onDragStart(e: MouseEvent): void {
-    const len = this.annonce()?.photos?.length ?? 0;
-    if (len <= 1) return;
+    if (this.photos().length <= 1) return;
     this.isDragging.set(true);
-    this.dragStartX = e.clientX;
-    this.dragCurrentX = e.clientX;
+    this.dragStartX = this.dragCurrentX = e.clientX;
     this.dragOffset = 0;
   }
   onDragMove(e: MouseEvent): void {
     if (!this.isDragging()) return;
     this.dragCurrentX = e.clientX;
-    this.dragOffset = this.dragCurrentX - this.dragStartX;
+    this.dragOffset   = this.dragCurrentX - this.dragStartX;
   }
   onDragEnd(e: MouseEvent): void {
     if (!this.isDragging()) return;
     const diff = this.dragCurrentX - this.dragStartX;
-    this.isDragging.set(false);
-    this.dragOffset = 0;
-    if (Math.abs(diff) > 60) {
-      diff < 0 ? this.nextPhoto() : this.prevPhoto();
-    }
+    this.isDragging.set(false); this.dragOffset = 0;
+    if (Math.abs(diff) > 60) diff < 0 ? this.nextPhoto() : this.prevPhoto();
   }
-
-  // Touch swipe
-  private touchStartX = 0;
-  private touchCurrentX = 0;
-
   onTouchStart(e: TouchEvent): void {
-    const len = this.annonce()?.photos?.length ?? 0;
-    if (len <= 1) return;
-    this.touchStartX = e.touches[0].clientX;
-    this.touchCurrentX = e.touches[0].clientX;
-    this.isDragging.set(true);
-    this.dragOffset = 0;
+    if (this.photos().length <= 1) return;
+    this.touchStartX = this.touchCurrentX = e.touches[0].clientX;
+    this.isDragging.set(true); this.dragOffset = 0;
   }
   onTouchMove(e: TouchEvent): void {
     if (!this.isDragging()) return;
@@ -1282,70 +1041,43 @@ export class AnnonceDetailComponent implements OnInit {
   onTouchEnd(e: TouchEvent): void {
     if (!this.isDragging()) return;
     const diff = this.touchCurrentX - this.touchStartX;
-    this.isDragging.set(false);
-    this.dragOffset = 0;
-    if (Math.abs(diff) > 50) {
-      diff < 0 ? this.nextPhoto() : this.prevPhoto();
-    }
-  }
-
-  onImgError(e: Event): void {
-    (e.target as HTMLImageElement).src = '/assets/images/no-photo.svg';
+    this.isDragging.set(false); this.dragOffset = 0;
+    if (Math.abs(diff) > 50) diff < 0 ? this.nextPhoto() : this.prevPhoto();
   }
 
   formatExpiry(date: string): string {
     return new Date(date).toLocaleDateString('fr-CM', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
+      day: 'numeric', month: 'long', year: 'numeric',
     });
   }
 
-  // ── Share sheet ──
   openShare(): void {
-    // Try native share API first (Android/iOS) — falls back to custom sheet
     if (navigator.share) {
-      navigator
-        .share({
-          title: this.annonce()?.typeBien,
-          text: `${this.annonce()?.typeBien} — ${this.annonce()?.quartier}, ${this.annonce()?.ville}`,
-          url: window.location.href,
-        })
-        .catch(() => {
-          // User cancelled or not supported: show custom sheet
-          this.showShare.set(true);
-        });
+      navigator.share({
+        title: this.annonce()?.typeBien,
+        text:  `${this.annonce()?.typeBien} — ${this.annonce()?.quartier}, ${this.annonce()?.ville}`,
+        url:   window.location.href,
+      }).catch(() => this.showShare.set(true));
     } else {
       this.showShare.set(true);
     }
   }
-
   closeShare(): void {
     this.showShare.set(false);
     this.linkCopied.set(false);
   }
-
-  shareVia(platform: 'whatsapp' | 'facebook' | 'twitter' | 'copy'): void {
-    const url = encodeURIComponent(window.location.href);
-    const title = encodeURIComponent(
-      `${this.annonce()?.typeBien} — ${this.annonce()?.quartier}, ${this.annonce()?.ville}`
-    );
-
+  shareVia(p: 'whatsapp' | 'facebook' | 'twitter' | 'copy'): void {
+    const url   = encodeURIComponent(window.location.href);
+    const title = encodeURIComponent(`${this.annonce()?.typeBien} — ${this.annonce()?.quartier}, ${this.annonce()?.ville}`);
+    if (p === 'copy') { this.copyLink(); return; }
     const links: Record<string, string> = {
       whatsapp: `https://wa.me/?text=${title}%20${url}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
-      twitter: `https://twitter.com/intent/tweet?text=${title}&url=${url}`,
+      twitter:  `https://twitter.com/intent/tweet?text=${title}&url=${url}`,
     };
-
-    if (platform === 'copy') {
-      this.copyLink();
-      return;
-    }
-
-    window.open(links[platform], '_blank', 'noopener,noreferrer,width=600,height=500');
+    window.open(links[p], '_blank', 'noopener,noreferrer,width=600,height=500');
     this.closeShare();
   }
-
   copyLink(): void {
     navigator.clipboard.writeText(window.location.href).then(() => {
       this.linkCopied.set(true);
@@ -1354,16 +1086,12 @@ export class AnnonceDetailComponent implements OnInit {
     });
   }
 
-  // ── Contact ──
   contactWhatsApp(): void {
     if (!this.isLoggedIn()) {
-      this.router.navigate(['/auth/login'], {
-        queryParams: { returnUrl: `/annonces/${this.annonce()?.id}` },
-      });
+      this.router.navigate(['/auth/login'], { queryParams: { returnUrl: `/annonces/${this.annonce()?.id}` } });
       return;
     }
-    const a = this.annonce();
-    if (!a) return;
+    const a = this.annonce(); if (!a) return;
     this.contactLoading.set(true);
     this.contactApi.enregistrer(a.id).subscribe({
       next: (res) => {
@@ -1375,31 +1103,21 @@ export class AnnonceDetailComponent implements OnInit {
     });
   }
 
-  // ── Favori ──
   toggleFavori(): void {
     if (!this.isLoggedIn()) {
-      this.router.navigate(['/auth/login'], {
-        queryParams: { returnUrl: `/annonces/${this.annonce()?.id}` },
-      });
+      this.router.navigate(['/auth/login'], { queryParams: { returnUrl: `/annonces/${this.annonce()?.id}` } });
       return;
     }
-    const a = this.annonce();
-    if (!a) return;
-    if (a.isFavori) {
-      this.store.dispatch(favoriActions.remove({ annonceId: a.id }));
-    } else {
-      this.store.dispatch(favoriActions.add({ annonceId: a.id }));
-    }
+    const a = this.annonce(); if (!a) return;
+    this.isFavori()
+      ? this.store.dispatch(favoriActions.remove({ annonceId: a.id }))
+      : this.store.dispatch(favoriActions.add({ annonceId: a.id }));
   }
 
-  // ── Commentaire ──
   postComment(): void {
-    if (!this.isLoggedIn()) {
-      this.router.navigate(['/auth/login']);
-      return;
-    }
+    if (!this.isLoggedIn()) { this.router.navigate(['/auth/login']); return; }
     const a = this.annonce();
-    if (!a || this.newComment.trim().length < 5) return;
+    if (!a || this.newComment.trim().length < 1) return;
     this.postingComment.set(true);
     this.commentApi.poster({ contenu: this.newComment.trim(), annonceId: a.id }).subscribe({
       next: () => {
@@ -1412,27 +1130,35 @@ export class AnnonceDetailComponent implements OnInit {
     });
   }
 
-  // ── Signalement ──
   openSignalement(): void {
+    if (this.alreadyReported()) return;
+    this.selectedMotif   = '';
+    this.signalementDesc = '';
     this.showSignalement.set(true);
   }
 
   submitSignalement(): void {
     const a = this.annonce();
-    if (!a || !this.selectedMotif) return;
-    this.signalApi
-      .signaler({
-        annonceId: a.id,
-        motif: this.selectedMotif,
-        details: this.signalementDesc || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.toast.success('Signalement envoyé. Merci !');
-          this.showSignalement.set(false);
-          this.selectedMotif = '';
-          this.signalementDesc = '';
-        },
-      });
+    if (!a || !this.selectedMotif || this.submittingReport()) return;
+    this.submittingReport.set(true);
+    this.signalApi.signaler({
+      annonceId: a.id,
+      motif: this.selectedMotif,
+      details: this.signalementDesc || undefined,
+    }).subscribe({
+      next: () => {
+        this.submittingReport.set(false);
+        this.toast.success('Signalement envoyé. Merci !');
+        this.alreadyReported.set(true);
+        sessionStorage.setItem(`reported_${a.id}`, '1');
+        this.showSignalement.set(false);
+        this.selectedMotif   = '';
+        this.signalementDesc = '';
+      },
+      error: () => {
+        this.submittingReport.set(false);
+        this.toast.error('Erreur lors du signalement. Réessayez.');
+      },
+    });
   }
 }

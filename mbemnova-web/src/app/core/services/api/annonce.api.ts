@@ -36,6 +36,11 @@ export class AnnonceApi {
     return this.http.post<ApiResponse<AnnonceDashboardResponse>>(this.base, req);
   }
 
+// Dans annonce.api.ts — ajouter :
+desarchiver(id: number): Observable<ApiResponse<void>> {
+  return this.http.patch<ApiResponse<void>>(`${this.base}/${id}/desarchiver`, {});
+}
+
   modifier(
     id: number,
     req: ModifierAnnonceRequest,

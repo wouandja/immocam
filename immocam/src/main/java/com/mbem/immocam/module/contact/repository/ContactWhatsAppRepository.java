@@ -13,64 +13,76 @@ import java.time.LocalDateTime;
 /**
  * Repository pour les contacts WhatsApp.
  *
+ * Règles métier :
+ * - Un utilisateur ne peut contacter une annonce qu'une seule fois (déduplication en service).
+ * - Le propriétaire n'est jamais compté dans ses propres contacts.
+ *
  * @author MBEMNOVA
  */
 @Repository
 public interface ContactWhatsAppRepository extends JpaRepository<ContactWhatsApp, Long> {
 
+    // ── Lecture par annonce ───────────────────────────────────────────────────
+
     /** Contacts d'une annonce triés du plus récent (dashboard propriétaire). */
     Page<ContactWhatsApp> findByAnnonceIdOrderByDateContactDesc(Long annonceId, Pageable pageable);
 
-    /** Nombre de contacts pour une annonce (affiché dans le tableau). */
+    /** Nombre total de contacts pour une annonce. */
     long countByAnnonceId(Long annonceId);
 
-    /** Contacts depuis une date (statistiques admin). */
-    @Query("SELECT COUNT(c) FROM ContactWhatsApp c WHERE c.dateContact >= :depuis")
-    long countDepuis(@Param("depuis") LocalDateTime depuis);
+    // ── Vérifications ─────────────────────────────────────────────────────────
 
-    long count();
-
-    /** Vérifier si un utilisateur a déjà contacté une annonce. */
+    /** Vérifie si un utilisateur a déjà contacté une annonce. */
     boolean existsByUtilisateurIdAndAnnonceId(Long utilisateurId, Long annonceId);
 
+    /**
+     * Vérifie si un utilisateur a déjà contacté une annonce,
+     * en s'assurant qu'il n'est pas le propriétaire (double sécurité).
+     */
+    boolean existsByUtilisateurIdAndAnnonceIdAndAnnonce_Proprietaire_IdNot(
+            Long utilisateurId, Long annonceId, Long proprietaireId);
 
-    // ContactWhatsAppRepository
-    long countByAnnonceProprietaireId(Long proprietaireId);
+    // ── Dashboard propriétaire ────────────────────────────────────────────────
 
+    /**
+     * Nombre de contacts UNIQUES reçus par un propriétaire sur toutes ses annonces.
+     * Un même utilisateur ne compte qu'une seule fois par annonce.
+     * Le propriétaire est exclu du comptage.
+     *
+     * Correction du bug de duplication : COUNT(DISTINCT paire utilisateur+annonce)
+     * au lieu de COUNT(*) qui comptait chaque ligne brute.
+     */
+    @Query("""
+        SELECT COUNT(DISTINCT CONCAT(CAST(c.utilisateur.id AS string), '-', CAST(c.annonce.id AS string)))
+        FROM ContactWhatsApp c
+        WHERE c.annonce.proprietaire.id = :proprietaireId
+          AND c.utilisateur.id != :proprietaireId
+        """)
+    long countContactsUniquesByProprietaireId(@Param("proprietaireId") Long proprietaireId);
 
-    Page<ContactWhatsApp> findByAnnonce_Proprietaire_IdOrderByDateContactDesc(
-    Long proprietaireId, Pageable pageable);
+    /**
+     * Contacts dédupliqués reçus par un propriétaire sur toutes ses annonces.
+     * Pour chaque paire (utilisateur, annonce), seule la première entrée est retournée.
+     * Le propriétaire est exclu.
+     * Utilisé dans mesContacts().
+     */
+    @Query("""
+        SELECT c FROM ContactWhatsApp c
+        WHERE c.annonce.proprietaire.id = :proprietaireId
+          AND c.utilisateur.id != :proprietaireId
+          AND c.id = (
+              SELECT MIN(c2.id) FROM ContactWhatsApp c2
+              WHERE c2.utilisateur.id = c.utilisateur.id
+                AND c2.annonce.id = c.annonce.id
+          )
+        ORDER BY c.dateContact DESC
+        """)
+    Page<ContactWhatsApp> findDedupByProprietaire(
+            @Param("proprietaireId") Long proprietaireId, Pageable pageable);
 
+    // ── Statistiques admin ────────────────────────────────────────────────────
 
- 
-
-
-
-
-    /** Vérifier si un utilisateur a déjà contacté une annonce (hors proprio). */
-boolean existsByUtilisateurIdAndAnnonceIdAndAnnonce_Proprietaire_IdNot(
-    Long utilisateurId, Long annonceId, Long proprietaireId);
-
-/** Contacts dédupliqués d'un proprio, en excluant ses propres contacts. */
-@Query("""
-    SELECT c FROM ContactWhatsApp c
-    WHERE c.annonce.proprietaire.id = :proprietaireId
-      AND c.utilisateur.id != :proprietaireId
-      AND c.id = (
-          SELECT MIN(c2.id) FROM ContactWhatsApp c2
-          WHERE c2.utilisateur.id = c.utilisateur.id
-            AND c2.annonce.id = c.annonce.id
-      )
-    ORDER BY c.dateContact DESC
-    """)
-Page<ContactWhatsApp> findDedupByProprietaire(
-    @Param("proprietaireId") Long proprietaireId, Pageable pageable);
-
-/** Nombre de contacts pour une annonce (hors proprio). */
-long countByAnnonceIdAndUtilisateur_IdNot(Long annonceId, Long utilisateurId);
-
-/** Nombre total de contacts reçus par un proprio (hors lui-même). */
-long countByAnnonce_Proprietaire_IdAndUtilisateur_IdNot(
-    Long proprietaireId, Long utilisateurId);
- 
+    /** Nombre de contacts enregistrés depuis une date donnée (stats admin). */
+    @Query("SELECT COUNT(c) FROM ContactWhatsApp c WHERE c.dateContact >= :depuis")
+    long countDepuis(@Param("depuis") LocalDateTime depuis);
 }

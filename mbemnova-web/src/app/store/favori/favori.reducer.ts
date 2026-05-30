@@ -18,24 +18,56 @@ const initialState: FavoriState = {
 
 export const favoriReducer = createReducer(
   initialState,
-  on(favoriActions.load, (s) => ({ ...s, loading: true })),
- // favori.reducer.ts — loadSuccess
-on(favoriActions.loadSuccess, (s, { favoris }) => ({
-  ...s,
-  loading: false,
-  items: favoris,
-  ids: new Set(favoris.map((f) => f.annonceId)), // annonceId, pas id
-})),
-  on(favoriActions.loadFailure, (s, { error }) => ({ ...s, loading: false, error })),
 
-  on(favoriActions.addSuccess, (s, { annonceId }) => ({
-    ...s,
-    ids: new Set([...s.ids, annonceId]),
+  on(favoriActions.load, (state) => ({ ...state, loading: true })),
+
+  on(favoriActions.loadSuccess, (state, { favoris }) => ({
+    ...state,
+    loading: false,
+    items: favoris,
+    ids: new Set(favoris.map((f) => f.annonceId)),
   })),
-  on(favoriActions.removeSuccess, (s, { annonceId }) => {
-    const ids = new Set(s.ids);
+
+  on(favoriActions.loadFailure, (state, { error }) => ({
+    ...state,
+    loading: false,
+    error,
+  })),
+
+  // ✅ Optimiste : mise à jour immédiate AVANT la réponse API
+  on(favoriActions.add, (state, { annonceId }) => ({
+    ...state,
+    ids: new Set([...state.ids, annonceId]),
+    items: state.items.some((f) => f.annonceId === annonceId)
+      ? state.items
+      : [...state.items, { annonceId } as FavoriResponse],
+  })),
+
+  on(favoriActions.remove, (state, { annonceId }) => {
+    const ids = new Set(state.ids);
     ids.delete(annonceId);
-    return { ...s, ids, items: s.items.filter((f) => f.annonceId !== annonceId) };
+    return {
+      ...state,
+      ids,
+      items: state.items.filter((f) => f.annonceId !== annonceId),
+    };
   }),
+
+  // ✅ Confirmation API : ids déjà à jour côté optimiste, rien à faire sur items
+  on(favoriActions.addSuccess, (state, { annonceId }) => ({
+    ...state,
+    ids: new Set([...state.ids, annonceId]), // idempotent si déjà présent
+  })),
+
+  on(favoriActions.removeSuccess, (state, { annonceId }) => {
+    const ids = new Set(state.ids);
+    ids.delete(annonceId);
+    return {
+      ...state,
+      ids,
+      items: state.items.filter((f) => f.annonceId !== annonceId), // idempotent
+    };
+  }),
+
   on(favoriActions.clear, () => initialState),
 );

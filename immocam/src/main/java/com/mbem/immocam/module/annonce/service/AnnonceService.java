@@ -49,6 +49,9 @@ public interface AnnonceService {
 
     DashboardStatsResponse getDashboardStats(Long proprietaireId);
 
+
+    void desarchiver(Long id, Long proprietaireId);
+
     /** Dashboard propriétaire — ses propres annonces. */
     PageResponse<AnnonceDashboardResponse> mesAnnonces(Long proprietaireId, Pageable pageable);
 }

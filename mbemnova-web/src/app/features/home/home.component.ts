@@ -6,7 +6,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, debounceTime, takeUntil } from 'rxjs';
 
 import { annonceActions } from '@store/annonce/annonce.actions';
 import { favoriActions } from '@store/favori/favori.actions';
@@ -28,7 +28,6 @@ import { AnnonceFilters, TypeBienResponse } from '@core/services/models';
 const PRIX_MAX_DEFAULT = 2_000_000;
 const PAGE_SIZE        = 8;
 
-/** Mélange un tableau en place (Fisher-Yates) et le retourne. */
 function shuffle<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -359,10 +358,6 @@ function shuffle<T>(arr: T[]): T[] {
       50%       { opacity: 0.5; }
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes pulse-btn {
-      0%, 100% { box-shadow: 0 4px 20px rgba(22,163,74,0.45); transform: scale(1); }
-      50%       { box-shadow: 0 6px 28px rgba(22,163,74,0.65); transform: scale(1.012); }
-    }
     .fade-up { animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
     .card-wrap { transition: transform 0.2s cubic-bezier(0.22,1,0.36,1); }
     .card-wrap:hover { transform: translateY(-3px); }
@@ -390,15 +385,17 @@ export class HomeComponent implements OnInit, OnDestroy {
   readonly loadingMore = this.store.selectSignal(selectLoadingMore);
   readonly hasMore     = this.store.selectSignal(selectHasMore);
   readonly isLoggedIn  = this.store.selectSignal(selectIsLoggedIn);
-  readonly skeletons      = [1,2,3,4,5,6,7,8];
-  readonly skeletonsMore  = [1,2,3,4,5,6,7,8];
+  readonly skeletons     = [1,2,3,4,5,6,7,8];
+  readonly skeletonsMore = [1,2,3,4,5,6,7,8];
 
-  // ── Referentiel ────────────────────────────────────────────────────────────
+  // ── Référentiel ────────────────────────────────────────────────────────────
   readonly typesBiens        = signal<TypeBienResponse[]>([]);
   readonly villes            = signal<string[]>([]);
   readonly quartiers         = signal<string[]>([]);
   readonly loadingTypesBiens = signal(true);
   readonly loadingQuartiers  = signal(false);
+  private _shuffledIds: number[] = [];
+private _lastItemCount = 0;
 
   // ── Filtres ────────────────────────────────────────────────────────────────
   readonly selectedTypeBienId = signal<number | null>(null);
@@ -408,12 +405,19 @@ export class HomeComponent implements OnInit, OnDestroy {
   prixMaxVal     = PRIX_MAX_DEFAULT;
   readonly PRIX_MAX = PRIX_MAX_DEFAULT;
 
+  // Subject pour debouncer les sliders de prix dans la search card
+  // Note : dans Home, le prix ne déclenche PAS de requête directe —
+  // il sert uniquement à mettre à jour les hints affichés.
+  // La requête part seulement au clic sur "Rechercher" (onSearch).
+  // Le Subject reste utile si on ajoute un mode live-filter plus tard.
+  private readonly priceChange$ = new Subject<void>();
+
   // ── UI ─────────────────────────────────────────────────────────────────────
   readonly serverError = signal(false);
   readonly isOffline   = signal(!navigator.onLine);
 
   // ── Pagination ─────────────────────────────────────────────────────────────
-  private currentPage   = 0;
+  private currentPage     = 0;
   private activeFilters: AnnonceFilters = { page: 0, taille: PAGE_SIZE };
   private _loadMoreLocked = false;
 
@@ -433,9 +437,11 @@ export class HomeComponent implements OnInit, OnDestroy {
   );
 
   readonly hasActiveFilters = computed(
-    () => !!this.searchVille || !!this.searchQuartier
+    () => !!this.searchVille
+       || !!this.searchQuartier
        || this.selectedTypeBienId() !== null
-       || this.prixMinVal > 1_000 || this.prixMaxVal < this.PRIX_MAX,
+       || this.prixMinVal > 1_000
+       || this.prixMaxVal < this.PRIX_MAX,
   );
 
   readonly selectedTypeBienLabel = computed(
@@ -450,16 +456,13 @@ export class HomeComponent implements OnInit, OnDestroy {
     () => this.hasMore() && !this.loadingMore() && !this._loadMoreLocked,
   );
 
-  readonly annoncesShuffled = computed(() => shuffle([...this.annonces()]));
+  // readonly annoncesShuffled = computed(() => shuffle([...this.annonces()]));
 
   // ── Formatage prix ─────────────────────────────────────────────────────────
-
-  /** Séparateurs de milliers fr-FR : 1 500 000 */
   formatPrix(n: number): string {
     return new Intl.NumberFormat('fr-FR').format(n);
   }
 
-  /** Version courte pour les bornes du slider : "2 M" */
   formatPrixShort(n: number): string {
     if (n >= 1_000_000) {
       const m = n / 1_000_000;
@@ -469,23 +472,20 @@ export class HomeComponent implements OnInit, OnDestroy {
     return String(n);
   }
 
-  /** Hint affiché sous le slider min */
   hintPrixMin(): string {
     return this.prixMinVal <= 1_000
       ? 'Aucun minimum'
       : this.formatPrix(this.prixMinVal) + ' FCFA';
   }
 
-  /** Hint affiché sous le slider max */
   hintPrixMax(): string {
     return this.prixMaxVal >= this.PRIX_MAX
       ? 'Illimité'
       : this.formatPrix(this.prixMaxVal) + ' FCFA';
   }
 
-  /** Tag résumé prix dans les filtres actifs */
   tagPrix(): string {
-    const min = this.prixMinVal > 0
+    const min = this.prixMinVal > 1_000
       ? this.formatPrix(this.prixMinVal) + ' FCFA'
       : '0 FCFA';
     const max = this.prixMaxVal < this.PRIX_MAX
@@ -494,13 +494,30 @@ export class HomeComponent implements OnInit, OnDestroy {
     return min + ' – ' + max;
   }
 
+
+
+  
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this._loadReferentiel();
     this.activeFilters = { page: 0, taille: PAGE_SIZE };
     this._loadAnnonces(this.activeFilters);
 
-    if (this.isLoggedIn()) this.store.dispatch(favoriActions.load());
+    if (this.isLoggedIn()) {
+      this.store.dispatch(favoriActions.load());
+    }
+
+    // priceChange$ : debounce 500ms — dans Home on met juste à jour
+    // l'affichage, la requête part au clic "Rechercher".
+    // On souscrit quand même pour pouvoir étendre le comportement.
+    this.priceChange$.pipe(
+      debounceTime(500),
+      takeUntil(this.destroy$),
+    ).subscribe(() => {
+      // Aucune requête ici — les hints se mettent à jour via les getters.
+      // Garder ce bloc vide est intentionnel.
+    });
 
     window.addEventListener('offline', () => this.isOffline.set(true));
     window.addEventListener('online',  () => {
@@ -514,7 +531,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ── Referentiel ────────────────────────────────────────────────────────────
+  // ── Référentiel ────────────────────────────────────────────────────────────
   private _loadReferentiel(): void {
     this.loadingTypesBiens.set(true);
     this.typeBienApi.getAll().pipe(takeUntil(this.destroy$)).subscribe({
@@ -543,34 +560,29 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Slider / input MIN
-   * Le min ne peut pas dépasser (max - 10 000).
-   */
+  // Sliders prix : met à jour la valeur locale + signal debounce
+  // Aucune requête API n'est envoyée ici — seulement au clic "Rechercher".
   onPrixMinChange(val: number | string | null): void {
     const v = Math.max(0, Math.floor(Number(val ?? 0)));
-    // On bloque le min à max - 10 000 pour garantir un écart minimum
     this.prixMinVal = Math.min(v, this.prixMaxVal - 10_000);
+    this.priceChange$.next();
   }
 
-  /**
-   * Slider / input MAX
-   * Le max ne peut pas descendre en dessous de (min + 10 000).
-   */
   onPrixMaxChange(val: number | string | null): void {
     const raw = val === null || val === undefined ? this.PRIX_MAX : Number(val);
     const v   = Math.min(this.PRIX_MAX, Math.max(0, Math.floor(raw)));
-    // On bloque le max à min + 10 000 pour garantir un écart minimum
     this.prixMaxVal = Math.max(v, this.prixMinVal + 10_000);
+    this.priceChange$.next();
   }
 
+  // Bouton "Rechercher" → navigue vers /annonces avec les filtres en queryParams
   onSearch(): void {
     if (this.prixError()) return;
     const params: Record<string, string | number> = {};
     if (this.searchVille)                   params['ville']      = this.searchVille;
     if (this.searchQuartier)                params['quartier']   = this.searchQuartier;
     if (this.selectedTypeBienId() !== null) params['typeBienId'] = this.selectedTypeBienId()!;
-    if (this.prixMinVal > 0)                params['prixMin']    = this.prixMinVal;
+    if (this.prixMinVal > 1_000)            params['prixMin']    = this.prixMinVal;
     if (this.prixMaxVal < this.PRIX_MAX)    params['prixMax']    = this.prixMaxVal;
     this.router.navigate(['/annonces'], { queryParams: params });
   }
@@ -582,9 +594,9 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.prixMinVal     = 1_000;
     this.prixMaxVal     = this.PRIX_MAX;
     this.quartiers.set([]);
-    this.currentPage      = 0;
-    this._loadMoreLocked  = false;
-    this.activeFilters    = { page: 0, taille: PAGE_SIZE };
+    this.currentPage     = 0;
+    this._loadMoreLocked = false;
+    this.activeFilters   = { page: 0, taille: PAGE_SIZE };
     this._loadAnnonces(this.activeFilters);
   }
 
@@ -593,7 +605,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     this._loadAnnonces(this.activeFilters);
   }
 
-  // ── Bouton "Voir plus" ─────────────────────────────────────────────────────
+  // ── Pagination ─────────────────────────────────────────────────────────────
   loadMore(): void {
     if (this._loadMoreLocked || this.loadingMore() || !this.hasMore()) return;
     this._loadMoreLocked = true;
@@ -613,4 +625,24 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.activeFilters   = { ...filters, page: 0 };
     this.store.dispatch(annonceActions.loadAnnonces({ filters: this.activeFilters }));
   }
+
+readonly annoncesShuffled = computed(() => {
+  const items = this.annonces();
+  // Re-shuffle seulement si la liste change (nouveaux items, pas juste favori)
+  if (items.length !== this._lastItemCount) {
+    this._lastItemCount = items.length;
+    const shuffled = [...items];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    this._shuffledIds = shuffled.map(a => a.id);
+    return shuffled;
+  }
+  // Même liste → garder l'ordre mémorisé
+  const map = new Map(items.map(a => [a.id, a]));
+  return this._shuffledIds.map(id => map.get(id)).filter(Boolean) as typeof items;
+});
+  
+
 }

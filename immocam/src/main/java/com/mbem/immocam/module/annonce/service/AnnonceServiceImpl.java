@@ -358,6 +358,18 @@ public class AnnonceServiceImpl implements AnnonceService {
         return PageResponse.from(page.map(this::construireDashboardResponse));
     }
 
+
+
+    @Override
+@Transactional
+public void desarchiver(Long id, Long proprietaireId) {
+    Annonce annonce = obtenirAnnonceProprietaire(id, proprietaireId);
+    if (!StatutAnnonce.ARCHIVEE.equals(annonce.getStatut()))
+        throw new IllegalArgumentException("Seules les annonces archivées peuvent être désarchivées.");
+    annonce.setStatut(StatutAnnonce.EN_PAUSE); // remet en pause, pas active direct
+    logActiviteService.log(proprietaireId, TypeAction.REACTIVATION_ANNONCE, "Annonce", id, null, null);
+}
+
     @Override
     @Transactional(readOnly = true)
     public DashboardStatsResponse getDashboardStats(Long proprietaireId) {
@@ -366,9 +378,9 @@ public class AnnonceServiceImpl implements AnnonceService {
         long total = annonceRepository.countByProprietaireIdAndDeletedFalse(proprietaireId);
 
         // ✅ Contacts et vues : le proprio est exclu directement en base
-        long contacts = contactRepository.countByAnnonceProprietaireId(proprietaireId);
+        long contacts = contactRepository.countContactsUniquesByProprietaireId(proprietaireId);
         long vues = annonceRepository.sumVuesByProprietaireId(proprietaireId);
-        long favoris = favoriRepository.countByAnnonceProprietaireId(proprietaireId);
+   long favoris  = favoriRepository.countFavorisRealsByProprietaireId(proprietaireId);
 
         LocalDateTime dans7Jours = LocalDateTime.now().plusDays(7);
         List<AnnonceListResponse> expirantDtos = annonceRepository

@@ -2,660 +2,794 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '@core/services/api/admin.api';
-import { ConfirmDialogComponent } from '@shared/components/confirm-dialog/confirm-dialog.component';
 import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
-import {  RoleUtilisateur } from '@core/services/models';
+import { RoleUtilisateur } from '@core/services/models';
 import { ToastService } from '@core/services/toast.service';
 import { AdminUtilisateurResponse } from '@core/services/models/admin.model';
 
+// cSpell:ignore ACTIF SUSPENDU BANNI
+
 type ViewMode = 'table' | 'card';
+
+/**
+ * Normalise un numéro de téléphone camerounais au format +237XXXXXXXXX.
+ * Accepte : 6XXXXXXXX, 06XXXXXXXX, 6XX XXX XXX, +237 6XX XXX XXX, 237XXXXXXXXX…
+ */
+function normaliseTelephone(raw: string): string {
+  // Retirer tout sauf les chiffres et le +
+  let digits = raw.replace(/[^\d]/g, '');
+  // Si commence par 237 → retirer le préfixe pays
+  if (digits.startsWith('237')) digits = digits.slice(3);
+  // Si commence par 0 → retirer le zéro
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  // Doit commencer par 6 ou 2 (numéros camerounais mobiles/fixes)
+  return '+237' + digits;
+}
+
+/**
+ * Formate un numéro en cours de saisie pour affichage :
+ * "+237 6XX XXX XXX"
+ */
+function formatTelDisplay(raw: string): string {
+  let digits = raw.replace(/[^\d]/g, '');
+  if (digits.startsWith('237')) digits = digits.slice(3);
+  if (digits.startsWith('0'))   digits = digits.slice(1);
+  if (!digits) return '';
+  // Groupes : X XX XXX XXX
+  const p1 = digits.slice(0, 1);
+  const p2 = digits.slice(1, 3);
+  const p3 = digits.slice(3, 6);
+  const p4 = digits.slice(6, 9);
+  let result = '+237 ' + p1;
+  if (p2) result += p2;
+  if (p3) result += ' ' + p3;
+  if (p4) result += ' ' + p4;
+  return result;
+}
+
+/**
+ * Valide qu'un numéro camerounais est correct (9 chiffres après +237,
+ * commençant par 6, 2, 3).
+ */
+function telephoneValide(raw: string): boolean {
+  const digits = raw.replace(/[^\d]/g, '').replace(/^237/, '').replace(/^0/, '');
+  return /^[6-9]\d{8}$/.test(digits) || /^[23]\d{8}$/.test(digits);
+}
 
 @Component({
   selector: 'app-admin-utilisateurs',
   standalone: true,
-  imports: [CommonModule, FormsModule, ConfirmDialogComponent, TimeAgoPipe],
+  imports: [CommonModule, FormsModule, TimeAgoPipe],
   styles: [`
-    /* ── Reset ─────────────────────────────────────────────── */
-    :host { display: block; }
+    :host { display: block; font-family: 'DM Sans', system-ui, sans-serif; }
 
-    /* ── Topbar ─────────────────────────────────────────────── */
+    /* ── STATS CARDS ── */
+    .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+    @media (max-width: 900px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 480px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+    .stat-card {
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 14px;
+      padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 1px 4px rgba(30,58,95,.04);
+    }
+    .stat-icon {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .stat-icon svg { width: 18px; height: 18px; }
+    .stat-val { font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -.03em; line-height: 1; }
+    .stat-lbl { font-size: 11px; color: #6B7280; margin-top: 3px; font-weight: 500; }
+
+    /* ── TOPBAR ── */
     .topbar {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
     }
-    .topbar-left h2 {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.4px;
-      color: #0F172A;
-      margin: 0;
-    }
-    .topbar-left p {
-      font-size: 13px;
-      color: #64748B;
-      margin: 3px 0 0;
-    }
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+    .topbar-title { font-size: 17px; font-weight: 800; color: #0F172A; letter-spacing: -.3px; }
+    .topbar-sub { font-size: 12px; color: #64748B; margin-top: 2px; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-    /* ── View toggle ────────────────────────────────────────── */
-    .view-toggle {
-      display: flex;
-      background: #F1F5F9;
-      border-radius: 10px;
-      padding: 3px;
-      gap: 2px;
+    /* ── BOUTONS TOPBAR ── */
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 38px; padding: 0 16px; background: #1E2875; color: #fff;
+      border: none; border-radius: 10px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: background .15s; white-space: nowrap;
     }
+    .btn-primary:hover { background: #3245D1; }
+    .btn-primary svg { width: 14px; height: 14px; }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 38px; padding: 0 14px; background: #fff; color: #374151;
+      border: 1.5px solid #E5E7EB; border-radius: 10px; font-size: 13px; font-weight: 500;
+      cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap;
+    }
+    .btn-secondary:hover { background: #F8FAFC; border-color: #94A3B8; }
+    .btn-secondary svg { width: 14px; height: 14px; }
+
+    /* ── VIEW TOGGLE ── */
+    .view-toggle { display: flex; background: #F1F5F9; border-radius: 9px; padding: 3px; gap: 2px; }
     .btn-view {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      height: 32px;
-      padding: 0 12px;
-      border: none;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-      color: #64748B;
-      background: transparent;
-      transition: all .15s;
+      height: 32px; padding: 0 12px; border: none; border-radius: 7px;
+      font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit;
+      color: #64748B; background: transparent; transition: all .15s;
+      display: flex; align-items: center; gap: 5px;
     }
-    .btn-view.active {
-      background: #fff;
-      color: #0F172A;
-      box-shadow: 0 1px 3px rgba(0,0,0,.08);
-    }
-    .btn-view svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .btn-view svg { width: 14px; height: 14px; }
+    .btn-view.active { background: #fff; color: #0F172A; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 
-    /* ── Export button ──────────────────────────────────────── */
-    .btn-export {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 0 16px;
-      height: 38px;
-      background: #1E2875;
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background .15s, transform .1s;
-      white-space: nowrap;
-      font-family: inherit;
+    /* ── FILTERS BAR ── */
+    .filters-bar {
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 14px;
+      padding: 14px 16px; display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 10px; align-items: end; margin-bottom: 16px;
     }
-    .btn-export:hover { background: #3245D1; }
-    .btn-export:active { transform: scale(.97); }
-
-    /* ── Filter bar ─────────────────────────────────────────── */
-    .filters {
-      background: #fff;
-      border: 0.5px solid #E2E8F0;
-      border-radius: 14px;
-      padding: 14px 16px;
-      display: grid;
-      grid-template-columns: 2fr auto;
-      gap: 10px;
-      align-items: end;
-      margin-bottom: 20px;
+    @media (max-width: 700px) { .filters-bar { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .filters-bar { grid-template-columns: 1fr; } }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-lbl { font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .07em; }
+    .filter-input, .filter-select {
+      height: 36px; padding: 0 12px; border: 1.5px solid #E5E7EB;
+      border-radius: 8px; background: #F8FAFC; color: #0F172A;
+      font-size: 13px; outline: none; font-family: inherit; transition: border-color .15s;
     }
-    .filter-group { display: flex; flex-direction: column; gap: 5px; }
-    .filter-group label {
-      font-size: 11px;
-      font-weight: 600;
-      color: #94A3B8;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-    }
-    .filter-group input {
-      height: 36px;
-      padding: 0 12px;
-      border: 0.5px solid #CBD5E1;
-      border-radius: 8px;
-      background: #F8FAFC;
-      color: #0F172A;
-      font-size: 13px;
-      outline: none;
-      transition: border-color .15s;
-      font-family: inherit;
-    }
-    .filter-group input:hover { border-color: #94A3B8; }
-    .filter-group input:focus {
-      border-color: #3245D1;
-      box-shadow: 0 0 0 3px rgba(50,69,209,.1);
-    }
+    .filter-input:focus, .filter-select:focus { border-color: #3245D1; box-shadow: 0 0 0 3px rgba(50,69,209,.08); }
+    .filter-select { appearance: none; cursor: pointer; }
     .btn-reset {
-      height: 36px;
-      padding: 0 14px;
-      border: 0.5px solid #E2E8F0;
-      border-radius: 8px;
-      background: #F8FAFC;
-      color: #64748B;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-      transition: all .12s;
-      white-space: nowrap;
+      height: 36px; padding: 0 14px; border: 1.5px solid #E5E7EB;
+      border-radius: 8px; background: #F8FAFC; color: #64748B;
+      font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit;
+      transition: all .12s; white-space: nowrap;
     }
     .btn-reset:hover { background: #F1F5F9; border-color: #94A3B8; color: #0F172A; }
 
-    /* ── Active filters chips ───────────────────────────────── */
-    .active-filters {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
-    }
-    .filter-label { font-size: 12px; color: #94A3B8; font-weight: 500; }
-    .chip {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 10px 3px 8px;
-      background: #EEF2FF;
-      border: 0.5px solid #C7D2FE;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-      color: #4338CA;
-    }
-    .chip-remove {
-      width: 14px;
-      height: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #C7D2FE;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 10px;
-      color: #4338CA;
-      border: none;
-      font-family: inherit;
-      flex-shrink: 0;
-      line-height: 1;
-    }
-    .chip-remove:hover { background: #A5B4FC; }
-
-    /* ── Results bar ────────────────────────────────────────── */
-    .results-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .results-count { font-size: 13px; color: #64748B; }
+    /* ── RESULTS BAR ── */
+    .results-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .results-count { font-size: 12.5px; color: #64748B; }
     .results-count strong { color: #0F172A; font-weight: 700; }
 
-    /* ── TABLE VIEW ─────────────────────────────────────────── */
-    .table-card {
-      background: #fff;
-      border: 0.5px solid #E2E8F0;
-      border-radius: 14px;
-      overflow: hidden;
-    }
+    /* ── TABLE ── */
+    .table-card { background: #fff; border: 1.5px solid #E5E7EB; border-radius: 14px; overflow: hidden; }
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    table { width: 100%; border-collapse: collapse; min-width: 600px; }
-    thead tr {
-      background: #F8FAFC;
-      border-bottom: 0.5px solid #E2E8F0;
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    thead tr { background: #F8FAFC; border-bottom: 1.5px solid #E5E7EB; }
+    th {
+      padding: 10px 14px; text-align: left;
+      font-size: 10px; font-weight: 700; color: #94A3B8;
+      text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; user-select: none;
     }
-    thead th {
-      padding: 10px 16px;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 600;
-      color: #94A3B8;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      white-space: nowrap;
-    }
-    thead th.th-right { text-align: right; }
-    tbody tr {
-      border-bottom: 0.5px solid #F1F5F9;
-      transition: background .1s;
-    }
+    th.r { text-align: right; }
+    tbody tr { border-bottom: 1px solid #F1F5F9; transition: background .1s; }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: #F5F6FF; }
-    td { padding: 12px 16px; vertical-align: middle; }
-    td.td-right { text-align: right; }
-
-    /* ── Avatar + user cell ─────────────────────────────────── */
-    .user-cell { display: flex; align-items: center; gap: 12px; }
+    td { padding: 11px 14px; vertical-align: middle; }
+    td.r { text-align: right; }
+    .user-cell { display: flex; align-items: center; gap: 10px; }
     .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: #EEF2FF;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 700;
-      color: #3245D1;
-      flex-shrink: 0;
-      letter-spacing: .02em;
+      width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; letter-spacing: .02em;
     }
-    .user-name { font-size: 13px; font-weight: 600; color: #0F172A; line-height: 1.3; }
-    .user-email { font-size: 12px; color: #64748B; margin-top: 1px; }
-    .user-phone { font-size: 11px; color: #94A3B8; margin-top: 1px; }
-    .ville-text { font-size: 13px; color: #475569; }
-    .annonces-count { font-size: 13px; font-weight: 700; color: #1E2875; }
-    .date-text { font-size: 12px; color: #475569; }
+    .td-name { font-size: 13px; font-weight: 600; color: #0F172A; line-height: 1.2; }
+    .td-email { font-size: 11.5px; color: #64748B; margin-top: 1px; }
+    .td-phone { font-size: 11px; color: #94A3B8; margin-top: 1px; }
+    .td-ville { font-size: 13px; color: #475569; }
+    .td-count { font-size: 13px; font-weight: 700; color: #1E2875; }
+    .td-date { font-size: 12px; color: #475569; }
 
-    /* ── Status badge ───────────────────────────────────────── */
+    /* ── BADGES ── */
+    .role-badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 9px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: .02em;
+    }
+    .role-admin { background: #EEF2FF; color: #4F46E5; border: 1px solid #C7D2FE; }
+    .role-user  { background: #F1F5F9; color: #64748B; border: 1px solid #E2E8F0; }
     .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 9px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: .02em;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
     }
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .status-actif { background: #F0FDF4; color: #15803D; border: 0.5px solid #BBF7D0; }
-    .status-actif .status-dot { background: #22C55E; }
-    .status-suspendu { background: #FFFBEB; color: #B45309; border: 0.5px solid #FDE68A; }
-    .status-suspendu .status-dot { background: #F59E0B; }
-    .status-banni { background: #FEF2F2; color: #B91C1C; border: 0.5px solid #FECACA; }
-    .status-banni .status-dot { background: #EF4444; }
-    .status-default { background: #F8FAFC; color: #64748B; border: 0.5px solid #E2E8F0; }
-    .status-default .status-dot { background: #94A3B8; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .s-actif    { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+    .s-actif .status-dot    { background: #22C55E; }
+    .s-suspendu { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+    .s-suspendu .status-dot { background: #F59E0B; }
+    .s-banni    { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
+    .s-banni .status-dot    { background: #EF4444; }
+    .s-default  { background: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; }
+    .s-default .status-dot  { background: #94A3B8; }
 
-    /* ── Action buttons ─────────────────────────────────────── */
-    .actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
-    .btn-act {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      height: 30px;
-      padding: 0 11px;
-      border-radius: 7px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      border: 0.5px solid;
-      transition: all .12s;
-      white-space: nowrap;
-      font-family: inherit;
+    /* ── 3-DOTS MENU ── */
+    .menu-wrap { position: relative; display: inline-block; }
+    .btn-dots {
+      width: 30px; height: 30px; border-radius: 7px;
+      border: 1.5px solid #E5E7EB; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all .12s; color: #64748B;
     }
-    .btn-act:active { transform: scale(.96); }
-    .btn-suspend { background: transparent; border-color: #FDE68A; color: #D97706; }
-    .btn-suspend:hover { background: #FFFBEB; border-color: #F59E0B; }
-    .btn-ban { background: transparent; border-color: #FCA5A5; color: #DC2626; }
-    .btn-ban:hover { background: #FEF2F2; border-color: #F87171; }
-    .btn-activate { background: transparent; border-color: #BBF7D0; color: #15803D; }
-    .btn-activate:hover { background: #F0FDF4; border-color: #86EFAC; }
+    .btn-dots:hover { background: #F1F5F9; border-color: #94A3B8; color: #0F172A; }
+    .btn-dots svg { width: 15px; height: 15px; }
+    .dropdown {
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: 100;
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.1); min-width: 180px; overflow: hidden;
+      animation: dropIn .15s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes dropIn { from { opacity:0; transform: scale(.95) translateY(-4px); } to { opacity:1; transform: scale(1) translateY(0); } }
+    .drop-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 10px 14px; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: background .1s; border: none;
+      background: none; width: 100%; text-align: left; font-family: inherit; color: #374151;
+    }
+    .drop-item:hover { background: #F8FAFC; }
+    .drop-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .drop-item.danger { color: #DC2626; }
+    .drop-item.danger:hover { background: #FEF2F2; }
+    .drop-item.success { color: #15803D; }
+    .drop-item.success:hover { background: #F0FDF4; }
+    .drop-item.info { color: #4F46E5; }
+    .drop-item.info:hover { background: #EEF2FF; }
+    .drop-sep { height: 1px; background: #F1F5F9; margin: 4px 0; }
 
-    /* ── CARD VIEW ──────────────────────────────────────────── */
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 14px;
-    }
+    /* ── CARD VIEW ── */
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 12px; }
+    @media (max-width: 560px) { .cards-grid { grid-template-columns: 1fr; } }
     .user-card {
-      background: #fff;
-      border: 0.5px solid #E2E8F0;
-      border-radius: 14px;
-      overflow: hidden;
-      transition: box-shadow .15s, border-color .15s;
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 14px;
+      overflow: hidden; transition: box-shadow .15s, border-color .15s;
     }
-    .user-card:hover {
-      border-color: #C7D2FE;
-      box-shadow: 0 4px 16px rgba(50,69,209,.08);
-    }
-    .card-header {
-      padding: 16px 16px 12px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-    }
+    .user-card:hover { border-color: #C7D2FE; box-shadow: 0 4px 16px rgba(50,69,209,.08); }
+    .card-top { padding: 14px 14px 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
     .card-avatar {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: #EEF2FF;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 700;
-      color: #3245D1;
-      flex-shrink: 0;
-      letter-spacing: .02em;
+      width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
     }
-    .card-user-info { flex: 1; min-width: 0; }
-    .card-name {
-      font-size: 14px;
-      font-weight: 700;
-      color: #0F172A;
-      margin: 0 0 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .card-email {
-      font-size: 12px;
-      color: #64748B;
-      margin: 0 0 1px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .card-info { flex: 1; min-width: 0; }
+    .card-name { font-size: 14px; font-weight: 700; color: #0F172A; margin: 0 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-email { font-size: 12px; color: #64748B; margin: 0 0 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .card-phone { font-size: 11px; color: #94A3B8; margin: 0; }
-    .card-body {
-      padding: 0 16px 14px;
-      border-top: 0.5px solid #F1F5F9;
-    }
-    .card-meta-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 0.5px solid #F8FAFC;
-    }
-    .card-meta-row:last-of-type { border-bottom: none; }
-    .card-meta-label { font-size: 12px; color: #94A3B8; }
-    .card-meta-val { font-size: 12px; font-weight: 600; color: #0F172A; }
-    .card-meta-val.annonces { color: #1E2875; }
-    .card-actions {
-      display: flex;
-      gap: 6px;
-      padding: 12px 16px 14px;
-      border-top: 0.5px solid #F1F5F9;
-    }
-    .card-actions .btn-act { flex: 1; justify-content: center; }
+    .card-body { padding: 0 14px 10px; border-top: 1px solid #F1F5F9; }
+    .card-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #F8FAFC; }
+    .card-row:last-child { border-bottom: none; }
+    .card-row-lbl { font-size: 11.5px; color: #94A3B8; }
+    .card-row-val { font-size: 12px; font-weight: 600; color: #0F172A; }
 
-    /* ── Empty state ────────────────────────────────────────── */
-    .empty-state {
-      padding: 64px 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      gap: 12px;
+    /* ── MODAL OVERLAY ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(10,20,50,.6); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+      animation: fadeIn .18s ease;
     }
-    .empty-icon {
-      width: 64px;
-      height: 64px;
-      background: #F1F5F9;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 4px;
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .modal-box {
+      background: #fff; border-radius: 20px; width: 100%; max-width: 520px;
+      box-shadow: 0 32px 80px rgba(0,0,0,.22);
+      animation: boxIn .22s cubic-bezier(.34,1.56,.64,1);
+      overflow: hidden;
     }
-    .empty-icon svg { width: 28px; height: 28px; color: #CBD5E1; }
-    .empty-title { font-size: 15px; font-weight: 700; color: #0F172A; margin: 0; }
-    .empty-sub {
-      font-size: 13px;
-      color: #94A3B8;
-      max-width: 320px;
-      line-height: 1.6;
-      margin: 0;
-    }
-    .btn-empty-reset {
-      margin-top: 8px;
-      padding: 8px 20px;
-      background: #1E2875;
-      color: #fff;
-      border: none;
-      border-radius: 9px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background .15s;
-    }
-    .btn-empty-reset:hover { background: #3245D1; }
+    @keyframes boxIn { from{transform:scale(.92) translateY(14px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
 
-    /* ── Pagination ─────────────────────────────────────────── */
+    /* ── MODAL HEADER ── */
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px 0;
+    }
+    .modal-title { font-size: 16px; font-weight: 800; color: #0F172A; letter-spacing: -.3px; }
+    .modal-close {
+      width: 30px; height: 30px; border-radius: 8px; border: 1.5px solid #E5E7EB;
+      background: #F8FAFC; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #64748B; transition: all .12s;
+    }
+    .modal-close:hover { background: #FEF2F2; border-color: #FECACA; color: #DC2626; }
+    .modal-close svg { width: 14px; height: 14px; }
+
+    /* ── MODAL BODY ── */
+    .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-lbl {
+      font-size: 11px; font-weight: 700; color: #64748B;
+      text-transform: uppercase; letter-spacing: .07em;
+    }
+    .form-input, .form-select {
+      height: 42px; padding: 0 12px; border: 1.5px solid #E5E7EB;
+      border-radius: 10px; background: #F8FAFC; color: #0F172A;
+      font-size: 13.5px; outline: none; font-family: inherit; transition: border-color .15s, box-shadow .15s;
+      width: 100%;
+    }
+    .form-input:focus, .form-select:focus {
+      border-color: #3245D1; box-shadow: 0 0 0 3px rgba(50,69,209,.1); background: #fff;
+    }
+    .form-input.err { border-color: #F87171; background: #FFF5F5; }
+    .form-input.err:focus { border-color: #EF4444; box-shadow: 0 0 0 3px rgba(239,68,68,.1); }
+    .form-input.ok  { border-color: #86EFAC; background: #F0FDF4; }
+    .form-err { font-size: 11px; color: #DC2626; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+    .form-hint { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+
+    /* ── PHONE INPUT ── */
+    .phone-wrap { position: relative; }
+    .phone-prefix {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 13.5px; font-weight: 600; color: #475569; pointer-events: none;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .phone-flag { font-size: 15px; }
+    .phone-input-inner {
+      height: 42px; padding: 0 12px 0 80px; border: 1.5px solid #E5E7EB;
+      border-radius: 10px; background: #F8FAFC; color: #0F172A;
+      font-size: 13.5px; outline: none; font-family: inherit; transition: border-color .15s, box-shadow .15s;
+      width: 100%;
+    }
+    .phone-input-inner:focus {
+      border-color: #3245D1; box-shadow: 0 0 0 3px rgba(50,69,209,.1); background: #fff;
+    }
+    .phone-input-inner.err { border-color: #F87171; background: #FFF5F5; }
+    .phone-input-inner.ok  { border-color: #86EFAC; background: #F0FDF4; }
+
+    /* ── MODAL FOOTER ── */
+    .modal-footer { display: flex; gap: 10px; padding: 0 24px 24px; }
+    .btn-cancel {
+      height: 46px; padding: 0 20px;
+      background: #F1F5F9; color: #475569;
+      border: 1.5px solid #E2E8F0; border-radius: 12px;
+      font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: all .15s; white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-cancel:hover { background: #E2E8F0; border-color: #94A3B8; }
+
+    /* ── BOUTON SOUMETTRE PRINCIPAL ── */
+    .btn-submit {
+      flex: 1; height: 46px;
+      background: linear-gradient(135deg, #1E2875 0%, #3245D1 100%);
+      color: #fff; border: none; border-radius: 12px;
+      font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+      transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      box-shadow: 0 4px 14px rgba(50,69,209,.35);
+      letter-spacing: .01em;
+    }
+    .btn-submit:hover:not(:disabled) {
+      background: linear-gradient(135deg, #253294 0%, #3d53e8 100%);
+      box-shadow: 0 6px 20px rgba(50,69,209,.45);
+      transform: translateY(-1px);
+    }
+    .btn-submit:active:not(:disabled) { transform: translateY(0); box-shadow: 0 2px 8px rgba(50,69,209,.3); }
+    .btn-submit:disabled {
+      opacity: .55; cursor: not-allowed;
+      box-shadow: none; transform: none;
+    }
+    .btn-submit svg { width: 16px; height: 16px; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── CONFIRM MODAL ── */
+    .confirm-icon {
+      width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .confirm-icon svg { width: 26px; height: 26px; }
+    .confirm-title { font-size: 17px; font-weight: 800; color: #0F172A; text-align: center; margin-bottom: 8px; }
+    .confirm-msg { font-size: 13px; color: #64748B; text-align: center; line-height: 1.6; margin-bottom: 0; }
+
+    /* ── PAGINATION ── */
     .pagination {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      border-top: 0.5px solid #E2E8F0;
-      gap: 12px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-top: 1.5px solid #E5E7EB; gap: 12px; flex-wrap: wrap;
     }
     .pg-info { font-size: 12px; color: #94A3B8; flex-shrink: 0; }
-    .pg-info strong { color: #475569; font-weight: 600; }
-    .pg-numbers { display: flex; align-items: center; gap: 4px; }
+    .pg-info strong { color: #475569; }
+    .pg-btns { display: flex; align-items: center; gap: 4px; }
     .btn-pg {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 32px;
-      height: 32px;
-      padding: 0 8px;
-      border-radius: 8px;
-      border: 0.5px solid #E2E8F0;
-      background: transparent;
-      color: #475569;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-      transition: all .12s;
+      display: flex; align-items: center; justify-content: center;
+      min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px;
+      border: 1.5px solid #E5E7EB; background: transparent; color: #475569;
+      font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all .12s;
     }
-    .btn-pg:hover:not(:disabled):not(.active) {
-      background: #F8FAFC;
-      border-color: #94A3B8;
-      color: #0F172A;
-    }
+    .btn-pg:hover:not(:disabled):not(.active) { background: #F8FAFC; border-color: #94A3B8; }
     .btn-pg.active { background: #1E2875; border-color: #1E2875; color: #fff; }
-    .btn-pg:active:not(:disabled) { transform: scale(.97); }
     .btn-pg:disabled { opacity: .35; cursor: not-allowed; }
-    .pg-ellipsis {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      font-size: 13px;
-      color: #94A3B8;
-    }
+    .pg-dots { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; color: #94A3B8; font-size: 13px; }
 
-    /* ── Loading ────────────────────────────────────────────── */
-    .loading-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 60px 24px;
-      gap: 14px;
-    }
-    .spinner {
-      width: 24px;
-      height: 24px;
-      border: 2.5px solid #E2E8F0;
-      border-top-color: #3245D1;
-      border-radius: 50%;
-      animation: spin .6s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-text { font-size: 13px; color: #94A3B8; }
-    .sk-block {
-      background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s infinite;
-    }
-    @keyframes shimmer { to { background-position: -200% 0; } }
+    /* ── SKELETON ── */
+    .sk { background: linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%); background-size:200% 100%; animation: shim 1.4s infinite; border-radius: 7px; }
+    @keyframes shim { to { background-position: -200% 0; } }
 
-    /* ── Responsive ─────────────────────────────────────────── */
-    @media (max-width: 768px) {
-      .cards-grid { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 560px) {
-      .topbar { flex-direction: column; gap: 10px; }
-      .topbar-right { width: 100%; }
-      .btn-export { flex: 1; justify-content: center; }
-      .filters { grid-template-columns: 1fr; }
-      .cards-grid { grid-template-columns: 1fr; }
-      .pg-numbers { gap: 2px; }
-    }
+    /* ── EMPTY ── */
+    .empty-state { padding: 60px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+    .empty-icon { width: 60px; height: 60px; background: #F1F5F9; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+    .empty-icon svg { width: 26px; height: 26px; color: #CBD5E1; }
+    .empty-title { font-size: 15px; font-weight: 700; color: #0F172A; margin: 0; }
+    .empty-sub { font-size: 13px; color: #94A3B8; max-width: 300px; line-height: 1.6; margin: 0; }
   `],
   template: `
-    <app-confirm-dialog
-      [open]="confirmOpen()"
-      [title]="confirmTitle()"
-      [message]="confirmMsg()"
-      [confirmLabel]="confirmLabel()"
-      [danger]="true"
-      (confirmed)="executeAction()"
-      (cancelled)="confirmOpen.set(false)"
-    />
+    <!-- ══ MODAL CRÉATION UTILISATEUR ══ -->
+    @if (modalOpen()) {
+      <div class="modal-overlay" (click)="onOverlayClick($event)">
+        <div class="modal-box" (click)="$event.stopPropagation()">
 
-    <!-- ── Topbar ────────────────────────────────────────── -->
+          <div class="modal-header">
+            <span class="modal-title">Nouvel utilisateur</span>
+            <button class="modal-close" (click)="closeModal()">
+              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="modal-body">
+
+            <!-- Prénom / Nom -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-lbl">Prénom *</label>
+                <input
+                  class="form-input"
+                  [class.err]="formErr['prenom']"
+                  [(ngModel)]="newPrenom"
+                  placeholder="Jean"
+                  autocomplete="given-name"
+                />
+                @if (formErr['prenom']) {
+                  <span class="form-err">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    {{ formErr['prenom'] }}
+                  </span>
+                }
+              </div>
+              <div class="form-group">
+                <label class="form-lbl">Nom *</label>
+                <input
+                  class="form-input"
+                  [class.err]="formErr['nom']"
+                  [(ngModel)]="newNom"
+                  placeholder="Dupont"
+                  autocomplete="family-name"
+                />
+                @if (formErr['nom']) {
+                  <span class="form-err">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    {{ formErr['nom'] }}
+                  </span>
+                }
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group">
+              <label class="form-lbl">Adresse email *</label>
+              <input
+                class="form-input"
+                [class.err]="formErr['email']"
+                type="email"
+                [(ngModel)]="newEmail"
+                placeholder="jean.dupont@example.com"
+                autocomplete="email"
+              />
+              @if (formErr['email']) {
+                <span class="form-err">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  {{ formErr['email'] }}
+                </span>
+              }
+            </div>
+
+            <!-- Téléphone -->
+            <div class="form-group">
+              <label class="form-lbl">Téléphone *</label>
+              <div class="phone-wrap">
+                <div class="phone-prefix">
+                  <span class="phone-flag">🇨🇲</span>
+                  <span>+237</span>
+                </div>
+                <input
+                  class="phone-input-inner"
+                  [class.err]="formErr['telephone']"
+                  [class.ok]="!formErr['telephone'] && newTelephone.length >= 9"
+                  [ngModel]="telDisplay"
+                  (ngModelChange)="onTelInput($event)"
+                  placeholder="6 XX XXX XXX"
+                  type="tel"
+                  maxlength="13"
+                  autocomplete="tel"
+                />
+              </div>
+              @if (formErr['telephone']) {
+                <span class="form-err">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  {{ formErr['telephone'] }}
+                </span>
+              } @else {
+                <span class="form-hint">Format attendu : 6 XX XXX XXX (numéro camerounais)</span>
+              }
+            </div>
+
+            <!-- Ville / Rôle -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-lbl">Ville *</label>
+                <input
+                  class="form-input"
+                  [class.err]="formErr['ville']"
+                  [(ngModel)]="newVille"
+                  placeholder="Douala"
+                />
+                @if (formErr['ville']) {
+                  <span class="form-err">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    {{ formErr['ville'] }}
+                  </span>
+                }
+              </div>
+              <div class="form-group">
+                <label class="form-lbl">Rôle</label>
+                <select class="form-select" [(ngModel)]="newRole">
+                  @for (r of roles; track r) {
+                    <option [ngValue]="r">{{ r === 'ADMINISTRATEUR' ? 'Administrateur' : 'Utilisateur' }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            <!-- Mot de passe -->
+            <div class="form-group">
+              <label class="form-lbl">Mot de passe *</label>
+              <input
+                class="form-input"
+                [class.err]="formErr['mdp']"
+                [class.ok]="!formErr['mdp'] && newMotDePasse.length >= 8"
+                type="password"
+                [(ngModel)]="newMotDePasse"
+                placeholder="Minimum 8 caractères"
+                autocomplete="new-password"
+              />
+              @if (formErr['mdp']) {
+                <span class="form-err">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  {{ formErr['mdp'] }}
+                </span>
+              } @else {
+                <span class="form-hint">Le mot de passe doit contenir au moins 8 caractères</span>
+              }
+            </div>
+
+          </div>
+
+          <!-- Footer -->
+          <div class="modal-footer">
+            <button class="btn-cancel" (click)="closeModal()">Annuler</button>
+            <button class="btn-submit" [disabled]="creatingUser()" (click)="submitCreate()">
+              @if (creatingUser()) {
+                <svg style="animation:spin .65s linear infinite" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                </svg>
+                Création en cours…
+              } @else {
+                <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                </svg>
+                Créer l'utilisateur
+              }
+            </button>
+          </div>
+
+        </div>
+      </div>
+    }
+
+    <!-- ══ MODAL CONFIRMATION ══ -->
+    @if (confirmOpen()) {
+      <div class="modal-overlay" (click)="confirmOpen.set(false)">
+        <div class="modal-box" style="max-width:380px" (click)="$event.stopPropagation()">
+          <div class="modal-body" style="padding:28px 24px 20px;align-items:center">
+            <div class="confirm-icon" [style.background]="confirmDanger() ? '#FEF2F2' : '#FFFBEB'">
+              @if (confirmDanger()) {
+                <svg fill="none" stroke="#DC2626" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              } @else {
+                <svg fill="none" stroke="#D97706" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+              }
+            </div>
+            <p class="confirm-title">{{ confirmTitle() }}</p>
+            <p class="confirm-msg">{{ confirmMsg() }}</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" (click)="confirmOpen.set(false)">Annuler</button>
+            <button class="btn-submit"
+              [style.background]="confirmDanger() ? 'linear-gradient(135deg,#991B1B,#DC2626)' : 'linear-gradient(135deg,#92400E,#D97706)'"
+              (click)="executeAction()">
+              {{ confirmLabel() }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ══ MODAL MODIFIER RÔLE ══ -->
+    @if (roleModalOpen()) {
+      <div class="modal-overlay" (click)="roleModalOpen.set(false)">
+        <div class="modal-box" style="max-width:380px" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <span class="modal-title">Modifier le rôle</span>
+            <button class="modal-close" (click)="roleModalOpen.set(false)">
+              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-lbl">Nouveau rôle pour {{ roleTargetName() }}</label>
+              <select class="form-select" [(ngModel)]="selectedRole">
+                @for (r of roles; track r) {
+                  <option [ngValue]="r">{{ r === 'ADMINISTRATEUR' ? 'Administrateur' : 'Utilisateur' }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" (click)="roleModalOpen.set(false)">Annuler</button>
+            <button class="btn-submit" (click)="submitRole()">
+              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+              </svg>
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ══ STATS PAR STATUT ══ -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#F0FDF4">
+          <svg fill="none" stroke="#22C55E" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="stat-val">{{ statsActifs() }}</div>
+          <div class="stat-lbl">Actifs</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#FFFBEB">
+          <svg fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="stat-val">{{ statsSuspendus() }}</div>
+          <div class="stat-lbl">Suspendus</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#FEF2F2">
+          <svg fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+          </svg>
+        </div>
+        <div>
+          <div class="stat-val">{{ statsBannis() }}</div>
+          <div class="stat-lbl">Bannis</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#EEF2FF">
+          <svg fill="none" stroke="#4F46E5" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="stat-val">{{ statsAdmins() }}</div>
+          <div class="stat-lbl">Administrateurs</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TOPBAR ══ -->
     <div class="topbar">
-      <div class="topbar-left">
-        <h2>Gestion des utilisateurs</h2>
-        <p>{{ total() }} utilisateur(s) au total</p>
+      <div>
+        <div class="topbar-title">Utilisateurs</div>
+        <div class="topbar-sub">{{ total() }} utilisateur(s) au total</div>
       </div>
       <div class="topbar-right">
-        <div class="view-toggle" role="group" aria-label="Mode d'affichage">
-          <button
-            class="btn-view"
-            [class.active]="viewMode() === 'table'"
-            (click)="viewMode.set('table')"
-            aria-label="Vue tableau"
-          >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="1" y="1" width="14" height="3" rx="1"/>
-              <rect x="1" y="6" width="14" height="3" rx="1"/>
-              <rect x="1" y="11" width="14" height="3" rx="1"/>
+        <div class="view-toggle" role="group">
+          <button class="btn-view" [class.active]="viewMode()==='table'" (click)="viewMode.set('table')">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
             </svg>
             Tableau
           </button>
-          <button
-            class="btn-view"
-            [class.active]="viewMode() === 'card'"
-            (click)="viewMode.set('card')"
-            aria-label="Vue cartes"
-          >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="1" y="1" width="6" height="6" rx="1.5"/>
-              <rect x="9" y="1" width="6" height="6" rx="1.5"/>
-              <rect x="1" y="9" width="6" height="6" rx="1.5"/>
-              <rect x="9" y="9" width="6" height="6" rx="1.5"/>
+          <button class="btn-view" [class.active]="viewMode()==='card'" (click)="viewMode.set('card')">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
             </svg>
             Cartes
           </button>
         </div>
-
-        <button class="btn-export" (click)="exportCSV()">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M7 1v8M4 6l3 3 3-3M1 10v1.5A1.5 1.5 0 002.5 13h9A1.5 1.5 0 0013 11.5V10"/>
+        <button class="btn-secondary" (click)="exportCSV()">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
           </svg>
           Export CSV
+        </button>
+        <button class="btn-primary" (click)="openModal()">
+          <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Ajouter
         </button>
       </div>
     </div>
 
-    <!-- ── Filtre recherche ───────────────────────────────── -->
-    <div class="filters">
-      <div class="filter-group">
-        <label for="f-search">Recherche</label>
-        <input
-          id="f-search"
-          [(ngModel)]="searchTerm"
-          (keyup.enter)="onFilterChange()"
-          (input)="onSearchInput()"
-          placeholder="Nom, email, téléphone..."
-        />
+    <!-- ══ FILTRES ══ -->
+    <div class="filters-bar">
+      <div class="filter-group" style="grid-column:1">
+        <label class="filter-lbl">Recherche</label>
+        <input class="filter-input" [(ngModel)]="searchTerm"
+          (input)="onSearchInput()" placeholder="Nom, email, téléphone…"/>
       </div>
-      <button
-        class="btn-reset"
-        (click)="resetFilters()"
-        [style.opacity]="searchTerm ? '1' : '.45'"
-      >
-        Réinitialiser
-      </button>
-    </div>
-
-    
-    <div class="filters" style="grid-template-columns:repeat(4,minmax(0,1fr));">
-      <div class="filter-group"><label>Prenom</label><input [(ngModel)]="newPrenom" placeholder="Jean"/></div>
-      <div class="filter-group"><label>Nom</label><input [(ngModel)]="newNom" placeholder="Dupont"/></div>
-      <div class="filter-group"><label>Email</label><input [(ngModel)]="newEmail" placeholder="email@site.com"/></div>
-      <div class="filter-group"><label>Telephone</label><input [(ngModel)]="newTelephone" placeholder="+237..."/></div>
-      <div class="filter-group"><label>Ville</label><input [(ngModel)]="newVille" placeholder="Douala"/></div>
-      <div class="filter-group"><label>Mot de passe</label><input type="password" [(ngModel)]="newMotDePasse" placeholder="********"/></div>
       <div class="filter-group">
-        <label>Role</label>
-        <select class="btn-reset" style="height:36px;background:#F8FAFC;" [(ngModel)]="newRole">
-          @for (r of roles; track r) {
-            <option [ngValue]="r">{{ r }}</option>
-          }
+        <label class="filter-lbl">Statut</label>
+        <select class="filter-select" [(ngModel)]="filterStatut" (change)="load(0)">
+          <option value="">Tous</option>
+          <option value="ACTIF">Actif</option>
+          <option value="SUSPENDU">Suspendu</option>
+          <option value="BANNI">Banni</option>
         </select>
       </div>
-      <button class="btn-export" (click)="createUser()" [disabled]="creatingUser() || !canCreateUser()">
-        {{ creatingUser() ? 'Creation...' : 'Creer utilisateur' }}
-      </button>
-    </div><!-- ── Chip filtre actif ──────────────────────────────── -->
-    @if (searchTerm) {
-      <div class="active-filters">
-        <span class="filter-label">Filtres :</span>
-        <span class="chip">
-          "{{ searchTerm }}"
-          <button class="chip-remove" (click)="resetFilters()" aria-label="Retirer la recherche">&#x2715;</button>
-        </span>
+      <div class="filter-group">
+        <label class="filter-lbl">Rôle</label>
+        <select class="filter-select" [(ngModel)]="filterRole" (change)="load(0)">
+          <option value="">Tous</option>
+          <option value="UTILISATEUR">Utilisateur</option>
+          <option value="ADMINISTRATEUR">Admin</option>
+        </select>
       </div>
-    }
+      <button class="btn-reset" (click)="resetFilters()">Réinitialiser</button>
+    </div>
 
-    <!-- ── Résultats bar ──────────────────────────────────── -->
+    <!-- ══ RÉSULTATS ══ -->
     @if (!loading() && total() > 0) {
       <div class="results-bar">
         <span class="results-count">
-          <strong>{{ total() }}</strong> utilisateur(s) trouvé(s)
-          @if (searchTerm) { <span>· filtré(s)</span> }
+          <strong>{{ total() }}</strong> résultat(s)
+          @if (searchTerm || filterStatut || filterRole) { · filtrés }
         </span>
       </div>
     }
 
-    <!-- ─────────────────────────────────────────────────────── -->
-    <!--  VUE TABLEAU                                             -->
-    <!-- ─────────────────────────────────────────────────────── -->
+    <!-- ══ VUE TABLEAU ══ -->
     @if (viewMode() === 'table') {
       <div class="table-card">
         @if (loading()) {
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Utilisateur</th><th>Ville</th><th>Statut</th><th class="th-right">Annonces</th><th>Inscrit</th><th class="th-right">Actions</th></tr></thead>
+              <thead><tr>
+                <th>Utilisateur</th><th>Ville</th><th>Rôle</th>
+                <th>Statut</th><th class="r">Annonces</th><th>Inscrit</th><th></th>
+              </tr></thead>
               <tbody>
-                @for (i of [1,2,3,4,5,6]; track i) {
+                @for (i of [1,2,3,4,5,6,7,8]; track i) {
                   <tr>
-                    <td><div class="sk-block" style="height:16px;width:220px;border-radius:8px"></div></td>
-                    <td><div class="sk-block" style="height:16px;width:90px;border-radius:8px"></div></td>
-                    <td><div class="sk-block" style="height:16px;width:80px;border-radius:8px"></div></td>
-                    <td class="td-right"><div class="sk-block" style="height:16px;width:40px;border-radius:8px;display:inline-block"></div></td>
-                    <td><div class="sk-block" style="height:16px;width:100px;border-radius:8px"></div></td>
-                    <td class="td-right"><div class="sk-block" style="height:16px;width:110px;border-radius:8px;display:inline-block"></div></td>
+                    <td><div class="sk" style="height:14px;width:200px"></div></td>
+                    <td><div class="sk" style="height:14px;width:80px"></div></td>
+                    <td><div class="sk" style="height:14px;width:90px"></div></td>
+                    <td><div class="sk" style="height:14px;width:80px"></div></td>
+                    <td class="r"><div class="sk" style="height:14px;width:30px;display:inline-block"></div></td>
+                    <td><div class="sk" style="height:14px;width:90px"></div></td>
+                    <td><div class="sk" style="height:28px;width:30px;border-radius:8px"></div></td>
                   </tr>
                 }
               </tbody>
@@ -664,24 +798,18 @@ type ViewMode = 'table' | 'card';
         } @else if (users().length === 0) {
           <div class="empty-state">
             <div class="empty-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
                 <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
               </svg>
             </div>
             <p class="empty-title">Aucun utilisateur trouvé</p>
             <p class="empty-sub">
-              @if (searchTerm) {
-                Aucun résultat pour "{{ searchTerm }}". Vérifiez l'orthographe ou essayez un autre terme.
-              } @else {
-                Aucun utilisateur n'est encore enregistré dans le système.
-              }
+              @if (searchTerm || filterStatut || filterRole) {
+                Aucun résultat pour les filtres appliqués.
+              } @else { Aucun utilisateur enregistré. }
             </p>
-            @if (searchTerm) {
-              <button class="btn-empty-reset" (click)="resetFilters()">Effacer la recherche</button>
-            }
           </div>
         } @else {
           <div class="table-scroll">
@@ -690,10 +818,11 @@ type ViewMode = 'table' | 'card';
                 <tr>
                   <th>Utilisateur</th>
                   <th>Ville</th>
+                  <th>Rôle</th>
                   <th>Statut</th>
-                  <th class="th-right">Annonces</th>
+                  <th class="r">Annonces</th>
                   <th>Inscrit</th>
-                  <th class="th-right">Actions</th>
+                  <th class="r">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -701,33 +830,71 @@ type ViewMode = 'table' | 'card';
                   <tr>
                     <td>
                       <div class="user-cell">
-                        <div class="avatar">{{ u.prenom[0] }}{{ u.nom[0] }}</div>
+                        <div class="avatar" [style.background]="avatarBg(u)" [style.color]="avatarColor(u)">
+                          {{ initials(u) }}
+                        </div>
                         <div>
-                          <div class="user-name">{{ fullName(u) }}</div>
-                          <div class="user-email">{{ u.email }}</div>
-                          <div class="user-phone">{{ u.telephoneMasque ||   '-' }}</div>
+                          <div class="td-name">{{ fullName(u) }}</div>
+                          <div class="td-email">{{ u.email }}</div>
+                          <div class="td-phone">{{ u.telephoneMasque || '—' }}</div>
                         </div>
                       </div>
                     </td>
-                    <td><span class="ville-text">{{ u.ville }}</span></td>
+                    <td><span class="td-ville">{{ u.ville || '—' }}</span></td>
                     <td>
-                      <span class="status-badge" [ngClass]="statusBadgeClass(u.statut)">
-                        <span class="status-dot"></span>
-                        {{ u.statut }}
+                      <span class="role-badge" [ngClass]="u.role === 'ADMINISTRATEUR' ? 'role-admin' : 'role-user'">
+                        {{ u.role === 'ADMINISTRATEUR' ? 'Admin' : 'Utilisateur' }}
                       </span>
                     </td>
-                    <td class="td-right">
-                      <span class="annonces-count">{{ u.nombreAnnoncesTotal ?? u.nombreAnnoncesActives ?? u.nombreAnnoncesTotal ?? 0 }}</span>
-                    </td>
-                    <td><span class="date-text">{{ u.dateInscription | timeAgo }}</span></td>
                     <td>
-                      <div class="actions">
-                        @if (u.statut === 'ACTIF') {
-                          <button class="btn-act btn-suspend" (click)="doSuspendre(u)">Suspendre</button>
-                          <button class="btn-act btn-ban" (click)="doBannir(u)">Bannir</button>
-                        }
-                        @if (u.statut !== 'ACTIF') {
-                          <button class="btn-act btn-activate" (click)="doActiver(u.id)">Activer</button>
+                      <span class="status-badge" [ngClass]="statusCls(u.statut)">
+                        <span class="status-dot"></span>{{ u.statut }}
+                      </span>
+                    </td>
+                    <td class="r">
+                      <span class="td-count">{{ u.nombreAnnoncesTotal }}</span>
+                    </td>
+                    <td><span class="td-date">{{ u.dateInscription | timeAgo }}</span></td>
+                    <td class="r">
+                      <div class="menu-wrap" (click)="$event.stopPropagation()">
+                        <button class="btn-dots" (click)="toggleMenu(u.id)">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h.01M12 12h.01M19 12h.01"/>
+                          </svg>
+                        </button>
+                        @if (openMenuId() === u.id) {
+                          <div class="dropdown">
+                            <button class="drop-item info" (click)="openRoleModal(u)">
+                              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                              </svg>
+                              Modifier le rôle
+                            </button>
+                            @if (u.statut === 'ACTIF') {
+                              <div class="drop-sep"></div>
+                              <button class="drop-item" style="color:#D97706" (click)="doSuspendre(u)">
+                                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Suspendre
+                              </button>
+                              <button class="drop-item danger" (click)="doBannir(u)">
+                                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                </svg>
+                                Bannir
+                              </button>
+                            }
+                            @if (u.statut !== 'ACTIF') {
+                              <div class="drop-sep"></div>
+                              <button class="drop-item success" (click)="doActiver(u.id)">
+                                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Réactiver
+                              </button>
+                            }
+                          </div>
                         }
                       </div>
                     </td>
@@ -740,23 +907,17 @@ type ViewMode = 'table' | 'card';
           @if (totalPages() > 1) {
             <div class="pagination">
               <span class="pg-info">
-                Affichage <strong>{{ pageStart() }}–{{ pageEnd() }}</strong> sur <strong>{{ total() }}</strong>
+                <strong>{{ pageStart() }}–{{ pageEnd() }}</strong> sur <strong>{{ total() }}</strong>
               </span>
-              <div class="pg-numbers" role="navigation" aria-label="Pagination">
-                <button class="btn-pg" (click)="load(page() - 1)" [disabled]="page() === 0" aria-label="Page précédente">←</button>
-                @for (p of pageNumbers(); track p) {
-                  @if (p === -1) {
-                    <span class="pg-ellipsis">…</span>
-                  } @else {
-                    <button
-                      class="btn-pg"
-                      [class.active]="p === page()"
-                      (click)="load(p)"
-                      [attr.aria-current]="p === page() ? 'page' : null"
-                    >{{ p + 1 }}</button>
+              <div class="pg-btns">
+                <button class="btn-pg" (click)="load(page()-1)" [disabled]="page()===0">←</button>
+                @for (p of pageNums(); track p) {
+                  @if (p === -1) { <span class="pg-dots">…</span> }
+                  @else {
+                    <button class="btn-pg" [class.active]="p===page()" (click)="load(p)">{{ p+1 }}</button>
                   }
                 }
-                <button class="btn-pg" (click)="load(page() + 1)" [disabled]="page() >= totalPages() - 1" aria-label="Page suivante">→</button>
+                <button class="btn-pg" (click)="load(page()+1)" [disabled]="page()>=totalPages()-1">→</button>
               </div>
             </div>
           }
@@ -764,109 +925,131 @@ type ViewMode = 'table' | 'card';
       </div>
     }
 
-    <!-- ─────────────────────────────────────────────────────── -->
-    <!--  VUE CARTES                                              -->
-    <!-- ─────────────────────────────────────────────────────── -->
+    <!-- ══ VUE CARTES ══ -->
     @if (viewMode() === 'card') {
       @if (loading()) {
-        <div class="table-card">
-          <div class="cards-grid" style="padding:14px">
-            @for (i of [1,2,3,4,5,6]; track i) {
-              <div class="user-card" style="padding:16px">
-                <div class="sk-block" style="height:16px;width:70%;border-radius:8px;margin-bottom:10px"></div>
-                <div class="sk-block" style="height:14px;width:55%;border-radius:8px;margin-bottom:8px"></div>
-                <div class="sk-block" style="height:14px;width:45%;border-radius:8px;margin-bottom:14px"></div>
-                <div class="sk-block" style="height:36px;width:100%;border-radius:10px"></div>
-              </div>
-            }
-          </div>
+        <div class="cards-grid">
+          @for (i of [1,2,3,4,5,6]; track i) {
+            <div class="user-card" style="padding:14px">
+              <div class="sk" style="height:14px;width:70%;margin-bottom:10px"></div>
+              <div class="sk" style="height:12px;width:55%;margin-bottom:8px"></div>
+              <div class="sk" style="height:12px;width:45%;margin-bottom:14px"></div>
+              <div class="sk" style="height:34px;width:100%;border-radius:9px"></div>
+            </div>
+          }
         </div>
       } @else if (users().length === 0) {
         <div class="table-card">
           <div class="empty-state">
             <div class="empty-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
                 <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
             </div>
             <p class="empty-title">Aucun utilisateur trouvé</p>
-            <p class="empty-sub">
-              @if (searchTerm) {
-                Aucun résultat pour "{{ searchTerm }}". Essayez un autre terme de recherche.
-              } @else {
-                Aucun utilisateur n'est encore enregistré dans le système.
-              }
-            </p>
-            @if (searchTerm) {
-              <button class="btn-empty-reset" (click)="resetFilters()">Effacer la recherche</button>
-            }
+            <p class="empty-sub">Aucun résultat pour les filtres appliqués.</p>
           </div>
         </div>
       } @else {
         <div class="cards-grid">
           @for (u of users(); track u.id) {
             <div class="user-card">
-              <div class="card-header">
-                <div class="card-avatar">{{ u.prenom[0] }}{{ u.nom[0] }}</div>
-                <div class="card-user-info">
+              <div class="card-top">
+                <div class="card-avatar" [style.background]="avatarBg(u)" [style.color]="avatarColor(u)">
+                  {{ initials(u) }}
+                </div>
+                <div class="card-info">
                   <p class="card-name">{{ fullName(u) }}</p>
                   <p class="card-email">{{ u.email }}</p>
-                  <p class="card-phone">{{ u.telephoneMasque  || '-' }}</p>
+                  <p class="card-phone">{{ u.telephoneMasque || '—' }}</p>
                 </div>
-                <span class="status-badge" [ngClass]="statusBadgeClass(u.statut)">
-                  <span class="status-dot"></span>
-                  {{ u.statut }}
-                </span>
+                <div (click)="$event.stopPropagation()" style="position:relative">
+                  <button class="btn-dots" (click)="toggleMenu(u.id)">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h.01M12 12h.01M19 12h.01"/>
+                    </svg>
+                  </button>
+                  @if (openMenuId() === u.id) {
+                    <div class="dropdown">
+                      <button class="drop-item info" (click)="openRoleModal(u)">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                        Modifier le rôle
+                      </button>
+                      @if (u.statut === 'ACTIF') {
+                        <div class="drop-sep"></div>
+                        <button class="drop-item" style="color:#D97706" (click)="doSuspendre(u)">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                          Suspendre
+                        </button>
+                        <button class="drop-item danger" (click)="doBannir(u)">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636"/>
+                          </svg>
+                          Bannir
+                        </button>
+                      }
+                      @if (u.statut !== 'ACTIF') {
+                        <div class="drop-sep"></div>
+                        <button class="drop-item success" (click)="doActiver(u.id)">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                          Réactiver
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
               </div>
               <div class="card-body">
-                <div class="card-meta-row">
-                  <span class="card-meta-label">Ville</span>
-                  <span class="card-meta-val">{{ u.ville }}</span>
+                <div class="card-row">
+                  <span class="card-row-lbl">Ville</span>
+                  <span class="card-row-val">{{ u.ville || '—' }}</span>
                 </div>
-                <div class="card-meta-row">
-                  <span class="card-meta-label">Annonces</span>
-                  <span class="card-meta-val annonces">{{ u.nombreAnnoncesTotal ?? u.nombreAnnoncesActives ?? u.nombreAnnoncesTotal ?? 0 }}</span>
+                <div class="card-row">
+                  <span class="card-row-lbl">Rôle</span>
+                  <span class="role-badge" [ngClass]="u.role === 'ADMINISTRATEUR' ? 'role-admin' : 'role-user'">
+                    {{ u.role === 'ADMINISTRATEUR' ? 'Admin' : 'Utilisateur' }}
+                  </span>
                 </div>
-                <div class="card-meta-row">
-                  <span class="card-meta-label">Inscrit</span>
-                  <span class="card-meta-val">{{ u.dateInscription | timeAgo }}</span>
+                <div class="card-row">
+                  <span class="card-row-lbl">Statut</span>
+                  <span class="status-badge" [ngClass]="statusCls(u.statut)">
+                    <span class="status-dot"></span>{{ u.statut }}
+                  </span>
                 </div>
-              </div>
-              <div class="card-actions">
-                @if (u.statut === 'ACTIF') {
-                  <button class="btn-act btn-suspend" (click)="doSuspendre(u)">Suspendre</button>
-                  <button class="btn-act btn-ban" (click)="doBannir(u)">Bannir</button>
-                }
-                @if (u.statut !== 'ACTIF') {
-                  <button class="btn-act btn-activate" (click)="doActiver(u.id)">Activer</button>
-                }
+                <div class="card-row">
+                  <span class="card-row-lbl">Annonces</span>
+                  <span class="card-row-val" style="color:#1E2875;font-weight:700">
+                    {{ u.nombreAnnoncesTotal }}
+                  </span>
+                </div>
+                <div class="card-row">
+                  <span class="card-row-lbl">Inscrit</span>
+                  <span class="card-row-val">{{ u.dateInscription | timeAgo }}</span>
+                </div>
               </div>
             </div>
           }
         </div>
 
         @if (totalPages() > 1) {
-          <div class="pagination" style="background:#fff; border:0.5px solid #E2E8F0; border-radius:14px; margin-top:14px;">
+          <div class="pagination" style="background:#fff;border:1.5px solid #E5E7EB;border-radius:14px;margin-top:12px">
             <span class="pg-info">
-              Affichage <strong>{{ pageStart() }}–{{ pageEnd() }}</strong> sur <strong>{{ total() }}</strong>
+              <strong>{{ pageStart() }}–{{ pageEnd() }}</strong> sur <strong>{{ total() }}</strong>
             </span>
-            <div class="pg-numbers" role="navigation" aria-label="Pagination">
-              <button class="btn-pg" (click)="load(page() - 1)" [disabled]="page() === 0" aria-label="Page précédente">←</button>
-              @for (p of pageNumbers(); track p) {
-                @if (p === -1) {
-                  <span class="pg-ellipsis">…</span>
-                } @else {
-                  <button
-                    class="btn-pg"
-                    [class.active]="p === page()"
-                    (click)="load(p)"
-                    [attr.aria-current]="p === page() ? 'page' : null"
-                  >{{ p + 1 }}</button>
-                }
+            <div class="pg-btns">
+              <button class="btn-pg" (click)="load(page()-1)" [disabled]="page()===0">←</button>
+              @for (p of pageNums(); track p) {
+                @if (p===-1) { <span class="pg-dots">…</span> }
+                @else { <button class="btn-pg" [class.active]="p===page()" (click)="load(p)">{{ p+1 }}</button> }
               }
-              <button class="btn-pg" (click)="load(page() + 1)" [disabled]="page() >= totalPages() - 1" aria-label="Page suivante">→</button>
+              <button class="btn-pg" (click)="load(page()+1)" [disabled]="page()>=totalPages()-1">→</button>
             </div>
           </div>
         }
@@ -876,63 +1059,88 @@ type ViewMode = 'table' | 'card';
 })
 export class AdminUtilisateursComponent implements OnInit {
   private readonly adminApi = inject(AdminApi);
-  private readonly toast = inject(ToastService);
+  private readonly toast    = inject(ToastService);
 
-  // ── Signals ───────────────────────────────────────────────────────────
-  users = signal<AdminUtilisateurResponse[]>([]);
-  total = signal(0);
+  // ── State ─────────────────────────────────────────────────────────────
+  users      = signal<AdminUtilisateurResponse[]>([]);
+  total      = signal(0);
   totalPages = signal(0);
-  page = signal(0);
-  loading = signal(false);
-  confirmOpen = signal(false);
-  confirmTitle = signal('');
-  confirmMsg = signal('');
-  confirmLabel = signal('Confirmer');
-  viewMode = signal<ViewMode>('table');
-  creatingUser = signal(false);
+  page       = signal(0);
+  loading    = signal(false);
+  viewMode   = signal<ViewMode>('table');
+  openMenuId = signal<number | null>(null);
 
-  searchTerm = '';
-  newPrenom = '';
-  newNom = '';
-  newEmail = '';
-  newTelephone = '';
-  newVille = '';
+  // Filtres
+  searchTerm   = '';
+  filterStatut = '';
+  filterRole   = '';
+
+  // Modal création
+  modalOpen     = signal(false);
+  creatingUser  = signal(false);
+  newPrenom     = '';
+  newNom        = '';
+  newEmail      = '';
+  newTelephone  = '';   // stocke les digits bruts (sans +237)
+  telDisplay    = '';   // valeur affichée dans l'input
+  newVille      = '';
   newMotDePasse = '';
   newRole: RoleUtilisateur = RoleUtilisateur.UTILISATEUR;
+  formErr: Record<string, string> = {};
+
+  // Modal rôle
+  roleModalOpen  = signal(false);
+  roleTargetId   = signal<number | null>(null);
+  roleTargetName = signal('');
+  selectedRole: RoleUtilisateur = RoleUtilisateur.UTILISATEUR;
+
+  // Modal confirmation
+  confirmOpen   = signal(false);
+  confirmTitle  = signal('');
+  confirmMsg    = signal('');
+  confirmLabel  = signal('Confirmer');
+  confirmDanger = signal(true);
   private pendingFn?: () => void;
+
   readonly PAGE_SIZE = 10;
   readonly roles = [RoleUtilisateur.UTILISATEUR, RoleUtilisateur.ADMINISTRATEUR];
 
-  // ── Computed ──────────────────────────────────────────────────────────
+  // ── Stats ──────────────────────────────────────────────────────────────
+  statsActifs    = computed(() => this.users().filter(u => u.statut === 'ACTIF').length);
+  statsSuspendus = computed(() => this.users().filter(u => u.statut === 'SUSPENDU').length);
+  statsBannis    = computed(() => this.users().filter(u => u.statut === 'BANNI').length);
+  statsAdmins    = computed(() => this.users().filter(u => u.role === 'ADMINISTRATEUR').length);
+
+  // ── Pagination ─────────────────────────────────────────────────────────
   pageStart = computed(() => this.page() * this.PAGE_SIZE + 1);
   pageEnd   = computed(() => Math.min((this.page() + 1) * this.PAGE_SIZE, this.total()));
-
-  pageNumbers = computed<number[]>(() => {
-    const total   = this.totalPages();
-    const current = this.page();
-    if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  pageNums  = computed<number[]>(() => {
+    const t = this.totalPages(), c = this.page();
+    if (t <= 7) return Array.from({ length: t }, (_, i) => i);
     const pages: number[] = [0];
-    if (current > 2) pages.push(-1);
-    for (let i = Math.max(1, current - 1); i <= Math.min(total - 2, current + 1); i++) {
-      pages.push(i);
-    }
-    if (current < total - 3) pages.push(-1);
-    pages.push(total - 1);
+    if (c > 2) pages.push(-1);
+    for (let i = Math.max(1, c - 1); i <= Math.min(t - 2, c + 1); i++) pages.push(i);
+    if (c < t - 3) pages.push(-1);
+    pages.push(t - 1);
     return pages;
   });
 
-  // ── Cycle de vie ──────────────────────────────────────────────────────
+  // ── Lifecycle ──────────────────────────────────────────────────────────
   ngOnInit(): void {
-    this.load();
+    this.load(0);
+    document.addEventListener('click', () => this.openMenuId.set(null));
   }
 
-  // ── Méthodes ──────────────────────────────────────────────────────────
-
+  // ── Chargement ─────────────────────────────────────────────────────────
   load(p = 0): void {
     this.loading.set(true);
-    const filters = this.searchTerm ? { terme: this.searchTerm, page: p, taille: this.PAGE_SIZE } : { page: p, taille: this.PAGE_SIZE };
-    this.adminApi.getUtilisateurs(filters).subscribe({
-      next: (r) => {
+    this.openMenuId.set(null);
+    const filters: Record<string, string | number> = { page: p, taille: this.PAGE_SIZE };
+    if (this.searchTerm.trim()) filters['terme']  = this.searchTerm.trim();
+    if (this.filterStatut)      filters['statut'] = this.filterStatut;
+    if (this.filterRole)        filters['role']   = this.filterRole;
+    this.adminApi.getUtilisateurs(filters as any).subscribe({
+      next: r => {
         this.users.set(r.data.contenu);
         this.total.set(r.data.totalElements);
         this.totalPages.set(r.data.totalPages);
@@ -943,10 +1151,6 @@ export class AdminUtilisateursComponent implements OnInit {
     });
   }
 
-  onFilterChange(): void {
-    this.load(0);
-  }
-
   private searchTimeout?: ReturnType<typeof setTimeout>;
   onSearchInput(): void {
     clearTimeout(this.searchTimeout);
@@ -954,38 +1158,62 @@ export class AdminUtilisateursComponent implements OnInit {
   }
 
   resetFilters(): void {
-    this.searchTerm = '';
+    this.searchTerm = ''; this.filterStatut = ''; this.filterRole = '';
     this.load(0);
   }
 
+  // ── Téléphone : formatage en temps réel ────────────────────────────────
+  onTelInput(value: string): void {
+    // Garder seulement les chiffres de la saisie (sans le préfixe affiché)
+    const digits = value.replace(/[^\d]/g, '').replace(/^237/, '').replace(/^0/, '');
+    this.newTelephone = digits;
+    // Formater pour l'affichage : X XX XXX XXX
+    const p1 = digits.slice(0, 1);
+    const p2 = digits.slice(1, 3);
+    const p3 = digits.slice(3, 6);
+    const p4 = digits.slice(6, 9);
+    let display = p1;
+    if (p2) display += ' ' + p2;
+    if (p3) display += ' ' + p3;
+    if (p4) display += ' ' + p4;
+    this.telDisplay = display;
+    // Effacer l'erreur dès que l'utilisateur tape
+    if (this.formErr['telephone']) delete this.formErr['telephone'];
+  }
+
+  // ── Menu 3 points ──────────────────────────────────────────────────────
+  toggleMenu(id: number): void {
+    this.openMenuId.set(this.openMenuId() === id ? null : id);
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────
   doSuspendre(u: AdminUtilisateurResponse): void {
+    this.openMenuId.set(null);
     this.confirmTitle.set('Suspendre le compte ?');
-    this.confirmMsg.set(
-      `${this.fullName(u)} ne pourra plus se connecter. Ses annonces seront masquees.`,
-    );
+    this.confirmMsg.set(`${this.fullName(u)} ne pourra plus se connecter. Ses annonces seront masquées.`);
     this.confirmLabel.set('Suspendre');
-    this.pendingFn = () =>
-      this.adminApi
-        .suspendreUtilisateur(u.id, 'Suspension administrative')
-        .subscribe({ next: () => this.load() });
+    this.confirmDanger.set(false);
+    this.pendingFn = () => this.adminApi.suspendreUtilisateur(u.id, 'Suspension administrative')
+      .subscribe({ next: () => { this.toast.success('Compte suspendu'); this.load(); } });
     this.confirmOpen.set(true);
   }
 
   doBannir(u: AdminUtilisateurResponse): void {
+    this.openMenuId.set(null);
     this.confirmTitle.set('Bannir définitivement ?');
-    this.confirmMsg.set(
-      `${this.fullName(u)} sera banni definitivement. Toutes ses annonces seront supprimees.`,
-    );
+    this.confirmMsg.set(`${this.fullName(u)} sera banni. Toutes ses annonces seront supprimées.`);
     this.confirmLabel.set('Bannir');
-    this.pendingFn = () =>
-      this.adminApi
-        .bannirUtilisateur(u.id, 'Bannissement administratif')
-        .subscribe({ next: () => this.load() });
+    this.confirmDanger.set(true);
+    this.pendingFn = () => this.adminApi.bannirUtilisateur(u.id, 'Bannissement administratif')
+      .subscribe({ next: () => { this.toast.success('Compte banni'); this.load(); } });
     this.confirmOpen.set(true);
   }
 
   doActiver(id: number): void {
-    this.adminApi.activerUtilisateur(id).subscribe({ next: () => this.load() });
+    this.openMenuId.set(null);
+    this.adminApi.activerUtilisateur(id).subscribe({
+      next: () => { this.toast.success('Compte réactivé'); this.load(); },
+    });
   }
 
   executeAction(): void {
@@ -994,70 +1222,119 @@ export class AdminUtilisateursComponent implements OnInit {
     this.pendingFn = undefined;
   }
 
+  // ── Modal rôle ─────────────────────────────────────────────────────────
+  openRoleModal(u: AdminUtilisateurResponse): void {
+    this.openMenuId.set(null);
+    this.roleTargetId.set(u.id);
+    this.roleTargetName.set(this.fullName(u));
+    this.selectedRole = u.role as RoleUtilisateur;
+    this.roleModalOpen.set(true);
+  }
+
+  submitRole(): void {
+    const id = this.roleTargetId();
+    if (!id) return;
+    this.adminApi.modifierRoleUtilisateur(id, this.selectedRole).subscribe({
+      next: () => {
+        this.toast.success('Rôle modifié');
+        this.roleModalOpen.set(false);
+        this.load();
+      },
+    });
+  }
+
+  // ── Modal création ─────────────────────────────────────────────────────
+  openModal(): void {
+    this.formErr     = {};
+    this.newPrenom   = ''; this.newNom      = '';
+    this.newEmail    = ''; this.newTelephone = '';
+    this.telDisplay  = ''; this.newVille    = '';
+    this.newMotDePasse = '';
+    this.newRole = RoleUtilisateur.UTILISATEUR;
+    this.modalOpen.set(true);
+  }
+
+  closeModal(): void { this.modalOpen.set(false); }
+
+  onOverlayClick(e: MouseEvent): void {
+    if ((e.target as HTMLElement).classList.contains('modal-overlay')) this.closeModal();
+  }
+
+  validateForm(): boolean {
+    this.formErr = {};
+    if (!this.newPrenom.trim())
+      this.formErr['prenom'] = 'Le prénom est requis';
+    if (!this.newNom.trim())
+      this.formErr['nom'] = 'Le nom est requis';
+    if (!this.newEmail.trim() || !this.newEmail.includes('@'))
+      this.formErr['email'] = 'Adresse email invalide';
+    // Validation téléphone : 9 chiffres camerounais
+    if (!this.newTelephone || !telephoneValide(this.newTelephone))
+      this.formErr['telephone'] = 'Numéro invalide — ex : 6 55 123 456';
+    if (!this.newVille.trim())
+      this.formErr['ville'] = 'La ville est requise';
+    if (this.newMotDePasse.length < 8)
+      this.formErr['mdp'] = 'Minimum 8 caractères requis';
+    return Object.keys(this.formErr).length === 0;
+  }
+
+  submitCreate(): void {
+    if (!this.validateForm() || this.creatingUser()) return;
+    this.creatingUser.set(true);
+
+    // Normaliser le numéro au format +237XXXXXXXXX attendu par le backend
+    const telephoneNormalise = normaliseTelephone(this.newTelephone);
+
+    this.adminApi.creerUtilisateur({
+      prenom:      this.newPrenom.trim(),
+      nom:         this.newNom.trim(),
+      email:       this.newEmail.trim().toLowerCase(),
+      telephone:   telephoneNormalise,
+      ville:       this.newVille.trim(),
+      motDePasse:  this.newMotDePasse,
+      role:        this.newRole,
+    }).subscribe({
+      next: () => {
+        this.toast.success('Utilisateur créé avec succès');
+        this.closeModal();
+        this.creatingUser.set(false);
+        this.load(0);
+      },
+      error: () => this.creatingUser.set(false),
+    });
+  }
+
+  // ── Export ─────────────────────────────────────────────────────────────
   exportCSV(): void {
-    this.adminApi.exportUtilisateursCSV().subscribe((blob) => {
+    this.adminApi.exportUtilisateursCSV().subscribe(blob => {
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `immocam-utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`;
+      const a   = document.createElement('a');
+      a.href     = url;
+      a.download = `immocam-utilisateurs-${new Date().toISOString().slice(0,10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     });
   }
 
-  statusBadgeClass(statut: string): string {
-    return (
-      {
-        ACTIF:     'status-actif',
-        SUSPENDU:  'status-suspendu',
-        BANNI:     'status-banni',
-      }[statut] ?? 'status-default'
-    );
-  }
-
+  // ── Helpers UI ─────────────────────────────────────────────────────────
   fullName(u: AdminUtilisateurResponse): string {
-    return  `${u.prenom} ${u.nom}`.trim();
+    return `${u.prenom ?? ''} ${u.nom ?? ''}`.trim();
   }
 
-  canCreateUser(): boolean {
-    return !!(
-      this.newPrenom.trim() &&
-      this.newNom.trim() &&
-      this.newEmail.trim() &&
-      this.newTelephone.trim() &&
-      this.newVille.trim() &&
-      this.newMotDePasse.trim().length >= 8
-    );
+  initials(u: AdminUtilisateurResponse): string {
+    return `${(u.prenom ?? '')[0] ?? ''}${(u.nom ?? '')[0] ?? ''}`.toUpperCase();
   }
 
-  createUser(): void {
-    if (!this.canCreateUser() || this.creatingUser()) return;
-    this.creatingUser.set(true);
-    this.adminApi
-      .creerUtilisateur({
-        prenom: this.newPrenom.trim(),
-        nom: this.newNom.trim(),
-        email: this.newEmail.trim(),
-        telephone: this.newTelephone.trim(),
-        ville: this.newVille.trim(),
-        motDePasse: this.newMotDePasse,
-        role: this.newRole,
-      })
-      .subscribe({
-        next: () => {
-          this.toast.success('Utilisateur cree');
-          this.newPrenom = '';
-          this.newNom = '';
-          this.newEmail = '';
-          this.newTelephone = '';
-          this.newVille = '';
-          this.newMotDePasse = '';
-          this.newRole = RoleUtilisateur.UTILISATEUR;
-          this.creatingUser.set(false);
-          this.load(0);
-        },
-        error: () => this.creatingUser.set(false),
-      });
+  avatarBg(u: AdminUtilisateurResponse): string {
+    return u.role === 'ADMINISTRATEUR' ? '#EEF2FF' : '#F1F5F9';
+  }
+
+  avatarColor(u: AdminUtilisateurResponse): string {
+    return u.role === 'ADMINISTRATEUR' ? '#4F46E5' : '#64748B';
+  }
+
+  statusCls(statut: string): string {
+    const m: Record<string, string> = { ACTIF: 's-actif', SUSPENDU: 's-suspendu', BANNI: 's-banni' };
+    return m[statut] ?? 's-default';
   }
 }
-

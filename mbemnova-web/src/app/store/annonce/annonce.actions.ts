@@ -18,6 +18,8 @@ export const annonceActions = createActionGroup({
 
     // Détail
     'Load Detail': props<{ id: number }>(),
+    // Dans annonce.actions.ts — ajouter dans les events :
+    'Desarchiver': props<{ id: number }>(),
     'Load Detail Success': props<{ annonce: AnnonceDetailResponse }>(),
     'Load Detail Failure': props<{ error: string }>(),
 

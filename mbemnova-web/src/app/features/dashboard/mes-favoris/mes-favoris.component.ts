@@ -147,8 +147,9 @@ import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
     } @else {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @for (f of favoris(); track f.annonceId) {
-          <article class="card" [class.opacity-60]="f.statut !== 'ACTIVE'"
-                   [routerLink]="f.statut === 'ACTIVE' ? ['/annonces', f.annonceId] : null">
+          <!-- APRÈS -->
+<article class="card" [class.opacity-60]="f.statut !== 'ACTIVE'"
+         [routerLink]="['/annonces', f.annonceId]">
 
             <div class="card-img">
               @if (f.photoUrl) {

@@ -29,6 +29,8 @@ export class AnnonceEffects {
     )
   );
 
+  
+
   loadDetail$ = createEffect(() =>
     this.actions$.pipe(
       ofType(annonceActions.loadDetail),
@@ -102,6 +104,19 @@ export class AnnonceEffects {
       )
     )
   );
+
+  // Dans annonce.effects.ts — ajouter :
+desarchiver$ = createEffect(() =>
+  this.actions$.pipe(
+    ofType(annonceActions.desarchiver),
+    switchMap(({ id }) =>
+      this.annonceApi.desarchiver(id).pipe(
+        map(() => annonceActions.actionSuccess({ id, action: 'desarchiver' })),
+        catchError(err => of(annonceActions.actionFailure({ error: err.error?.message })))
+      )
+    )
+  )
+);
 
   // actionSuccess$ = createEffect(() =>
   //   this.actions$.pipe(
