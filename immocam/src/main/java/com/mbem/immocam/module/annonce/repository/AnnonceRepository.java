@@ -40,6 +40,17 @@ public interface AnnonceRepository
     /** Compter les annonces d'un propriétaire par statut (hors supprimées). */
     long countByProprietaireIdAndStatutAndDeletedFalse(Long proprietaireId, StatutAnnonce statut);
 
+    /**
+     * Compter les annonces réellement actives d'un propriétaire : statut ACTIVE
+     * ET date d'expiration non dépassée. Évite de compter comme "active" une
+     * annonce expirée que le scheduler de minuit n'a pas encore basculée en EXPIREE.
+     */
+    @Query("SELECT COUNT(a) FROM Annonce a WHERE a.proprietaire.id = :proprietaireId " +
+            "AND a.statut = 'ACTIVE' AND a.dateExpiration > :maintenant AND a.deleted = false")
+    long countActivesVisiblesByProprietaireId(
+            @Param("proprietaireId") Long proprietaireId,
+            @Param("maintenant") LocalDateTime maintenant);
+
     /** Annonces expirant bientôt pour un propriétaire. */
     List<Annonce> findByProprietaireIdAndStatutAndDateExpirationBeforeAndDeletedFalse(
             Long proprietaireId, StatutAnnonce statut, LocalDateTime date);

@@ -48,7 +48,7 @@ public class FavoriServiceImpl implements FavoriService {
                     .ville(a.getLocalisation().getVille())
                     .quartier(a.getQuartier())
                     .prix(a.getPrix())
-                    .statutAnnonce(a.getStatut().name())
+                    .statutAnnonce(a.getStatutEffectif().name())
                     .dateAjout(f.getDateCreation())
                     .build();
 
@@ -82,7 +82,7 @@ public class FavoriServiceImpl implements FavoriService {
                 .typeBien(a.getTypeBien().getLibelle())
                 .ville(a.getLocalisation().getVille())
                 .quartier(a.getQuartier())
-                .statutAnnonce(a.getStatut().name())
+                .statutAnnonce(a.getStatutEffectif().name())
                 .build();
     }
 

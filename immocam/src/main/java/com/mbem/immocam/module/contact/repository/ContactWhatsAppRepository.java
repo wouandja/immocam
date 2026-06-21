@@ -51,12 +51,16 @@ public interface ContactWhatsAppRepository extends JpaRepository<ContactWhatsApp
      *
      * Correction du bug de duplication : COUNT(DISTINCT paire utilisateur+annonce)
      * au lieu de COUNT(*) qui comptait chaque ligne brute.
+     *
+     * Exclut les contacts sur une annonce supprimée (deleted = true), pour
+     * rester cohérent avec sumVuesByProprietaireId qui exclut déjà ces annonces.
      */
     @Query("""
         SELECT COUNT(DISTINCT CONCAT(CAST(c.utilisateur.id AS string), '-', CAST(c.annonce.id AS string)))
         FROM ContactWhatsApp c
         WHERE c.annonce.proprietaire.id = :proprietaireId
           AND c.utilisateur.id != :proprietaireId
+          AND c.annonce.deleted = false
         """)
     long countContactsUniquesByProprietaireId(@Param("proprietaireId") Long proprietaireId);
 

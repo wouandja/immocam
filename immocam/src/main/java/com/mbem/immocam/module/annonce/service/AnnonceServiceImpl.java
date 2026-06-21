@@ -117,6 +117,14 @@ public class AnnonceServiceImpl implements AnnonceService {
                 .filter(a -> !a.isDeleted())
                 .orElseThrow(() -> new RessourceNotFoundException("Annonce", id));
 
+        boolean estProprietaire = utilisateurConnecteId != null
+                && utilisateurConnecteId.equals(annonce.getProprietaire().getId());
+        // Un visiteur (ou un autre utilisateur) ne doit jamais accéder au détail
+        // d'une annonce en pause, archivée ou expirée via son URL directe.
+        if (!estProprietaire && !annonce.estVisible()) {
+            throw new RessourceNotFoundException("Annonce", id);
+        }
+
         // ✅ Incrémenter les vues en excluant le propriétaire
         if (utilisateurConnecteId != null) {
             annonceRepository.incrementerVues(id, utilisateurConnecteId);
@@ -221,8 +229,8 @@ public class AnnonceServiceImpl implements AnnonceService {
                 .orElseThrow(() -> new RessourceNotFoundException("Localisation", request.getLocalisationId()));
 
         int maxAnnonces = Integer.parseInt(obtenirConfigValeur(ImmoCamConstants.CONFIG_MAX_ANNONCES, "5"));
-        long nbActives = annonceRepository.countByProprietaireIdAndStatutAndDeletedFalse(
-                proprietaireId, StatutAnnonce.ACTIVE);
+        long nbActives = annonceRepository.countActivesVisiblesByProprietaireId(
+                proprietaireId, LocalDateTime.now());
         if (nbActives >= maxAnnonces) {
             throw new LimiteAtteintException(
                     "Vous avez atteint votre limite de " + maxAnnonces +
@@ -310,6 +318,13 @@ public class AnnonceServiceImpl implements AnnonceService {
         Annonce annonce = obtenirAnnonceProprietaire(id, proprietaireId);
         if (!StatutAnnonce.EN_PAUSE.equals(annonce.getStatut()))
             throw new IllegalArgumentException("Seules les annonces en pause peuvent être réactivées.");
+        // Une annonce restée en pause longtemps peut avoir une date d'expiration
+        // déjà dépassée : on la prolonge pour éviter de réactiver une annonce
+        // "fantôme" (statut ACTIVE mais invisible car expirée).
+        if (annonce.estExpiree()) {
+            prolongerExpiration(annonce);
+            envoyerEmailRenouvellement(annonce);
+        }
         annonce.setStatut(StatutAnnonce.ACTIVE);
         logActiviteService.log(proprietaireId, TypeAction.REACTIVATION_ANNONCE, "Annonce", id, null, null);
     }
@@ -322,19 +337,18 @@ public class AnnonceServiceImpl implements AnnonceService {
                 && !StatutAnnonce.EXPIREE.equals(annonce.getStatut()))
             throw new IllegalArgumentException(
                     "Seules les annonces actives ou expirées peuvent être renouvelées.");
-        int dureeJours = Integer.parseInt(
-                obtenirConfigValeur(ImmoCamConstants.CONFIG_DUREE_VIE_ANNONCE, "30"));
-        annonce.setDateExpiration(DateUtils.calculerExpiration(LocalDateTime.now(), dureeJours));
+        prolongerExpiration(annonce);
         annonce.setStatut(StatutAnnonce.ACTIVE);
-        annonce.setRappelJ5Envoye(false);
-        annonce.setRappelJ1Envoye(false);
         logActiviteService.log(proprietaireId, TypeAction.RENOUVELLEMENT_ANNONCE, "Annonce", id, null, null);
+        envoyerEmailRenouvellement(annonce);
     }
 
     @Override
     @Transactional
     public void archiver(Long id, Long proprietaireId) {
         Annonce annonce = obtenirAnnonceProprietaire(id, proprietaireId);
+        if (StatutAnnonce.ARCHIVEE.equals(annonce.getStatut()))
+            throw new IllegalArgumentException("Cette annonce est déjà archivée.");
         annonce.setStatut(StatutAnnonce.ARCHIVEE);
         logActiviteService.log(proprietaireId, TypeAction.ARCHIVAGE_ANNONCE, "Annonce", id, null, null);
     }
@@ -373,8 +387,8 @@ public void desarchiver(Long id, Long proprietaireId) {
     @Override
     @Transactional(readOnly = true)
     public DashboardStatsResponse getDashboardStats(Long proprietaireId) {
-        long actives = annonceRepository.countByProprietaireIdAndStatutAndDeletedFalse(
-                proprietaireId, StatutAnnonce.ACTIVE);
+        long actives = annonceRepository.countActivesVisiblesByProprietaireId(
+                proprietaireId, LocalDateTime.now());
         long total = annonceRepository.countByProprietaireIdAndDeletedFalse(proprietaireId);
 
         // ✅ Contacts et vues : le proprio est exclu directement en base
@@ -426,6 +440,24 @@ public void desarchiver(Long id, Long proprietaireId) {
 
     private String obtenirConfigValeur(String cle, String defaut) {
         return configRepository.findByCle(cle).map(c -> c.getValeur()).orElse(defaut);
+    }
+
+    /** Repousse la date d'expiration à partir de maintenant et réarme les rappels. */
+    private void prolongerExpiration(Annonce annonce) {
+        int dureeJours = Integer.parseInt(
+                obtenirConfigValeur(ImmoCamConstants.CONFIG_DUREE_VIE_ANNONCE, "30"));
+        annonce.setDateExpiration(DateUtils.calculerExpiration(LocalDateTime.now(), dureeJours));
+        annonce.setRappelJ5Envoye(false);
+        annonce.setRappelJ1Envoye(false);
+    }
+
+    private void envoyerEmailRenouvellement(Annonce annonce) {
+        emailService.envoyerConfirmationRenouvellement(
+                annonce.getProprietaire().getEmail(),
+                annonce.getProprietaire().getPrenom(),
+                annonce.getTypeBien().getLibelle(),
+                annonce.getLocalisation().getVille(),
+                DateUtils.formatEmail(annonce.getDateExpiration()));
     }
 
     private String construireUrl(String chemin) {

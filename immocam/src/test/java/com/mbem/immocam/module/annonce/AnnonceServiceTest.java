@@ -35,6 +35,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -87,9 +88,9 @@ class AnnonceServiceTest {
         when(localisationRepository.findById(1L))
             .thenReturn(Optional.of(Localisation.builder().ville("Douala").build()));
         when(configRepository.findByCle("MAX_ANNONCES_PAR_PROPRIO")).thenReturn(Optional.empty());
-        // Simuler que la limite est atteinte (5 annonces actives)
-        when(annonceRepository.countByProprietaireIdAndStatutAndDeletedFalse(
-            proprietaireId, StatutAnnonce.ACTIVE)).thenReturn(5L);
+        // Simuler que la limite est atteinte (5 annonces actives et non expirées)
+        when(annonceRepository.countActivesVisiblesByProprietaireId(
+            eq(proprietaireId), any())).thenReturn(5L);
 
         assertThatThrownBy(() -> annonceService.publier(req, proprietaireId, "127.0.0.1"))
             .isInstanceOf(LimiteAtteintException.class)

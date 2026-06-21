@@ -214,7 +214,7 @@ import { selectAuthLoading, selectAuthError } from '@store/auth/auth.selectors';
           <div class="sep-line"></div>
         </div>
 
-        <a routerLink="/auth/register" class="btn-register">
+        <a routerLink="/auth/register" class="btn-register" queryParamsHandling="preserve">
           Créer un compte
         </a>
 

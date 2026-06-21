@@ -23,6 +23,7 @@ public interface AnnonceMapper {
     @Mapping(source = "typeBien.libelle", target = "typeBien")
     @Mapping(source = "localisation.ville", target = "ville")
     @Mapping(source = "dateCreation", target = "datePublication")
+    @Mapping(source = "statutEffectif", target = "statut") // ACTIVE+expirée affichée comme EXPIREE sans attendre le scheduler
     @Mapping(target = "prixFormate", ignore = true) // construit par le service
     @Mapping(target = "photoPrincipale", ignore = true) // construit par le service
     @Mapping(target = "photoPrincipaleThumb", ignore = true) // construit par le service
@@ -37,6 +38,7 @@ public interface AnnonceMapper {
     @Mapping(source = "localisation.ville", target = "ville")
     @Mapping(source = "dateCreation", target = "datePublication")
     @Mapping(source = "proprietaire.prenom", target = "proprietairePrenom")
+    @Mapping(source = "statutEffectif", target = "statut") // ACTIVE+expirée affichée comme EXPIREE sans attendre le scheduler
     @Mapping(target = "prixFormate", ignore = true) // construit par le service
     @Mapping(target = "photoPrincipale", ignore = true) // construit par le service
     @Mapping(target = "photoPrincipaleThumb", ignore = true) // construit par le service
@@ -55,6 +57,7 @@ public interface AnnonceMapper {
     @Mapping(source = "typeBien.libelle", target = "typeBien")
     @Mapping(source = "localisation.ville", target = "ville")
     @Mapping(source = "dateCreation", target = "datePublication")
+    @Mapping(source = "statutEffectif", target = "statut") // ACTIVE+expirée affichée comme EXPIREE sans attendre le scheduler
     @Mapping(target = "dateExpirationFormatee", ignore = true) // construit par le service
     @Mapping(target = "prixFormate", ignore = true) // construit par le service
     @Mapping(target = "nombreContacts", ignore = true) // construit par le service

@@ -1,6 +1,7 @@
 import {
-  Component, OnInit, inject, signal, computed, HostListener
+  Component, OnInit, inject, signal, computed, HostListener, DestroyRef
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -706,7 +707,8 @@ import { AuthService } from '@core/services/auth.service';
               } @else {
                 <div class="login-prompt">
                   <p>Connectez-vous pour laisser un commentaire</p>
-                  <a routerLink="/auth/login" class="btn-login">Se connecter</a>
+                  <a routerLink="/auth/login" class="btn-login"
+                    [queryParams]="{returnUrl: '/annonces/' + annonce()!.id}">Se connecter</a>
                 </div>
               }
             </div>
@@ -732,6 +734,7 @@ import { AuthService } from '@core/services/auth.service';
                     </button>
                   } @else {
                     <a routerLink="/auth/login" class="btn-whatsapp"
+                      [queryParams]="{returnUrl: '/annonces/' + annonce()!.id}"
                       style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:10px;">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -885,7 +888,7 @@ import { AuthService } from '@core/services/auth.service';
           </div>
         }
 
-      } @else if (!loading()) {
+      } @else {
         <div class="not-found">
           <p>Cette annonce n'est plus disponible.</p>
           <a routerLink="/annonces" class="btn-back-list">Voir des annonces similaires</a>
@@ -903,6 +906,7 @@ export class AnnonceDetailComponent implements OnInit {
   private readonly signalApi  = inject(SignalementApi);
   private readonly toast      = inject(ToastService);
   private readonly auth       = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly annonce    = this.store.selectSignal(selectAnnonceDetail);
   readonly loading    = this.store.selectSignal(selectDetailLoading);
@@ -967,14 +971,25 @@ export class AnnonceDetailComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    const id = +this.route.snapshot.paramMap.get('id')!;
-    this.store.dispatch(annonceActions.loadDetail({ id }));
     if (this.isLoggedIn()) {
       this.store.dispatch(favoriActions.load());
-      if (sessionStorage.getItem(`reported_${id}`)) {
-        this.alreadyReported.set(true);
-      }
     }
+    // Abonnement (et non snapshot unique) — Angular réutilise ce composant
+    // si seul l'id change sur la même route (/annonces/5 → /annonces/8),
+    // sans redéclencher ngOnInit. Il faut donc réagir à chaque changement d'id.
+    this.route.paramMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(params => this.loadAnnonce(+params.get('id')!));
+  }
+
+  private loadAnnonce(id: number): void {
+    // Repart de zéro pour éviter d'afficher un état (galerie, commentaire en cours,
+    // signalement déjà fait) qui appartient à l'annonce précédemment consultée
+    this.photoIndex.set(0);
+    this.mainImgLoaded.set(false);
+    this.newComment = '';
+    this.alreadyReported.set(this.isLoggedIn() && !!sessionStorage.getItem(`reported_${id}`));
+    this.store.dispatch(annonceActions.loadDetail({ id }));
   }
 
   getStatutClass(s: string): string {
@@ -1115,7 +1130,10 @@ export class AnnonceDetailComponent implements OnInit {
   }
 
   postComment(): void {
-    if (!this.isLoggedIn()) { this.router.navigate(['/auth/login']); return; }
+    if (!this.isLoggedIn()) {
+      this.router.navigate(['/auth/login'], { queryParams: { returnUrl: `/annonces/${this.annonce()?.id}` } });
+      return;
+    }
     const a = this.annonce();
     if (!a || this.newComment.trim().length < 1) return;
     this.postingComment.set(true);

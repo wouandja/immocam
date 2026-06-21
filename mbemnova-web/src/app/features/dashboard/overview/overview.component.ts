@@ -11,6 +11,7 @@ import {
   AnnonceDashboardResponse,
 } from '@core/services/models';
 import { LoadingSpinnerComponent } from '@shared/components/loading-spinner/loading-spinner.component';
+import { getExpiryStatus } from '@core/utils/expiry-status.util';
 
 // cSpell:ignore EXPIREE ARCHIVEE SUPPRIMEE
 
@@ -94,10 +95,27 @@ import { LoadingSpinnerComponent } from '@shared/components/loading-spinner/load
     .expiry-item {
       background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 10px;
       padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      cursor: pointer; transition: background .12s, border-color .12s, transform .1s;
     }
+    /* Affordance au survol/clic — sans ça la ligne ne donne aucun signal visuel */
+    .expiry-item:hover  { border-color: #F3C677; background: #FFF6DE; }
+    .expiry-item:active { transform: scale(.99); }
     .expiry-dot { width: 8px; height: 8px; border-radius: 50%; background: #F59E0B; flex-shrink: 0; }
     .expiry-name { font-size: 13px; font-weight: 600; color: #111827; }
     .expiry-date { font-size: 11px; color: #92400E; margin-top: 2px; }
+    .expiry-go { color: #D1D5DB; flex-shrink: 0; transition: color .12s; }
+    .expiry-go svg { width: 14px; height: 14px; display: block; }
+    .expiry-item:hover .expiry-go { color: #1E3A5F; }
+
+    /* Tiers — urgence selon le statut d'expiration (a.statut prime si EXPIREE) */
+    .expiry-item.tier-urgent   { background: #FFF3E0; border-color: #FFCC80; }
+    .expiry-item.tier-urgent:hover { background: #FFE9C7; border-color: #FFB74D; }
+    .expiry-item.tier-urgent   .expiry-dot  { background: #F57C00; }
+    .expiry-item.tier-urgent   .expiry-date { color: #BF360C; font-weight: 600; }
+    .expiry-item.tier-expired  { background: #FFEBEE; border-color: #FFCDD2; }
+    .expiry-item.tier-expired:hover { background: #FFDCE0; border-color: #EF9A9A; }
+    .expiry-item.tier-expired  .expiry-dot  { background: #DC2626; }
+    .expiry-item.tier-expired  .expiry-date { color: #B71C1C; font-weight: 600; }
     .btn-renew {
       height: 32px; padding: 0 13px; background: #fff; color: #1E3A5F;
       border: 1.5px solid #E5E7EB; border-radius: 8px;
@@ -262,21 +280,30 @@ import { LoadingSpinnerComponent } from '@shared/components/loading-spinner/load
           <div class="card">
             <div class="card-head">
               <span class="card-title">⏰ Expirant dans 7 jours</span>
-              <a routerLink="/dashboard/mes-annonces" class="card-link">Voir tout →</a>
+              <a routerLink="/dashboard/notifications" class="card-link">Voir tout →</a>
             </div>
             <div class="expiry-list">
               @for (a of expiringAnnonces(); track a.id) {
-                <div class="expiry-item">
+                <div class="expiry-item"
+                  [class.tier-urgent]="expiryTier(a) === 'urgent'"
+                  [class.tier-expired]="expiryTier(a) === 'expired'"
+                  (click)="goDetail(a.id)"
+                  [attr.title]="'Voir l\\'annonce ' + a.typeBien + ' — ' + a.quartier + ', ' + a.ville">
                   <div class="expiry-dot"></div>
                   <div style="flex:1;min-width:0">
                     <div class="expiry-name">{{ a.typeBien }} — {{ a.quartier }}, {{ a.ville }}</div>
-                    <div class="expiry-date">Expire le {{ formatDate(a.dateExpiration) }}</div>
+                    <div class="expiry-date">{{ expiryLabel(a) }} ({{ formatDate(a.dateExpiration) }})</div>
                   </div>
                   <button class="btn-renew"
                     [disabled]="renewingId() === a.id"
-                    (click)="renouveler(a.id)">
+                    (click)="$event.stopPropagation(); renouveler(a.id)">
                     {{ renewingId() === a.id ? '…' : 'Renouveler' }}
                   </button>
+                  <span class="expiry-go" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </span>
                 </div>
               }
             </div>
@@ -467,6 +494,13 @@ export class DashboardOverviewComponent implements OnInit {
 
   goDetail(id: number): void {
     this.router.navigate(['/annonces', id]);
+  }
+
+  expiryTier(a: AnnonceListResponse) {
+    return getExpiryStatus(a.dateExpiration, a.statut).tier;
+  }
+  expiryLabel(a: AnnonceListResponse): string {
+    return getExpiryStatus(a.dateExpiration, a.statut).label;
   }
 
   renouveler(id: number): void {

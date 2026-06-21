@@ -121,6 +121,24 @@ public class EmailServiceImpl implements EmailService {
 
     @Async
     @Override
+    public void envoyerConfirmationRenouvellement(String destinataire, String prenom,
+                                                  String typeBien, String ville,
+                                                  String nouvelleDateExpiration) {
+        try {
+            Context ctx = new Context();
+            ctx.setVariable("prenom", prenom);
+            ctx.setVariable("typeBien", typeBien);
+            ctx.setVariable("ville", ville);
+            ctx.setVariable("nouvelleDateExpiration", nouvelleDateExpiration);
+            String html = templateEngine.process("email/confirmation-renouvellement", ctx);
+            envoyer(destinataire, "Votre annonce ImmoCam a été renouvelée", html);
+        } catch (Exception e) {
+            log.error("Erreur envoi confirmation renouvellement à {} : {}", destinataire, e.getMessage());
+        }
+    }
+
+    @Async
+    @Override
     public void envoyerAnnonceSupprimeeParAdmin(String destinataire, String prenom,
                                                 String typeBien, String ville, String motif) {
         try {

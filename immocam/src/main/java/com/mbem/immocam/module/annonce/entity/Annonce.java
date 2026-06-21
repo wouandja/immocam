@@ -162,9 +162,22 @@ public class Annonce extends BaseEntity {
         return dateExpiration != null && LocalDateTime.now().isAfter(dateExpiration);
     }
 
-    /** Verifie si l'annonce est visible publiquement. */
+    /** Verifie si l'annonce est visible publiquement (active, non supprimee, non expiree). */
     public boolean estVisible() {
-        return StatutAnnonce.ACTIVE.equals(this.statut) && !this.deleted;
+        return StatutAnnonce.ACTIVE.equals(this.statut) && !this.deleted && !estExpiree();
+    }
+
+    /**
+     * Statut "réel" tel qu'il doit être affiché, sans attendre le passage du
+     * scheduler de minuit : une annonce ACTIVE dont la date d'expiration est
+     * dépassée est affichée comme EXPIREE (le statut persisté en base, lui,
+     * n'est corrigé qu'au prochain passage du scheduler).
+     */
+    public StatutAnnonce getStatutEffectif() {
+        if (StatutAnnonce.ACTIVE.equals(this.statut) && estExpiree()) {
+            return StatutAnnonce.EXPIREE;
+        }
+        return this.statut;
     }
 
     @PrePersist

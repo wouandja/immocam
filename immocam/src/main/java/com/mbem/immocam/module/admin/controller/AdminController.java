@@ -16,6 +16,7 @@ import com.mbem.immocam.module.config.repository.ConfigSystemeRepository;
 import com.mbem.immocam.module.config.entity.ConfigSysteme;
 import com.mbem.immocam.module.localisation.entity.Localisation;
 import com.mbem.immocam.module.typebien.entity.TypeBien;
+import com.mbem.immocam.shared.enums.StatutSignalement;
 import com.mbem.immocam.module.utilisateur.repository.UtilisateurRepository;
 import com.mbem.immocam.shared.constants.ImmoCamConstants;
 import com.mbem.immocam.shared.enums.StatutSignalement;
@@ -138,26 +139,42 @@ public class AdminController {
 
     // ── Signalements ──────────────────────────────────────────────────────
 
-    @Operation(summary = "Liste des signalements")
-    @GetMapping("/signalements")
-    public ResponseEntity<ApiResponse<PageResponse<AdminSignalementResponse>>> signalements(
-            @RequestParam(defaultValue = "EN_ATTENTE") String statut,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int taille) {
-        int safeTaille = normaliserTaille(taille, 20, ImmoCamConstants.ADMIN_PAGE_SIZE_MAX);
-        PageResponse<AdminSignalementResponse> result = adminService.listerSignalements(
-                StatutSignalement.valueOf(statut),
-                PageRequest.of(page, safeTaille, Sort.by(Sort.Direction.DESC, "dateCreation")));
-        return ResponseEntity.ok(ApiResponse.ok(result));
-    }
+   // Remplacer la méthode signalements() et traiterSignalement() :
 
-    @Operation(summary = "Traiter un signalement")
-    @PatchMapping("/signalements/{id}/traiter")
-    public ResponseEntity<ApiResponse<Void>> traiterSignalement(
-            @PathVariable Long id, @RequestParam String decision) {
-        adminService.traiterSignalement(id, getAdminId(), StatutSignalement.valueOf(decision));
-        return ResponseEntity.ok(ApiResponse.message("Signalement traite."));
+@Operation(summary = "Liste des signalements — statut optionnel")
+@GetMapping("/signalements")
+public ResponseEntity<ApiResponse<PageResponse<AdminSignalementResponse>>> signalements(
+        @RequestParam(required = false) String statut,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int taille) {
+    int safeTaille = normaliserTaille(taille, 20, ImmoCamConstants.ADMIN_PAGE_SIZE_MAX);
+    // Si statut null ou vide → retourner EN_ATTENTE par défaut
+    StatutSignalement statutEnum = (statut != null && !statut.isBlank())
+            ? StatutSignalement.valueOf(statut)
+            : StatutSignalement.EN_ATTENTE;
+    PageResponse<AdminSignalementResponse> result = adminService.listerSignalements(
+            statutEnum,
+            PageRequest.of(page, safeTaille, Sort.by(Sort.Direction.DESC, "dateCreation")));
+    return ResponseEntity.ok(ApiResponse.ok(result));
+}
+
+@Operation(summary = "Traiter un signalement")
+@PatchMapping("/signalements/{id}/traiter")
+public ResponseEntity<ApiResponse<Void>> traiterSignalement(
+        @PathVariable Long id,
+        @RequestParam String decision) {
+    // decision doit être une valeur valide de StatutSignalement
+    StatutSignalement statut;
+    try {
+        statut = StatutSignalement.valueOf(decision);
+    } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException(
+            "Décision invalide : '" + decision + "'. Valeurs acceptées : " +
+            "IGNORE, TRAITE_INFO, TRAITE_PAUSE, TRAITE_SUPPRESSION, TRAITE_SUSPENSION, TRAITE_BANNISSEMENT");
     }
+    adminService.traiterSignalement(id, getAdminId(), statut);
+    return ResponseEntity.ok(ApiResponse.message("Signalement traité."));
+}
 
     // ── Commentaires ──────────────────────────────────────────────────────
 

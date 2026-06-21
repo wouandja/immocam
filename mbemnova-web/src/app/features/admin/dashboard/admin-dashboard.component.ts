@@ -1,5 +1,7 @@
+// admin-dashboard.component.ts
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { AdminApi } from '@core/services/api/admin.api';
 import { AdminDashboardResponse } from '@core/services/models/admin.model';
 
@@ -9,8 +11,6 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
   imports: [CommonModule],
   styles: [`
     :host { display: block; font-family: 'DM Sans', sans-serif; }
-
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
     .dash {
       --navy:   #0F1E45;
@@ -30,22 +30,17 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
       --white:  #FFFFFF;
       --text:   #0F172A;
       --text2:  #334155;
-
       background: var(--surface);
       min-height: 100vh;
       padding: 28px 32px 48px;
     }
 
-    /* ── Header ── */
     .header {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 28px; flex-wrap: wrap; gap: 12px;
     }
-    .header-left h1 {
-      font-size: 22px; font-weight: 700; color: var(--text);
-      letter-spacing: -0.5px; margin: 0 0 3px;
-    }
-    .header-left p { font-size: 13px; color: var(--muted); margin: 0; font-weight: 400; }
+    .header-left h1 { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; margin: 0 0 3px; }
+    .header-left p  { font-size: 13px; color: var(--muted); margin: 0; font-weight: 400; }
     .header-date {
       display: flex; align-items: center; gap: 6px;
       font-size: 12px; font-weight: 500; color: var(--slate);
@@ -54,7 +49,6 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
     }
     .header-date svg { opacity: .5; }
 
-    /* ── Alert ── */
     .alert-banner {
       display: flex; align-items: center; justify-content: space-between;
       gap: 12px; background: var(--white);
@@ -74,13 +68,13 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
     .alert-text strong { font-size: 13px; font-weight: 600; color: #991B1B; display: block; }
     .alert-text span   { font-size: 12px; color: #B91C1C; }
     .btn-alert {
-      flex-shrink: 0; padding: 6px 14px; background: var(--red); color: #fff;
+      flex-shrink: 0; padding: 7px 16px; background: var(--red); color: #fff;
       border: none; border-radius: 8px; font-size: 12px; font-weight: 600;
       cursor: pointer; font-family: inherit; transition: background .15s;
+      display: flex; align-items: center; gap: 5px;
     }
     .btn-alert:hover { background: #B91C1C; }
 
-    /* ── KPI Grid ── */
     .kpi-grid {
       display: grid; grid-template-columns: repeat(4, 1fr);
       gap: 14px; margin-bottom: 24px;
@@ -102,8 +96,8 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
       background: var(--kpi-bg, var(--blue-l));
       display: flex; align-items: center; justify-content: center;
     }
-    .kpi-icon svg { width: 18px; height: 18px; color: var(--kpi-color, var(--blue)); }
-    .kpi-badge { font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace; padding: 3px 7px; border-radius: 20px; }
+    .kpi-icon svg { width: 18px; height: 18px; }
+    .kpi-badge { font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 20px; }
     .badge-up      { background: var(--green-l); color: var(--green); }
     .badge-down    { background: var(--red-l);   color: var(--red); }
     .badge-warn    { background: var(--amber-l); color: var(--amber); }
@@ -113,13 +107,11 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
     .kpi-sub { font-size: 11px; color: var(--slate); padding-top: 8px; border-top: 1px solid var(--border); }
     .kpi-sub strong { color: var(--text2); font-weight: 600; }
 
-    /* ── Section title ── */
     .section-title {
       font-size: 13px; font-weight: 600; color: var(--text2);
       letter-spacing: .04em; text-transform: uppercase; margin: 0 0 14px;
     }
 
-    /* ── Metrics bottom ── */
     .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
     .metric-card { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
     .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -131,8 +123,6 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
     .trend-down { color: var(--red); }
     .trend-neu  { color: var(--slate); }
 
-    /* ── Utilisateurs card ── */
-    .users-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
     .stat-row-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .stat-mini {
       padding: 12px 14px; background: var(--surface); border-radius: 10px;
@@ -141,7 +131,6 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
     .stat-mini-val { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -.4px; }
     .stat-mini-lbl { font-size: 11px; color: var(--muted); font-weight: 500; }
 
-    /* ── State ── */
     .state-center {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       padding: 80px 24px; gap: 14px;
@@ -155,7 +144,7 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
     @keyframes spin { to { transform: rotate(360deg); } }
     .state-title { font-size: 15px; font-weight: 600; color: var(--text); margin: 0; }
     .state-sub   { font-size: 13px; color: var(--muted); margin: 0; text-align: center; max-width: 320px; }
-    .state-err   { font-size: 12px; color: var(--red); font-family: 'DM Mono', monospace; background: var(--red-l); padding: 8px 14px; border-radius: 8px; }
+    .state-err   { font-size: 12px; color: var(--red); background: var(--red-l); padding: 8px 14px; border-radius: 8px; }
     .btn-retry {
       padding: 8px 20px; background: var(--navy); color: #fff; border: none;
       border-radius: 9px; font-size: 13px; font-weight: 600;
@@ -163,18 +152,15 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
     }
     .btn-retry:hover { background: var(--blue); }
 
-    /* ── Responsive ── */
     @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) {
       .dash { padding: 16px; }
-      .kpi-grid    { grid-template-columns: 1fr 1fr; gap: 10px; }
-      .bottom-row  { grid-template-columns: 1fr; }
-      .users-row   { grid-template-columns: 1fr; }
+      .kpi-grid   { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .bottom-row { grid-template-columns: 1fr; }
     }
     @media (max-width: 480px) { .kpi-grid { grid-template-columns: 1fr; } }
   `],
   template: `
-    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <div class="dash">
@@ -197,7 +183,6 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
 
       } @else if (data(); as d) {
 
-        <!-- Header -->
         <div class="header">
           <div class="header-left">
             <h1>Tableau de bord</h1>
@@ -211,7 +196,6 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
           </div>
         </div>
 
-        <!-- Alert signalements -->
         @if (d.signalementsEnAttente > 0) {
           <div class="alert-banner">
             <div class="alert-inner">
@@ -221,18 +205,22 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
                 <span>Ces signalements nécessitent une action manuelle</span>
               </div>
             </div>
-            <button class="btn-alert">Voir les signalements →</button>
+            <!-- ✅ CORRIGÉ : navigation vers /admin/signalements -->
+            <button class="btn-alert" (click)="goToSignalements()">
+              Voir les signalements
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
           </div>
         }
 
-        <!-- KPI Cards -->
         <div class="kpi-grid">
 
-          <!-- Annonces actives -->
           <div class="kpi-card" style="--kpi-color:#2563EB; --kpi-bg:#EFF4FF">
             <div class="kpi-top">
               <div class="kpi-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2">
                   <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                   <polyline points="9 22 9 12 15 12 15 22"/>
                 </svg>
@@ -247,16 +235,11 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
             </div>
           </div>
 
-          <!-- Contacts WhatsApp -->
           <div class="kpi-card" style="--kpi-color:#16A34A; --kpi-bg:#F0FDF4">
             <div class="kpi-top">
               <div class="kpi-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07
-                           A19.5 19.5 0 0 1 5 12.84 19.79 19.79 0 0 1 2.12 4.18
-                           2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81
-                           a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27
-                           a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 5 12.84 19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
                 </svg>
               </div>
               <span class="kpi-badge badge-neutral">{{ d.contactsWhatsApp7j }} /7j</span>
@@ -269,19 +252,16 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
             </div>
           </div>
 
-          <!-- Inscrits -->
           <div class="kpi-card" style="--kpi-color:#7C3AED; --kpi-bg:#F5F3FF">
             <div class="kpi-top">
               <div class="kpi-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#7C3AED">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2">
                   <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
                   <circle cx="9" cy="7" r="4"/>
                   <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
                 </svg>
               </div>
-              <span class="kpi-badge" style="background:#F5F3FF;color:#7C3AED">
-                +{{ d.nouveauxInscrits7j }} /7j
-              </span>
+              <span class="kpi-badge" style="background:#F5F3FF;color:#7C3AED">+{{ d.nouveauxInscrits7j }} /7j</span>
             </div>
             <p class="kpi-value">{{ fmt(d.utilisateursTotal) }}</p>
             <p class="kpi-label">Utilisateurs inscrits</p>
@@ -291,17 +271,16 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
             </div>
           </div>
 
-          <!-- Signalements -->
           <div class="kpi-card"
             [style]="d.signalementsEnAttente > 0
               ? '--kpi-color:#DC2626; --kpi-bg:#FEF2F2'
               : '--kpi-color:#059669; --kpi-bg:#ECFDF5'">
             <div class="kpi-top">
               <div class="kpi-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg viewBox="0 0 24 24" fill="none"
+                  [attr.stroke]="d.signalementsEnAttente > 0 ? '#DC2626' : '#059669'" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94
-                       a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                 </svg>
               </div>
               <span class="kpi-badge"
@@ -319,10 +298,8 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
 
         </div>
 
-        <!-- Activité détaillée + Utilisateurs -->
         <div class="bottom-row">
 
-          <!-- Activité détaillée -->
           <div class="metric-card">
             <p class="section-title">Activité détaillée</p>
             <div class="metric-grid">
@@ -349,7 +326,6 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
             </div>
           </div>
 
-          <!-- Utilisateurs -->
           <div class="metric-card">
             <p class="section-title">Utilisateurs</p>
             <div class="stat-row-grid">
@@ -372,13 +348,13 @@ import { AdminDashboardResponse } from '@core/services/models/admin.model';
           </div>
 
         </div>
-
       }
     </div>
   `,
 })
 export class AdminDashboardComponent implements OnInit {
   private readonly adminApi = inject(AdminApi);
+  private readonly router   = inject(Router);
 
   loading = signal(true);
   data    = signal<AdminDashboardResponse | null>(null);
@@ -392,17 +368,16 @@ export class AdminDashboardComponent implements OnInit {
     this.load();
   }
 
+  // ✅ CORRIGÉ : navigue vers la page signalements
+  goToSignalements(): void {
+    this.router.navigate(['/admin/signalements']);
+  }
+
   private load(): void {
     this.adminApi.getDashboard().subscribe({
-      next: (r) => {
-        this.data.set(r.data);
-        this.loading.set(false);
-      },
-      error: (err) => {
-        this.error.set(
-          err?.error?.message ??
-          `HTTP ${err?.status ?? '?'} — ${err?.statusText ?? 'Erreur inconnue'}`
-        );
+      next: r => { this.data.set(r.data); this.loading.set(false); },
+      error: err => {
+        this.error.set(err?.error?.message ?? `HTTP ${err?.status ?? '?'} — ${err?.statusText ?? 'Erreur inconnue'}`);
         this.loading.set(false);
       },
     });

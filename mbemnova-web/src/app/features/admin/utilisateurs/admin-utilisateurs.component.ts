@@ -13,43 +13,16 @@ type ViewMode = 'table' | 'card';
 
 /**
  * Normalise un numéro de téléphone camerounais au format +237XXXXXXXXX.
- * Accepte : 6XXXXXXXX, 06XXXXXXXX, 6XX XXX XXX, +237 6XX XXX XXX, 237XXXXXXXXX…
  */
 function normaliseTelephone(raw: string): string {
-  // Retirer tout sauf les chiffres et le +
   let digits = raw.replace(/[^\d]/g, '');
-  // Si commence par 237 → retirer le préfixe pays
   if (digits.startsWith('237')) digits = digits.slice(3);
-  // Si commence par 0 → retirer le zéro
   if (digits.startsWith('0')) digits = digits.slice(1);
-  // Doit commencer par 6 ou 2 (numéros camerounais mobiles/fixes)
   return '+237' + digits;
 }
 
 /**
- * Formate un numéro en cours de saisie pour affichage :
- * "+237 6XX XXX XXX"
- */
-function formatTelDisplay(raw: string): string {
-  let digits = raw.replace(/[^\d]/g, '');
-  if (digits.startsWith('237')) digits = digits.slice(3);
-  if (digits.startsWith('0'))   digits = digits.slice(1);
-  if (!digits) return '';
-  // Groupes : X XX XXX XXX
-  const p1 = digits.slice(0, 1);
-  const p2 = digits.slice(1, 3);
-  const p3 = digits.slice(3, 6);
-  const p4 = digits.slice(6, 9);
-  let result = '+237 ' + p1;
-  if (p2) result += p2;
-  if (p3) result += ' ' + p3;
-  if (p4) result += ' ' + p4;
-  return result;
-}
-
-/**
- * Valide qu'un numéro camerounais est correct (9 chiffres après +237,
- * commençant par 6, 2, 3).
+ * Valide qu'un numéro camerounais est correct.
  */
 function telephoneValide(raw: string): boolean {
   const digits = raw.replace(/[^\d]/g, '').replace(/^237/, '').replace(/^0/, '');
@@ -700,7 +673,12 @@ function telephoneValide(raw: string): boolean {
     <div class="topbar">
       <div>
         <div class="topbar-title">Utilisateurs</div>
-        <div class="topbar-sub">{{ total() }} utilisateur(s) au total</div>
+        <div class="topbar-sub">
+          {{ allUsers().length }} utilisateur(s) au total
+          @if (hasActiveFilters()) {
+            · <strong style="color:#1E2875">{{ filteredUsers().length }} résultat(s) filtrés</strong>
+          }
+        </div>
       </div>
       <div class="topbar-right">
         <div class="view-toggle" role="group">
@@ -738,11 +716,12 @@ function telephoneValide(raw: string): boolean {
       <div class="filter-group" style="grid-column:1">
         <label class="filter-lbl">Recherche</label>
         <input class="filter-input" [(ngModel)]="searchTerm"
-          (input)="onSearchInput()" placeholder="Nom, email, téléphone…"/>
+          (ngModelChange)="onSearchChange()"
+          placeholder="Nom, prénom, email, téléphone, ville…"/>
       </div>
       <div class="filter-group">
         <label class="filter-lbl">Statut</label>
-        <select class="filter-select" [(ngModel)]="filterStatut" (change)="load(0)">
+        <select class="filter-select" [(ngModel)]="filterStatut" (ngModelChange)="applyFilters()">
           <option value="">Tous</option>
           <option value="ACTIF">Actif</option>
           <option value="SUSPENDU">Suspendu</option>
@@ -751,7 +730,7 @@ function telephoneValide(raw: string): boolean {
       </div>
       <div class="filter-group">
         <label class="filter-lbl">Rôle</label>
-        <select class="filter-select" [(ngModel)]="filterRole" (change)="load(0)">
+        <select class="filter-select" [(ngModel)]="filterRole" (ngModelChange)="applyFilters()">
           <option value="">Tous</option>
           <option value="UTILISATEUR">Utilisateur</option>
           <option value="ADMINISTRATEUR">Admin</option>
@@ -761,11 +740,11 @@ function telephoneValide(raw: string): boolean {
     </div>
 
     <!-- ══ RÉSULTATS ══ -->
-    @if (!loading() && total() > 0) {
+    @if (!loading() && filteredUsers().length > 0) {
       <div class="results-bar">
         <span class="results-count">
-          <strong>{{ total() }}</strong> résultat(s)
-          @if (searchTerm || filterStatut || filterRole) { · filtrés }
+          <strong>{{ filteredUsers().length }}</strong> résultat(s)
+          @if (hasActiveFilters()) { · filtrés }
         </span>
       </div>
     }
@@ -795,7 +774,7 @@ function telephoneValide(raw: string): boolean {
               </tbody>
             </table>
           </div>
-        } @else if (users().length === 0) {
+        } @else if (pagedUsers().length === 0) {
           <div class="empty-state">
             <div class="empty-icon">
               <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -806,7 +785,7 @@ function telephoneValide(raw: string): boolean {
             </div>
             <p class="empty-title">Aucun utilisateur trouvé</p>
             <p class="empty-sub">
-              @if (searchTerm || filterStatut || filterRole) {
+              @if (hasActiveFilters()) {
                 Aucun résultat pour les filtres appliqués.
               } @else { Aucun utilisateur enregistré. }
             </p>
@@ -826,7 +805,7 @@ function telephoneValide(raw: string): boolean {
                 </tr>
               </thead>
               <tbody>
-                @for (u of users(); track u.id) {
+                @for (u of pagedUsers(); track u.id) {
                   <tr>
                     <td>
                       <div class="user-cell">
@@ -907,17 +886,17 @@ function telephoneValide(raw: string): boolean {
           @if (totalPages() > 1) {
             <div class="pagination">
               <span class="pg-info">
-                <strong>{{ pageStart() }}–{{ pageEnd() }}</strong> sur <strong>{{ total() }}</strong>
+                <strong>{{ pageStart() }}–{{ pageEnd() }}</strong> sur <strong>{{ filteredUsers().length }}</strong>
               </span>
               <div class="pg-btns">
-                <button class="btn-pg" (click)="load(page()-1)" [disabled]="page()===0">←</button>
+                <button class="btn-pg" (click)="goPage(page()-1)" [disabled]="page()===0">←</button>
                 @for (p of pageNums(); track p) {
                   @if (p === -1) { <span class="pg-dots">…</span> }
                   @else {
-                    <button class="btn-pg" [class.active]="p===page()" (click)="load(p)">{{ p+1 }}</button>
+                    <button class="btn-pg" [class.active]="p===page()" (click)="goPage(p)">{{ p+1 }}</button>
                   }
                 }
-                <button class="btn-pg" (click)="load(page()+1)" [disabled]="page()>=totalPages()-1">→</button>
+                <button class="btn-pg" (click)="goPage(page()+1)" [disabled]="page()>=totalPages()-1">→</button>
               </div>
             </div>
           }
@@ -938,7 +917,7 @@ function telephoneValide(raw: string): boolean {
             </div>
           }
         </div>
-      } @else if (users().length === 0) {
+      } @else if (pagedUsers().length === 0) {
         <div class="table-card">
           <div class="empty-state">
             <div class="empty-icon">
@@ -953,7 +932,7 @@ function telephoneValide(raw: string): boolean {
         </div>
       } @else {
         <div class="cards-grid">
-          @for (u of users(); track u.id) {
+          @for (u of pagedUsers(); track u.id) {
             <div class="user-card">
               <div class="card-top">
                 <div class="card-avatar" [style.background]="avatarBg(u)" [style.color]="avatarColor(u)">
@@ -1041,15 +1020,15 @@ function telephoneValide(raw: string): boolean {
         @if (totalPages() > 1) {
           <div class="pagination" style="background:#fff;border:1.5px solid #E5E7EB;border-radius:14px;margin-top:12px">
             <span class="pg-info">
-              <strong>{{ pageStart() }}–{{ pageEnd() }}</strong> sur <strong>{{ total() }}</strong>
+              <strong>{{ pageStart() }}–{{ pageEnd() }}</strong> sur <strong>{{ filteredUsers().length }}</strong>
             </span>
             <div class="pg-btns">
-              <button class="btn-pg" (click)="load(page()-1)" [disabled]="page()===0">←</button>
+              <button class="btn-pg" (click)="goPage(page()-1)" [disabled]="page()===0">←</button>
               @for (p of pageNums(); track p) {
                 @if (p===-1) { <span class="pg-dots">…</span> }
-                @else { <button class="btn-pg" [class.active]="p===page()" (click)="load(p)">{{ p+1 }}</button> }
+                @else { <button class="btn-pg" [class.active]="p===page()" (click)="goPage(p)">{{ p+1 }}</button> }
               }
-              <button class="btn-pg" (click)="load(page()+1)" [disabled]="page()>=totalPages()-1">→</button>
+              <button class="btn-pg" (click)="goPage(page()+1)" [disabled]="page()>=totalPages()-1">→</button>
             </div>
           </div>
         }
@@ -1062,18 +1041,20 @@ export class AdminUtilisateursComponent implements OnInit {
   private readonly toast    = inject(ToastService);
 
   // ── State ─────────────────────────────────────────────────────────────
-  users      = signal<AdminUtilisateurResponse[]>([]);
-  total      = signal(0);
-  totalPages = signal(0);
-  page       = signal(0);
+  /** Tous les utilisateurs chargés depuis l'API (sans filtre) */
+  allUsers   = signal<AdminUtilisateurResponse[]>([]);
   loading    = signal(false);
   viewMode   = signal<ViewMode>('table');
   openMenuId = signal<number | null>(null);
 
-  // Filtres
+  // Filtres (gérés entièrement côté Angular)
   searchTerm   = '';
   filterStatut = '';
   filterRole   = '';
+
+  // Pagination côté client
+  page         = signal(0);
+  readonly PAGE_SIZE = 10;
 
   // Modal création
   modalOpen     = signal(false);
@@ -1081,8 +1062,8 @@ export class AdminUtilisateursComponent implements OnInit {
   newPrenom     = '';
   newNom        = '';
   newEmail      = '';
-  newTelephone  = '';   // stocke les digits bruts (sans +237)
-  telDisplay    = '';   // valeur affichée dans l'input
+  newTelephone  = '';
+  telDisplay    = '';
   newVille      = '';
   newMotDePasse = '';
   newRole: RoleUtilisateur = RoleUtilisateur.UTILISATEUR;
@@ -1102,19 +1083,70 @@ export class AdminUtilisateursComponent implements OnInit {
   confirmDanger = signal(true);
   private pendingFn?: () => void;
 
-  readonly PAGE_SIZE = 10;
   readonly roles = [RoleUtilisateur.UTILISATEUR, RoleUtilisateur.ADMINISTRATEUR];
 
-  // ── Stats ──────────────────────────────────────────────────────────────
-  statsActifs    = computed(() => this.users().filter(u => u.statut === 'ACTIF').length);
-  statsSuspendus = computed(() => this.users().filter(u => u.statut === 'SUSPENDU').length);
-  statsBannis    = computed(() => this.users().filter(u => u.statut === 'BANNI').length);
-  statsAdmins    = computed(() => this.users().filter(u => u.role === 'ADMINISTRATEUR').length);
+  // ── Filtrage côté Angular ──────────────────────────────────────────────
+  /**
+   * Liste filtrée selon les 3 critères : recherche textuelle, statut, rôle.
+   * Recalculée automatiquement à chaque changement de signal.
+   */
+  filteredUsers = computed(() => {
+    const list    = this.allUsers();
+    const term    = this._searchSignal().trim().toLowerCase();
+    const statut  = this._statutSignal();
+    const role    = this._roleSignal();
+
+    return list.filter(u => {
+      // Filtre statut
+      if (statut && u.statut !== statut) return false;
+
+      // Filtre rôle
+      if (role && u.role !== role) return false;
+
+      // Filtre recherche textuelle (nom, prénom, email, téléphone, ville)
+      if (term) {
+        const hay = [
+          u.prenom ?? '',
+          u.nom ?? '',
+          u.email ?? '',
+          u.telephoneMasque ?? '',
+          u.ville ?? '',
+          this.fullName(u),
+        ].join(' ').toLowerCase();
+        if (!hay.includes(term)) return false;
+      }
+
+      return true;
+    });
+  });
+
+  /** Utilisateurs de la page courante */
+  pagedUsers = computed(() => {
+    const start = this.page() * this.PAGE_SIZE;
+    return this.filteredUsers().slice(start, start + this.PAGE_SIZE);
+  });
+
+  totalPages = computed(() => Math.ceil(this.filteredUsers().length / this.PAGE_SIZE));
+  pageStart  = computed(() => this.page() * this.PAGE_SIZE + 1);
+  pageEnd    = computed(() => Math.min((this.page() + 1) * this.PAGE_SIZE, this.filteredUsers().length));
+
+  hasActiveFilters = computed(() =>
+    !!this._searchSignal().trim() || !!this._statutSignal() || !!this._roleSignal()
+  );
+
+  // Signaux internes pour les filtres (permettent à computed() de réagir)
+  private _searchSignal = signal('');
+  private _statutSignal = signal('');
+  private _roleSignal   = signal('');
+
+  // ── Stats (sur TOUS les utilisateurs chargés) ─────────────────────────
+  statsActifs    = computed(() => this.allUsers().filter(u => u.statut === 'ACTIF').length);
+  statsSuspendus = computed(() => this.allUsers().filter(u => u.statut === 'SUSPENDU').length);
+  statsBannis    = computed(() => this.allUsers().filter(u => u.statut === 'BANNI').length);
+  statsAdmins    = computed(() => this.allUsers().filter(u => u.role === 'ADMINISTRATEUR').length);
 
   // ── Pagination ─────────────────────────────────────────────────────────
-  pageStart = computed(() => this.page() * this.PAGE_SIZE + 1);
-  pageEnd   = computed(() => Math.min((this.page() + 1) * this.PAGE_SIZE, this.total()));
-  pageNums  = computed<number[]>(() => {
+  pageNums = computed<number[]>(() => {
     const t = this.totalPages(), c = this.page();
     if (t <= 7) return Array.from({ length: t }, (_, i) => i);
     const pages: number[] = [0];
@@ -1127,47 +1159,59 @@ export class AdminUtilisateursComponent implements OnInit {
 
   // ── Lifecycle ──────────────────────────────────────────────────────────
   ngOnInit(): void {
-    this.load(0);
+    this.loadAll();
     document.addEventListener('click', () => this.openMenuId.set(null));
   }
 
-  // ── Chargement ─────────────────────────────────────────────────────────
-  load(p = 0): void {
+  // ── Chargement SANS filtre (on charge tout, Angular filtre) ────────────
+  loadAll(): void {
     this.loading.set(true);
     this.openMenuId.set(null);
-    const filters: Record<string, string | number> = { page: p, taille: this.PAGE_SIZE };
-    if (this.searchTerm.trim()) filters['terme']  = this.searchTerm.trim();
-    if (this.filterStatut)      filters['statut'] = this.filterStatut;
-    if (this.filterRole)        filters['role']   = this.filterRole;
-    this.adminApi.getUtilisateurs(filters as any).subscribe({
+    // On charge toujours sans paramètre de filtre pour avoir la liste complète
+    this.adminApi.getUtilisateurs({ page: 0, taille: 9999 } as any).subscribe({
       next: r => {
-        this.users.set(r.data.contenu);
-        this.total.set(r.data.totalElements);
-        this.totalPages.set(r.data.totalPages);
-        this.page.set(p);
+        this.allUsers.set(r.data.contenu);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
   }
 
+  // ── Gestion des filtres ────────────────────────────────────────────────
   private searchTimeout?: ReturnType<typeof setTimeout>;
-  onSearchInput(): void {
+
+  onSearchChange(): void {
     clearTimeout(this.searchTimeout);
-    this.searchTimeout = setTimeout(() => this.load(0), 400);
+    this.searchTimeout = setTimeout(() => {
+      this._searchSignal.set(this.searchTerm);
+      this.page.set(0); // retour à la première page
+    }, 250);
+  }
+
+  applyFilters(): void {
+    this._statutSignal.set(this.filterStatut);
+    this._roleSignal.set(this.filterRole);
+    this.page.set(0); // retour à la première page
   }
 
   resetFilters(): void {
-    this.searchTerm = ''; this.filterStatut = ''; this.filterRole = '';
-    this.load(0);
+    this.searchTerm  = '';
+    this.filterStatut = '';
+    this.filterRole   = '';
+    this._searchSignal.set('');
+    this._statutSignal.set('');
+    this._roleSignal.set('');
+    this.page.set(0);
+  }
+
+  goPage(p: number): void {
+    this.page.set(p);
   }
 
   // ── Téléphone : formatage en temps réel ────────────────────────────────
   onTelInput(value: string): void {
-    // Garder seulement les chiffres de la saisie (sans le préfixe affiché)
     const digits = value.replace(/[^\d]/g, '').replace(/^237/, '').replace(/^0/, '');
     this.newTelephone = digits;
-    // Formater pour l'affichage : X XX XXX XXX
     const p1 = digits.slice(0, 1);
     const p2 = digits.slice(1, 3);
     const p3 = digits.slice(3, 6);
@@ -1177,7 +1221,6 @@ export class AdminUtilisateursComponent implements OnInit {
     if (p3) display += ' ' + p3;
     if (p4) display += ' ' + p4;
     this.telDisplay = display;
-    // Effacer l'erreur dès que l'utilisateur tape
     if (this.formErr['telephone']) delete this.formErr['telephone'];
   }
 
@@ -1194,7 +1237,7 @@ export class AdminUtilisateursComponent implements OnInit {
     this.confirmLabel.set('Suspendre');
     this.confirmDanger.set(false);
     this.pendingFn = () => this.adminApi.suspendreUtilisateur(u.id, 'Suspension administrative')
-      .subscribe({ next: () => { this.toast.success('Compte suspendu'); this.load(); } });
+      .subscribe({ next: () => { this.toast.success('Compte suspendu'); this.loadAll(); } });
     this.confirmOpen.set(true);
   }
 
@@ -1205,14 +1248,14 @@ export class AdminUtilisateursComponent implements OnInit {
     this.confirmLabel.set('Bannir');
     this.confirmDanger.set(true);
     this.pendingFn = () => this.adminApi.bannirUtilisateur(u.id, 'Bannissement administratif')
-      .subscribe({ next: () => { this.toast.success('Compte banni'); this.load(); } });
+      .subscribe({ next: () => { this.toast.success('Compte banni'); this.loadAll(); } });
     this.confirmOpen.set(true);
   }
 
   doActiver(id: number): void {
     this.openMenuId.set(null);
     this.adminApi.activerUtilisateur(id).subscribe({
-      next: () => { this.toast.success('Compte réactivé'); this.load(); },
+      next: () => { this.toast.success('Compte réactivé'); this.loadAll(); },
     });
   }
 
@@ -1238,7 +1281,7 @@ export class AdminUtilisateursComponent implements OnInit {
       next: () => {
         this.toast.success('Rôle modifié');
         this.roleModalOpen.set(false);
-        this.load();
+        this.loadAll();
       },
     });
   }
@@ -1268,7 +1311,6 @@ export class AdminUtilisateursComponent implements OnInit {
       this.formErr['nom'] = 'Le nom est requis';
     if (!this.newEmail.trim() || !this.newEmail.includes('@'))
       this.formErr['email'] = 'Adresse email invalide';
-    // Validation téléphone : 9 chiffres camerounais
     if (!this.newTelephone || !telephoneValide(this.newTelephone))
       this.formErr['telephone'] = 'Numéro invalide — ex : 6 55 123 456';
     if (!this.newVille.trim())
@@ -1282,23 +1324,22 @@ export class AdminUtilisateursComponent implements OnInit {
     if (!this.validateForm() || this.creatingUser()) return;
     this.creatingUser.set(true);
 
-    // Normaliser le numéro au format +237XXXXXXXXX attendu par le backend
     const telephoneNormalise = normaliseTelephone(this.newTelephone);
 
     this.adminApi.creerUtilisateur({
-      prenom:      this.newPrenom.trim(),
-      nom:         this.newNom.trim(),
-      email:       this.newEmail.trim().toLowerCase(),
-      telephone:   telephoneNormalise,
-      ville:       this.newVille.trim(),
-      motDePasse:  this.newMotDePasse,
-      role:        this.newRole,
+      prenom:     this.newPrenom.trim(),
+      nom:        this.newNom.trim(),
+      email:      this.newEmail.trim().toLowerCase(),
+      telephone:  telephoneNormalise,
+      ville:      this.newVille.trim(),
+      motDePasse: this.newMotDePasse,
+      role:       this.newRole,
     }).subscribe({
       next: () => {
         this.toast.success('Utilisateur créé avec succès');
         this.closeModal();
         this.creatingUser.set(false);
-        this.load(0);
+        this.loadAll();
       },
       error: () => this.creatingUser.set(false),
     });

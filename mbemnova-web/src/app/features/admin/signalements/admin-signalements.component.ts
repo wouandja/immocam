@@ -1,612 +1,699 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+// admin-signalements.component.ts
+import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AdminApi } from '@core/services/api/admin.api';
 import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
- 
+import { FcfaPipe } from '@shared/pipes/fcfa.pipe';
 import { ToastService } from '@core/services/toast.service';
 import { MOTIF_SIGNALEMENT_LABELS } from '@core/services/models';
 import { SignalementResponse } from '@core/services/models/admin.model';
 
+// cSpell:ignore TRAITE BANNISSEMENT
+
+type DecisionStatut =
+  | 'IGNORE'
+  | 'TRAITE_INFO'
+  | 'TRAITE_PAUSE'
+  | 'TRAITE_SUPPRESSION'
+  | 'TRAITE_SUSPENSION'
+  | 'TRAITE_BANNISSEMENT';
+
+// ✅ Tabs avec les valeurs exactes envoyées au backend
+// Java côté backend : si statut null → EN_ATTENTE, sinon la valeur exacte
+// Pour "Traités" on charge sans filtre statut et on filtre côté front
+// car le backend ne supporte pas de filtre "TRAITE_*" générique
+type TabKey = 'EN_ATTENTE' | 'TRAITE' | 'IGNORE' | 'TOUS';
+
+interface PageStats {
+  enAttente: number;
+  traites: number;
+  ignores: number;
+}
+
 @Component({
   selector: 'app-admin-signalements',
   standalone: true,
-  imports: [CommonModule, FormsModule, TimeAgoPipe],
+  imports: [CommonModule, FormsModule, TimeAgoPipe, FcfaPipe],
   styles: [`
-    :host { display: block; }
+    :host { display: block; font-family: 'DM Sans', system-ui, sans-serif; }
 
-    /* ── Topbar ── */
-    .topbar {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 24px;
-    }
-    .topbar-left h2 {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.4px;
-      color: #0F172A;
-      margin: 0;
-    }
-    .topbar-left p { font-size: 13px; color: #64748B; margin: 3px 0 0; }
+    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+    .topbar-title { font-size: 17px; font-weight: 800; color: #0F172A; letter-spacing: -.3px; margin: 0; }
+    .topbar-sub { font-size: 12px; color: #64748B; margin-top: 3px; }
 
-    /* ── Tabs ── */
-    .tabs {
-      display: flex;
-      background: #F1F5F9;
-      border-radius: 12px;
-      padding: 3px;
-      gap: 2px;
-    }
+    .tabs { display: flex; background: #F1F5F9; border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
     .tab-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      height: 34px;
-      padding: 0 14px;
-      border: none;
-      border-radius: 9px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-      color: #64748B;
-      background: transparent;
-      transition: all .15s;
-      white-space: nowrap;
+      display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 13px;
+      border: none; border-radius: 8px; font-size: 12px; font-weight: 500;
+      cursor: pointer; font-family: inherit; color: #64748B; background: transparent;
+      transition: all .15s; white-space: nowrap;
     }
-    .tab-btn.active {
-      background: #fff;
-      color: #0F172A;
-      box-shadow: 0 1px 3px rgba(0,0,0,.08);
-    }
+    .tab-btn.active { background: #fff; color: #0F172A; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
     .tab-count {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 5px;
-      border-radius: 20px;
-      font-size: 10px;
-      font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; padding: 0 5px;
+      border-radius: 20px; font-size: 10px; font-weight: 700;
     }
-    .tab-btn.active .tab-count.danger { background: #FEE2E2; color: #DC2626; }
-    .tab-btn .tab-count.danger { background: #f1f5f9; color: #94A3B8; }
-    .tab-btn.active .tab-count.neutral { background: #E2E8F0; color: #475569; }
-    .tab-btn .tab-count.neutral { background: #f1f5f9; color: #94A3B8; }
+    .tc-red   { background: #FEE2E2; color: #DC2626; }
+    .tc-green { background: #DCFCE7; color: #15803D; }
+    .tc-slate { background: #E2E8F0; color: #64748B; }
+    .tc-blue  { background: #DBEAFE; color: #1D4ED8; }
 
-    /* ── Stats strip ── */
-    .stats-strip {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 20px;
-    }
+    .stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 18px; }
+    @media (max-width: 600px) { .stats-row { grid-template-columns: 1fr 1fr; } }
     .stat-card {
-      background: #fff;
-      border: 0.5px solid #E2E8F0;
-      border-radius: 14px;
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 12px;
+      padding: 14px 16px; display: flex; align-items: center; gap: 10px;
     }
-    .stat-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .stat-icon.red    { background: #FEF2F2; }
-    .stat-icon.amber  { background: #FFFBEB; }
-    .stat-icon.green  { background: #F0FDF4; }
-    .stat-icon.slate  { background: #F8FAFC; }
-    .stat-value { font-size: 22px; font-weight: 800; color: #0F172A; letter-spacing: -0.5px; line-height: 1; }
-    .stat-label { font-size: 11px; color: #94A3B8; margin-top: 2px; font-weight: 500; }
+    .stat-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .stat-icon svg { width: 16px; height: 16px; }
+    .stat-val { font-size: 22px; font-weight: 800; color: #0F172A; letter-spacing: -.04em; line-height: 1; }
+    .stat-lbl { font-size: 11px; color: #94A3B8; margin-top: 2px; }
 
-    /* ── List ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(10,20,50,.55); backdrop-filter: blur(5px);
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+      animation: fadeIn .18s ease;
+    }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .modal-box {
+      background: #fff; border-radius: 18px; width: 100%; max-width: 420px;
+      box-shadow: 0 32px 80px rgba(0,0,0,.2);
+      animation: boxIn .2s cubic-bezier(.34,1.56,.64,1); overflow: hidden;
+    }
+    @keyframes boxIn { from{transform:scale(.9);opacity:0} to{transform:scale(1);opacity:1} }
+    .modal-header { padding: 20px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+    .modal-title { font-size: 15px; font-weight: 800; color: #0F172A; }
+    .modal-close {
+      width: 28px; height: 28px; border-radius: 7px; border: 1.5px solid #E5E7EB;
+      background: #F8FAFC; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #64748B;
+    }
+    .modal-close svg { width: 13px; height: 13px; }
+    .modal-body { padding: 16px 20px; }
+    .confirm-icon { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; }
+    .confirm-icon svg { width: 22px; height: 22px; }
+    .confirm-title { font-size: 16px; font-weight: 800; color: #0F172A; text-align: center; margin-bottom: 7px; }
+    .confirm-msg { font-size: 13px; color: #64748B; text-align: center; line-height: 1.6; }
+    .modal-footer { display: flex; gap: 8px; padding: 0 20px 20px; }
+    .btn-cancel {
+      flex: 1; height: 42px; background: #F1F5F9; color: #64748B;
+      border: 1.5px solid #E5E7EB; border-radius: 10px;
+      font: 600 13px/1 'DM Sans',system-ui,sans-serif; cursor: pointer;
+    }
+    .btn-cancel:hover { background: #E2E8F0; }
+    .btn-confirm {
+      flex: 2; height: 42px; border: none; border-radius: 10px;
+      font: 700 13px/1 'DM Sans',system-ui,sans-serif; cursor: pointer; color: #fff;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: filter .15s;
+    }
+    .btn-confirm:hover { filter: brightness(.9); }
+
     .list { display: flex; flex-direction: column; gap: 10px; }
 
-    /* ── Card ── */
     .sig-card {
-      background: #fff;
-      border: 0.5px solid #E2E8F0;
-      border-radius: 14px;
-      overflow: hidden;
-      transition: box-shadow .15s, border-color .15s;
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 14px;
+      overflow: hidden; transition: box-shadow .15s;
     }
-    .sig-card:hover { border-color: #C7D2FE; box-shadow: 0 4px 16px rgba(50,69,209,.06); }
-    .sig-card.urgent { border-left: 3px solid #EF4444; }
-    .sig-card.traite  { border-left: 3px solid #10B981; }
-    .sig-card.ignore  { border-left: 3px solid #94A3B8; }
+    .sig-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.07); }
+    .sig-card.pending { border-left: 3px solid #EF4444; }
+    .sig-card.done    { border-left: 3px solid #10B981; }
+    .sig-card.ignored { border-left: 3px solid #94A3B8; }
 
-    .sig-body { padding: 16px; display: flex; gap: 14px; align-items: flex-start; }
-
-    /* Severity dot */
-    .sev-dot {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+    .ann-preview {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px 12px; background: #F8FAFC;
+      border-bottom: 1px solid #F1F5F9; cursor: pointer; transition: background .1s;
     }
-    .sev-dot.red    { background: #FEF2F2; }
-    .sev-dot.slate  { background: #F8FAFC; }
-    .sev-dot svg { width: 18px; height: 18px; }
-
-    .sig-content { flex: 1; min-width: 0; }
-
-    .sig-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 6px;
-      flex-wrap: wrap;
-    }
-    .sig-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-
-    /* Badges */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 9px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: .01em;
-    }
-    .badge-motif-fraud    { background: #FEE2E2; color: #B91C1C; }
-    .badge-motif-content  { background: #F3E8FF; color: #7C3AED; }
-    .badge-motif-other    { background: #FEF9C3; color: #A16207; }
-    .badge-status-pending { background: #FEF2F2; color: #DC2626; border: 0.5px solid #FECACA; }
-    .badge-status-done    { background: #ECFDF5; color: #059669; border: 0.5px solid #A7F3D0; }
-    .badge-status-ignore  { background: #F8FAFC; color: #94A3B8; border: 0.5px solid #E2E8F0; }
-
-    .sig-time { font-size: 11px; color: #94A3B8; white-space: nowrap; }
-
-    .sig-annonce {
-      font-size: 13px;
-      font-weight: 600;
-      color: #0F172A;
-      margin: 0 0 3px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .sig-annonce span { color: #1E2875; }
-
-    .sig-author { font-size: 12px; color: #64748B; margin: 0; }
-    .sig-author strong { color: #0F172A; font-weight: 600; }
-
-    .sig-description {
-      margin-top: 8px;
-      padding: 8px 12px;
-      background: #F8FAFC;
-      border-radius: 8px;
-      border-left: 2px solid #E2E8F0;
-      font-size: 12px;
-      color: #475569;
-      font-style: italic;
-      line-height: 1.5;
-    }
-
-    /* ── Actions footer ── */
-    .sig-footer {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-      padding: 12px 16px;
-      background: #FAFBFC;
-      border-top: 0.5px solid #F1F5F9;
-    }
-    .footer-label { font-size: 11px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: .06em; margin-right: 4px; }
-
-    .btn-action {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      height: 30px;
-      padding: 0 12px;
-      border-radius: 7px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      border: 0.5px solid;
-      transition: all .12s;
-      white-space: nowrap;
-      font-family: inherit;
-    }
-    .btn-action svg { width: 13px; height: 13px; flex-shrink: 0; }
-    .btn-action:active { transform: scale(.96); }
-
-    .btn-ignore  { background: transparent; border-color: #CBD5E1; color: #64748B; }
-    .btn-ignore:hover  { background: #F8FAFC; border-color: #94A3B8; color: #0F172A; }
-
-    .btn-delete  { background: transparent; border-color: #FDE68A; color: #D97706; }
-    .btn-delete:hover  { background: #FFFBEB; border-color: #F59E0B; }
-
-    .btn-suspend { background: transparent; border-color: #FCA5A5; color: #DC2626; }
-    .btn-suspend:hover { background: #FEF2F2; border-color: #F87171; }
-
-    .btn-ban     { background: #DC2626; border-color: #DC2626; color: #fff; }
-    .btn-ban:hover     { background: #B91C1C; border-color: #B91C1C; }
-
-    /* ── Loading skeleton ── */
-    .skeleton-list { display: flex; flex-direction: column; gap: 10px; }
-    .sk-card {
-      background: #fff;
-      border: 0.5px solid #E2E8F0;
-      border-radius: 14px;
-      padding: 16px;
-      display: flex;
-      gap: 14px;
-    }
-    .sk-dot {
-      width: 36px; height: 36px;
-      border-radius: 10px;
-      flex-shrink: 0;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s infinite;
-    }
-    .sk-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; padding-top: 2px; }
-    .sk-line {
-      height: 12px;
-      border-radius: 6px;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s infinite;
-    }
-    .sk-line.w30 { width: 30%; }
-    .sk-line.w55 { width: 55%; }
-    .sk-line.w75 { width: 75%; }
-    @keyframes shimmer { to { background-position: -200% 0; } }
-
-    /* ── Empty state ── */
-    .empty-state {
-      background: #fff;
-      border: 0.5px solid #E2E8F0;
-      border-radius: 14px;
-      padding: 64px 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 8px;
-    }
-    .empty-icon {
-      width: 64px; height: 64px;
-      background: #F0FDF4;
-      border-radius: 16px;
+    .ann-preview:hover { background: #F0F7FF; }
+    .ann-thumb {
+      width: 46px; height: 46px; border-radius: 10px; overflow: hidden; flex-shrink: 0;
+      background: #EEF2FF; border: 1px solid #E0E7FF;
       display: flex; align-items: center; justify-content: center;
-      margin-bottom: 8px;
     }
+    .ann-thumb svg { width: 18px; height: 18px; color: #A5B4FC; }
+    .ann-info { flex: 1; min-width: 0; }
+    .ann-title { font-size: 13px; font-weight: 700; color: #0F172A; margin-bottom: 2px; }
+    .ann-price { font-size: 13px; font-weight: 700; color: #1E2875; white-space: nowrap; }
+    .ann-status { font-size: 10.5px; padding: 2px 8px; border-radius: 20px; font-weight: 600; margin-left: 6px; }
+    .ann-link { font-size: 11px; color: #3B82F6; display: flex; align-items: center; gap: 3px; margin-top: 2px; }
+    .ann-link svg { width: 11px; height: 11px; }
+
+    .sig-body { padding: 12px 16px; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .b-fraud   { background: #FEE2E2; color: #B91C1C; }
+    .b-content { background: #F3E8FF; color: #7C3AED; }
+    .b-other   { background: #FEF9C3; color: #A16207; }
+    .b-pending { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+    .b-done    { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+    .b-ignored { background: #F8FAFC; color: #94A3B8; border: 1px solid #E2E8F0; }
+
+    .auteur-row { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: #F8FAFC; border-radius: 9px; margin-bottom: 10px; }
+    .auteur-avatar { width: 28px; height: 28px; border-radius: 50%; background: #E0E7FF; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #4F46E5; flex-shrink: 0; }
+    .auteur-name { font-size: 12px; font-weight: 600; color: #0F172A; }
+    .auteur-sub  { font-size: 11px; color: #64748B; }
+
+    .sig-desc { font-size: 12px; color: #475569; font-style: italic; background: #F8FAFC; border-left: 2px solid #CBD5E1; padding: 8px 11px; border-radius: 0 8px 8px 0; line-height: 1.55; }
+
+    .sig-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; background: #FAFBFC; border-top: 1px solid #F1F5F9;
+      flex-wrap: wrap; gap: 8px;
+    }
+    .footer-meta { font-size: 11px; color: #94A3B8; }
+    .footer-actions { display: flex; align-items: center; gap: 6px; }
+
+    /* ✅ CORRIGÉ : fond bleu pour les 3 points */
+    .btn-dots {
+      width: 32px; height: 32px; border-radius: 8px; border: none;
+      background: #2563EB; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #fff; transition: all .12s;
+    }
+    .btn-dots:hover { background: #1D4ED8; }
+    .btn-dots svg { width: 15px; height: 15px; }
+
+    .drop-wrap { position: relative; }
+    .dropdown {
+      position: absolute; right: 0; bottom: calc(100% + 4px); z-index: 50;
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.1); min-width: 220px; overflow: hidden;
+      animation: dropIn .15s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes dropIn { from{opacity:0;transform:scale(.95) translateY(4px)} to{opacity:1;transform:scale(1) translateY(0)} }
+    .drop-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 10px 14px; font-size: 13px; font-weight: 500;
+      cursor: pointer; background: none; border: none; width: 100%;
+      text-align: left; font-family: inherit; color: #374151; transition: background .1s;
+    }
+    .drop-item:hover { background: #F8FAFC; }
+    .drop-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .drop-item.slate { color: #64748B; }
+    .drop-item.blue  { color: #2563EB; }
+    .drop-item.blue:hover  { background: #EFF6FF; }
+    .drop-item.amber { color: #D97706; }
+    .drop-item.amber:hover { background: #FFFBEB; }
+    .drop-item.red   { color: #DC2626; }
+    .drop-item.red:hover   { background: #FEF2F2; }
+    .drop-item.dark  { color: #7F1D1D; }
+    .drop-item.dark:hover  { background: #FEF2F2; }
+    .drop-sep { height: 1px; background: #F1F5F9; margin: 3px 0; }
+
+    .sk-list { display: flex; flex-direction: column; gap: 10px; }
+    .sk-card { background: #fff; border: 1.5px solid #E5E7EB; border-radius: 14px; padding: 16px; display: flex; gap: 12px; }
+    .sk-dot  { width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0; }
+    .sk-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .sk-line { height: 12px; border-radius: 6px; }
+    .sk { background: linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%); background-size: 200% 100%; animation: shim 1.4s infinite; }
+    @keyframes shim { to { background-position: -200% 0; } }
+
+    .empty { background: #fff; border: 1.5px solid #E5E7EB; border-radius: 14px; padding: 60px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+    .empty-icon { width: 58px; height: 58px; background: #F0FDF4; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+    .empty-icon svg { width: 26px; height: 26px; }
     .empty-title { font-size: 15px; font-weight: 700; color: #0F172A; margin: 0; }
     .empty-sub   { font-size: 13px; color: #94A3B8; max-width: 280px; line-height: 1.6; margin: 0; }
 
-    /* ── Responsive ── */
-    @media (max-width: 640px) {
-      .stats-strip { grid-template-columns: 1fr 1fr; }
-      .stats-strip .stat-card:last-child { grid-column: span 2; }
-      .topbar { flex-direction: column; }
-      .tabs { align-self: stretch; }
-    }
-    @media (max-width: 400px) {
-      .stats-strip { grid-template-columns: 1fr; }
-      .stats-strip .stat-card:last-child { grid-column: span 1; }
-    }
+    @media (max-width: 560px) { .topbar { flex-direction: column; } }
   `],
   template: `
-    <!-- Topbar -->
+    @if (confirmOpen()) {
+      <div class="modal-overlay" (click)="confirmOpen.set(false)">
+        <div class="modal-box" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <span class="modal-title">Confirmation</span>
+            <button class="modal-close" (click)="confirmOpen.set(false)">
+              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="confirm-icon" [style.background]="confirmIconBg()">
+              <svg fill="none" [attr.stroke]="confirmIconColor()" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" [attr.d]="confirmIconPath()"/>
+              </svg>
+            </div>
+            <p class="confirm-title">{{ confirmTitle() }}</p>
+            <p class="confirm-msg">{{ confirmMsg() }}</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" (click)="confirmOpen.set(false)">Annuler</button>
+            <button class="btn-confirm" [style.background]="confirmBtnColor()" (click)="executeAction()">
+              {{ confirmLabel() }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     <div class="topbar">
-      <div class="topbar-left">
-        <h2>Gestion des signalements</h2>
-        <p>{{ countPending() }} en attente de traitement</p>
+      <div>
+        <p class="topbar-title">Signalements</p>
+        <!-- ✅ CORRIGÉ : stats viennent de pageStats() chargé depuis le backend -->
+        <p class="topbar-sub">{{ pageStats().enAttente }} en attente · cliquer sur une annonce pour voir le détail</p>
       </div>
-
-      <!-- Tabs filtre statut -->
       <div class="tabs" role="tablist">
-        <button
-          class="tab-btn"
-          [class.active]="filterStatut === 'EN_ATTENTE'"
-          (click)="setFilter('EN_ATTENTE')"
-          role="tab"
-        >
-          En attente
-          <span class="tab-count danger">{{ countPending() }}</span>
+        <button class="tab-btn" [class.active]="tab()==='EN_ATTENTE'" (click)="setTab('EN_ATTENTE')">
+          En attente <span class="tab-count tc-red">{{ pageStats().enAttente }}</span>
         </button>
-        <button
-          class="tab-btn"
-          [class.active]="filterStatut === 'TRAITE'"
-          (click)="setFilter('TRAITE')"
-          role="tab"
-        >
-          Traités
-          <span class="tab-count neutral">{{ countTraite() }}</span>
+        <button class="tab-btn" [class.active]="tab()==='TRAITE'" (click)="setTab('TRAITE')">
+          Traités <span class="tab-count tc-green">{{ pageStats().traites }}</span>
         </button>
-        <button
-          class="tab-btn"
-          [class.active]="filterStatut === 'IGNORE'"
-          (click)="setFilter('IGNORE')"
-          role="tab"
-        >
-          Ignorés
-          <span class="tab-count neutral">{{ countIgnore() }}</span>
+        <button class="tab-btn" [class.active]="tab()==='IGNORE'" (click)="setTab('IGNORE')">
+          Ignorés <span class="tab-count tc-slate">{{ pageStats().ignores }}</span>
         </button>
-        <button
-          class="tab-btn"
-          [class.active]="filterStatut === ''"
-          (click)="setFilter('')"
-          role="tab"
-        >
-          Tous
+        <button class="tab-btn" [class.active]="tab()==='TOUS'" (click)="setTab('TOUS')">
+          Tous <span class="tab-count tc-blue">{{ totalElements() }}</span>
         </button>
       </div>
     </div>
 
-    <!-- Stats strip -->
-    <div class="stats-strip">
+    <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-icon red">
-          <!-- Alert triangle -->
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        <div class="stat-icon" style="background:#FEF2F2">
+          <svg fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
           </svg>
         </div>
-        <div>
-          <div class="stat-value">{{ countPending() }}</div>
-          <div class="stat-label">En attente</div>
-        </div>
+        <div><div class="stat-val">{{ pageStats().enAttente }}</div><div class="stat-lbl">En attente</div></div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon green">
-          <!-- Check circle -->
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
-            <polyline stroke-linecap="round" stroke-linejoin="round" points="22 4 12 14.01 9 11.01"/>
+        <div class="stat-icon" style="background:#ECFDF5">
+          <svg fill="none" stroke="#10B981" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <div>
-          <div class="stat-value">{{ countTraite() }}</div>
-          <div class="stat-label">Traités</div>
-        </div>
+        <div><div class="stat-val">{{ pageStats().traites }}</div><div class="stat-lbl">Traités</div></div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon slate">
-          <!-- Minus circle -->
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="8" y1="12" x2="16" y2="12"/>
+        <div class="stat-icon" style="background:#F8FAFC">
+          <svg fill="none" stroke="#94A3B8" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M8 12h8"/>
           </svg>
         </div>
-        <div>
-          <div class="stat-value">{{ countIgnore() }}</div>
-          <div class="stat-label">Ignorés</div>
-        </div>
+        <div><div class="stat-val">{{ pageStats().ignores }}</div><div class="stat-lbl">Ignorés</div></div>
       </div>
     </div>
 
-    <!-- Loading -->
     @if (loading()) {
-      <div class="skeleton-list">
-        @for (s of skeletonItems; track s) {
+      <div class="sk-list">
+        @for (i of [1,2,3,4]; track i) {
           <div class="sk-card">
-            <div class="sk-dot"></div>
+            <div class="sk-dot sk"></div>
             <div class="sk-lines">
-              <div class="sk-line w30"></div>
-              <div class="sk-line w75"></div>
-              <div class="sk-line w55"></div>
+              <div class="sk-line sk" style="width:35%"></div>
+              <div class="sk-line sk" style="width:70%"></div>
+              <div class="sk-line sk" style="width:50%"></div>
             </div>
           </div>
         }
       </div>
+
     } @else if (signalements().length === 0) {
-      <!-- Empty state -->
-      <div class="empty-state">
+      <div class="empty">
         <div class="empty-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.5">
+          <svg fill="none" stroke="#10B981" stroke-width="1.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <p class="empty-title">
-          @if (filterStatut === 'EN_ATTENTE') { Aucun signalement en attente }
-          @else if (filterStatut === 'TRAITE') { Aucun signalement traité }
-          @else if (filterStatut === 'IGNORE') { Aucun signalement ignoré }
-          @else { Aucun signalement }
-        </p>
+        <p class="empty-title">Aucun signalement ici</p>
         <p class="empty-sub">
-          @if (filterStatut === 'EN_ATTENTE') { La plateforme est propre, aucun contenu à modérer pour l'instant. }
+          @if (tab()==='EN_ATTENTE') { Aucun contenu à modérer. Tout est propre. }
           @else { Aucun signalement dans cette catégorie. }
         </p>
       </div>
+
     } @else {
-      <!-- List -->
       <div class="list">
         @for (s of signalements(); track s.id) {
-          <div
-            class="sig-card"
-            [class.urgent]="s.statut === 'EN_ATTENTE'"
-            [class.traite]="s.statut === 'TRAITE'"
-            [class.ignore]="s.statut === 'IGNORE'"
-          >
-            <div class="sig-body">
-              <!-- Severity icon -->
-              <div class="sev-dot" [class.red]="s.statut === 'EN_ATTENTE'" [class.slate]="s.statut !== 'EN_ATTENTE'">
-                @if (s.statut === 'EN_ATTENTE') {
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                } @else if (s.statut === 'TRAITE') {
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                } @else {
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="8" y1="12" x2="16" y2="12"/>
-                  </svg>
-                }
+          <div class="sig-card"
+            [class.pending]="s.statut === 'EN_ATTENTE'"
+            [class.done]="isTraite(s.statut)"
+            [class.ignored]="s.statut === 'IGNORE'">
+
+            <div class="ann-preview" (click)="goToAnnonce(s.annonceId)">
+              <div class="ann-thumb">
+                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 10l9-7 9 7v10a1 1 0 01-1 1h-6v-6H10v6H4a1 1 0 01-1-1z"/>
+                </svg>
               </div>
-
-              <div class="sig-content">
-                <div class="sig-header">
-                  <div class="sig-badges">
-                    <!-- Motif badge -->
-                    <span class="badge" [class]="motifBadgeClass(s.motif)">
-                      {{ motifLabel(s.motif) }}
-                    </span>
-                    <!-- Statut badge -->
-                    <span class="badge" [class]="statutBadgeClass(s.statut)">
-                      @if (s.statut === 'EN_ATTENTE') { En attente }
-                      @else if (s.statut === 'TRAITE') { Traité }
-                      @else { Ignoré }
-                    </span>
-                  </div>
-                  <span class="sig-time">{{ s.dateSignalement | timeAgo }}</span>
+              <div class="ann-info">
+                <div class="ann-title">
+                  {{ s.typeBienAnnonce }}
+                  @if (s.quartierAnnonce) { — {{ s.quartierAnnonce }}, }
+                  {{ s.villeAnnonce }}
                 </div>
-
-                <p class="sig-annonce">
-                  typeBienAnnonce : <span>{{ s.typeBienAnnonce }}</span>
-                </p>
-                <p class="sig-author">
-                  Signalé par <strong>{{ s.auteurEmail }}</strong>
-                  <span style="color:#CBD5E1"> · </span>
-                  {{ s.auteurEmail }}
-                </p>
-
-                @if (s.details) {
-                  <div class="sig-description">"{{ s.details }}"</div>
-                }
+                <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+                  @if (s.prixAnnonce) {
+                    <span class="ann-price">{{ s.prixAnnonce | fcfa }}</span>
+                  }
+                  @if (s.statutAnnonce) {
+                    <span class="ann-status" [style]="annStatutStyle(s.statutAnnonce)">
+                      {{ annStatutLabel(s.statutAnnonce) }}
+                    </span>
+                  }
+                </div>
+                <div class="ann-link">
+                  <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
+                  Voir l'annonce · {{ s.proprietaireNom }}
+                </div>
               </div>
             </div>
 
-            <!-- Action footer — uniquement pour EN_ATTENTE -->
-            @if (s.statut === 'EN_ATTENTE') {
-              <div class="sig-footer">
-                <span class="footer-label">Action</span>
-
-                <!-- Ignorer -->
-                <button class="btn-action btn-ignore" (click)="traiter(s.id, 'IGNORE', 'IGNORER')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="8" y1="12" x2="16" y2="12"/>
-                  </svg>
-                  Ignorer
-                </button>
-
-                <!-- Supprimer annonce -->
-                <button class="btn-action btn-delete" (click)="traiter(s.id, 'TRAITE', 'SUPPRIMER_ANNONCE')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6M14 11v6"/>
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                  </svg>
-                  Supprimer l'annonce
-                </button>
-
-                <!-- Suspendre -->
-                <button class="btn-action btn-suspend" (click)="traiter(s.id, 'TRAITE', 'SUSPENDRE_PROPRIETAIRE')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
-                  </svg>
-                  Suspendre le propriétaire
-                </button>
-
-                <!-- Bannir -->
-                <button class="btn-action btn-ban" (click)="traiter(s.id, 'TRAITE', 'BANNIR_PROPRIETAIRE')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
-                  </svg>
-                  Bannir
-                </button>
+            <div class="sig-body">
+              <div class="auteur-row">
+                <div class="auteur-avatar">
+                  {{ (s.auteurPrenom ?? 'U')[0] }}{{ (s.auteurNom ?? '')[0] }}
+                </div>
+                <div>
+                  <div class="auteur-name">
+                    {{ s.auteurPrenom }} {{ s.auteurNom }}
+                    <span style="color:#94A3B8;font-weight:400"> — signalé par</span>
+                  </div>
+                  <div class="auteur-sub">{{ s.auteurEmail }} · {{ s.auteurVille }}</div>
+                </div>
+                <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                  <span class="badge" [ngClass]="motifCls(s.motif)">{{ motifLabel(s.motif) }}</span>
+                  <span class="badge" [ngClass]="statutCls(s.statut)">{{ statutLabel(s.statut) }}</span>
+                </div>
               </div>
-            }
+              @if (s.details) {
+                <div class="sig-desc">"{{ s.details }}"</div>
+              }
+            </div>
+
+            <div class="sig-footer">
+              <span class="footer-meta">{{ s.dateSignalement | timeAgo }}</span>
+              <div class="footer-actions">
+                @if (s.statut === 'EN_ATTENTE') {
+                  <div class="drop-wrap" (click)="$event.stopPropagation()">
+                    <!-- ✅ CORRIGÉ : fond bleu visible -->
+                    <button class="btn-dots" (click)="toggleMenu(s.id)" aria-label="Actions">
+                      <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h.01M12 12h.01M19 12h.01"/>
+                      </svg>
+                    </button>
+                    @if (openMenuId() === s.id) {
+                      <div class="dropdown">
+                        <button class="drop-item slate" (click)="askAction(s, 'IGNORE')">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M8 12h8"/>
+                          </svg>
+                          Ignorer ce signalement
+                        </button>
+                        <div class="drop-sep"></div>
+                        <button class="drop-item blue" (click)="askAction(s, 'TRAITE_PAUSE')">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                          Mettre l'annonce en pause
+                        </button>
+                        <button class="drop-item amber" (click)="askAction(s, 'TRAITE_SUPPRESSION')">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                          </svg>
+                          Supprimer l'annonce
+                        </button>
+                        <div class="drop-sep"></div>
+                        <button class="drop-item red" (click)="askAction(s, 'TRAITE_SUSPENSION')">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636"/>
+                          </svg>
+                          Suspendre le propriétaire
+                        </button>
+                        <button class="drop-item dark" (click)="askAction(s, 'TRAITE_BANNISSEMENT')">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                          Bannir définitivement
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
           </div>
         }
       </div>
     }
   `,
 })
-export class AdminSignalementsComponent implements OnInit {
+export class AdminSignalementsComponent implements OnInit, OnDestroy {
   private readonly adminApi = inject(AdminApi);
   private readonly toast    = inject(ToastService);
+  private readonly router   = inject(Router);
 
-  // ── Signals ──────────────────────────────────────────────────────────
-  signalements = signal<SignalementResponse[]>([]);
-  loading      = signal(false);
-  filterStatut = 'EN_ATTENTE';
+  signalements  = signal<SignalementResponse[]>([]);
+  loading       = signal(false);
+  tab           = signal<TabKey>('EN_ATTENTE');
+  openMenuId    = signal<number | null>(null);
+  totalElements = signal(0);
 
-  readonly skeletonItems = Array(5).fill(0);
+  // ✅ CORRIGÉ : stats viennent de 3 appels parallèles au backend, pas calculées depuis la page courante
+  pageStats = signal<PageStats>({ enAttente: 0, traites: 0, ignores: 0 });
 
-  // ── Computed counts ───────────────────────────────────────────────────
-  countPending = computed(() => this.signalements().filter(s => s.statut === 'EN_ATTENTE').length);
-  countTraite  = computed(() => this.signalements().filter(s => s.statut === 'TRAITE').length);
-  countIgnore  = computed(() => this.signalements().filter(s => s.statut === 'IGNORE').length);
+  confirmOpen   = signal(false);
+  confirmTitle  = signal('');
+  confirmMsg    = signal('');
+  confirmLabel  = signal('Confirmer');
+  private pendingFn?: () => void;
+  private _decision = signal<DecisionStatut>('IGNORE');
+  private _clickHandler = () => this.openMenuId.set(null);
 
-  // ── Cycle de vie ──────────────────────────────────────────────────────
-  ngOnInit(): void { this.load(); }
+  confirmIconBg = computed(() =>
+    this._decision() === 'IGNORE' ? '#F8FAFC' :
+    ['TRAITE_SUPPRESSION','TRAITE_BANNISSEMENT'].includes(this._decision()) ? '#FEF2F2' :
+    this._decision() === 'TRAITE_PAUSE' ? '#EFF6FF' : '#FFFBEB');
+  confirmIconColor = computed(() =>
+    ['TRAITE_SUPPRESSION','TRAITE_BANNISSEMENT'].includes(this._decision()) ? '#DC2626' :
+    this._decision() === 'TRAITE_PAUSE' ? '#2563EB' :
+    this._decision() === 'TRAITE_SUSPENSION' ? '#D97706' : '#64748B');
+  confirmIconPath = computed(() =>
+    ['TRAITE_SUPPRESSION','TRAITE_BANNISSEMENT'].includes(this._decision())
+      ? 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'
+      : 'M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z');
+  confirmBtnColor = computed(() =>
+    ['TRAITE_SUPPRESSION','TRAITE_BANNISSEMENT'].includes(this._decision()) ? '#DC2626' :
+    this._decision() === 'TRAITE_PAUSE' ? '#2563EB' :
+    this._decision() === 'TRAITE_SUSPENSION' ? '#D97706' : '#64748B');
 
-  // ── Méthodes ──────────────────────────────────────────────────────────
-  setFilter(statut: string): void {
-    this.filterStatut = statut;
-    this.load();
+  ngOnInit(): void {
+    this.loadAll();
+    document.addEventListener('click', this._clickHandler);
   }
 
-  load(): void {
+  ngOnDestroy(): void {
+    document.removeEventListener('click', this._clickHandler);
+  }
+
+  setTab(t: TabKey): void {
+    this.tab.set(t);
+    this.loadCurrent();
+  }
+
+  // ✅ Charge les stats des 3 catégories + la liste du tab courant
+  loadAll(): void {
+    this.loadStats();
+    this.loadCurrent();
+  }
+
+  // ✅ CORRIGÉ : 3 appels séparés pour avoir les vrais compteurs de chaque catégorie
+  private loadStats(): void {
+    // EN_ATTENTE
+    this.adminApi.getSignalements('EN_ATTENTE', 0).subscribe({
+      next: r => this.pageStats.update(s => ({ ...s, enAttente: r.data?.totalElements ?? r.data?.contenu?.length ?? 0 })),
+      error: () => {},
+    });
+    // IGNORE
+    this.adminApi.getSignalements('IGNORE', 0).subscribe({
+      next: r => this.pageStats.update(s => ({ ...s, ignores: r.data?.totalElements ?? r.data?.contenu?.length ?? 0 })),
+      error: () => {},
+    });
+    // TRAITE (on prend TRAITE_PAUSE comme représentant — ou mieux : charge tous et filtre)
+    // Le backend accepte les valeurs exactes de l'enum Java
+    // On fait 5 appels pour chaque valeur TRAITE_* et on somme
+    const traitesStatuts: string[] = [
+      'TRAITE_INFO','TRAITE_PAUSE','TRAITE_SUPPRESSION','TRAITE_SUSPENSION','TRAITE_BANNISSEMENT'
+    ];
+    let totalTraites = 0;
+    let done = 0;
+    traitesStatuts.forEach(statut => {
+      this.adminApi.getSignalements(statut, 0).subscribe({
+        next: r => {
+          totalTraites += r.data?.totalElements ?? r.data?.contenu?.length ?? 0;
+          done++;
+          if (done === traitesStatuts.length) {
+            this.pageStats.update(s => ({ ...s, traites: totalTraites }));
+          }
+        },
+        error: () => { done++; },
+      });
+    });
+  }
+
+  loadCurrent(): void {
     this.loading.set(true);
-    this.adminApi.getSignalements(this.filterStatut || undefined).subscribe({
-      next: (r) => {
-        this.signalements.set(r.data.contenu);
+    this.openMenuId.set(null);
+
+    // ✅ CORRIGÉ : mapping tab → valeur statut backend
+    // 'TRAITE' n'existe pas dans l'enum Java → on charge TRAITE_PAUSE comme défaut
+    // et on affiche tous les TRAITE_* en chargeant sans filtre statut précis
+    const statutParam = this.tab() === 'TOUS'
+      ? undefined          // pas de filtre → backend renvoie EN_ATTENTE par défaut... 
+                           // on doit passer un flag spécial ou charger page par page
+      : this.tab() === 'TRAITE'
+        ? undefined        // voir note ci-dessous
+        : this.tab();      // 'EN_ATTENTE' ou 'IGNORE' → valeur exacte Java
+
+    // Note : pour "Traités" et "Tous", le backend ne supporte pas de filtre générique.
+    // On charge sans filtre statut (undefined) ce qui renvoie EN_ATTENTE côté backend.
+    // Solution propre : ajouter un endpoint backend ou charger chaque statut séparément.
+    // Ici on charge les 5 statuts TRAITE_* et on les concatène pour l'onglet Traités.
+    if (this.tab() === 'TRAITE') {
+      this.loadTraites();
+      return;
+    }
+
+    if (this.tab() === 'TOUS') {
+      this.loadTous();
+      return;
+    }
+
+    this.adminApi.getSignalements(statutParam, 0).subscribe({
+      next: r => {
+        this.signalements.set(r.data?.contenu ?? []);
+        this.totalElements.set(r.data?.totalElements ?? r.data?.contenu?.length ?? 0);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
   }
 
-  traiter(id: number, statut: any, action: any): void {
-    this.adminApi.traiterSignalement(id, { statut, action }).subscribe({
-      next: () => {
-        this.toast.success('Signalement traité');
-        this.load();
-      },
+  // ✅ Charge tous les TRAITE_* et les concatène
+  private loadTraites(): void {
+    const statuts = ['TRAITE_INFO','TRAITE_PAUSE','TRAITE_SUPPRESSION','TRAITE_SUSPENSION','TRAITE_BANNISSEMENT'];
+    let all: SignalementResponse[] = [];
+    let done = 0;
+    statuts.forEach(statut => {
+      this.adminApi.getSignalements(statut, 0).subscribe({
+        next: r => {
+          all = all.concat(r.data?.contenu ?? []);
+          done++;
+          if (done === statuts.length) {
+            // Trier par date décroissante
+            all.sort((a, b) => new Date(b.dateSignalement).getTime() - new Date(a.dateSignalement).getTime());
+            this.signalements.set(all);
+            this.totalElements.set(all.length);
+            this.loading.set(false);
+          }
+        },
+        error: () => { done++; if (done === statuts.length) this.loading.set(false); },
+      });
     });
   }
 
-  // ── Helpers badge ─────────────────────────────────────────────────────
+  // ✅ Charge tous les statuts pour "Tous"
+  private loadTous(): void {
+    const statuts = ['EN_ATTENTE','IGNORE','TRAITE_INFO','TRAITE_PAUSE','TRAITE_SUPPRESSION','TRAITE_SUSPENSION','TRAITE_BANNISSEMENT'];
+    let all: SignalementResponse[] = [];
+    let done = 0;
+    statuts.forEach(statut => {
+      this.adminApi.getSignalements(statut, 0).subscribe({
+        next: r => {
+          all = all.concat(r.data?.contenu ?? []);
+          done++;
+          if (done === statuts.length) {
+            all.sort((a, b) => new Date(b.dateSignalement).getTime() - new Date(a.dateSignalement).getTime());
+            this.signalements.set(all);
+            this.totalElements.set(all.length);
+            this.loading.set(false);
+          }
+        },
+        error: () => { done++; if (done === statuts.length) this.loading.set(false); },
+      });
+    });
+  }
+
+  toggleMenu(id: number): void {
+    this.openMenuId.set(this.openMenuId() === id ? null : id);
+  }
+
+  goToAnnonce(id: number): void {
+    this.router.navigate(['/annonces', id]);
+  }
+
+  askAction(s: SignalementResponse, decision: DecisionStatut): void {
+    this.openMenuId.set(null);
+    this._decision.set(decision);
+    const labels: Record<DecisionStatut, { title: string; msg: string; btn: string }> = {
+      IGNORE:              { title: 'Ignorer ce signalement ?',     msg: 'Le signalement sera marqué comme ignoré.',                                      btn: 'Ignorer' },
+      TRAITE_INFO:         { title: 'Marquer comme informé ?',      msg: 'Le signalement sera traité sans action supplémentaire.',                         btn: 'Confirmer' },
+      TRAITE_PAUSE:        { title: "Mettre l'annonce en pause ?",  msg: `L'annonce "${s.typeBienAnnonce}" sera masquée. Seul l'admin peut la réactiver.`, btn: 'Mettre en pause' },
+      TRAITE_SUPPRESSION:  { title: "Supprimer l'annonce ?",        msg: `L'annonce "${s.typeBienAnnonce}" sera supprimée définitivement.`,                btn: 'Supprimer' },
+      TRAITE_SUSPENSION:   { title: 'Suspendre le propriétaire ?',  msg: `${s.proprietaireNom} sera suspendu. Ses annonces seront masquées.`,              btn: 'Suspendre' },
+      TRAITE_BANNISSEMENT: { title: 'Bannir définitivement ?',      msg: `${s.proprietaireNom} sera banni et toutes ses annonces supprimées.`,             btn: 'Bannir' },
+    };
+    const cfg = labels[decision];
+    this.confirmTitle.set(cfg.title);
+    this.confirmMsg.set(cfg.msg);
+    this.confirmLabel.set(cfg.btn);
+    this.pendingFn = () => this.execTraiter(s.id, decision);
+    this.confirmOpen.set(true);
+  }
+
+  executeAction(): void {
+    this.confirmOpen.set(false);
+    this.pendingFn?.();
+    this.pendingFn = undefined;
+  }
+
+  private execTraiter(id: number, decision: DecisionStatut): void {
+    this.adminApi.traiterSignalement(id, { statut: decision as any }).subscribe({
+      next: () => { this.toast.success('Action effectuée'); this.loadAll(); },
+      error: err => this.toast.error(err?.error?.message ?? 'Erreur'),
+    });
+  }
+
+  // ✅ Helper : est-ce un statut "traité" ?
+  isTraite(statut: string): boolean {
+    return ['TRAITE_INFO','TRAITE_PAUSE','TRAITE_SUPPRESSION','TRAITE_SUSPENSION','TRAITE_BANNISSEMENT'].includes(statut);
+  }
+
   motifLabel(m: string): string {
-    return (MOTIF_SIGNALEMENT_LABELS as any)[m] ?? m;
+    return (MOTIF_SIGNALEMENT_LABELS as Record<string, string>)[m] ?? m;
   }
-
-  motifBadgeClass(m: string): string {
-    if (m === 'ANNONCE_FRAUDULEUSE') return 'badge-motif-fraud';
-    if (m === 'CONTENU_INAPPROPRIE')  return 'badge-motif-content';
-    return 'badge-motif-other';
+  motifCls(m: string): string {
+    return m === 'ANNONCE_FRAUDULEUSE' ? 'b-fraud' : m === 'CONTENU_INAPPROPRIE' ? 'b-content' : 'b-other';
   }
-
-  statutBadgeClass(s: string): string {
-    if (s === 'EN_ATTENTE') return 'badge-status-pending';
-    if (s === 'TRAITE')     return 'badge-status-done';
-    return 'badge-status-ignore';
+  statutLabel(s: string): string {
+    const map: Record<string, string> = {
+      EN_ATTENTE: 'En attente', IGNORE: 'Ignoré',
+      TRAITE_INFO: 'Noté', TRAITE_PAUSE: 'Annonce en pause',
+      TRAITE_SUPPRESSION: 'Annonce supprimée',
+      TRAITE_SUSPENSION: 'Proprio suspendu',
+      TRAITE_BANNISSEMENT: 'Proprio banni',
+    };
+    return map[s] ?? s;
+  }
+  statutCls(s: string): string {
+    if (s === 'EN_ATTENTE') return 'b-pending';
+    if (s === 'IGNORE')     return 'b-ignored';
+    return 'b-done';
+  }
+  annStatutLabel(s: string): string {
+    const m: Record<string,string> = { ACTIVE:'Actif', EN_PAUSE:'En pause', EXPIREE:'Expiré', ARCHIVEE:'Archivé', SUPPRIMEE:'Supprimé' };
+    return m[s] ?? s;
+  }
+  annStatutStyle(s: string): string {
+    if (s === 'ACTIVE')   return 'background:#F0FDF4;color:#15803D';
+    if (s === 'EN_PAUSE') return 'background:#FFFBEB;color:#B45309';
+    return 'background:#F1F5F9;color:#64748B';
   }
 }

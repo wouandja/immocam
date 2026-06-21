@@ -55,7 +55,8 @@ export class AuthEffects {
         tap(({ email }) => {
           this.log('📲 registerSuccess$ triggered', email);
           this.toast.success('Compte créé ! Vérifiez votre email.');
-          this.router.navigate(['/auth/verify-email'], { queryParams: { email } });
+          const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+          this.router.navigate(['/auth/verify-email'], { queryParams: { email, ...(returnUrl ? { returnUrl } : {}) } });
         }),
       ),
     { dispatch: false },
@@ -91,7 +92,8 @@ export class AuthEffects {
           this.log('📲 verifyEmailSuccess$ triggered', user);
           this.auth.updateUser(user);
           this.toast.success(`Bienvenue ${user.prenom} ! Email vérifié.`);
-          this.router.navigate(['/dashboard']);
+          const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+          this.router.navigate([returnUrl ?? '/dashboard']);
         }),
       ),
     { dispatch: false },

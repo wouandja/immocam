@@ -1,5 +1,16 @@
-import { RoleUtilisateur, StatutCompte, StatutSignalement } from './enums.model';
-import { AnnonceListResponse } from './annonce.model';
+import { RoleUtilisateur, StatutCompte } from './enums.model';
+
+// ─────────────────────────────────────────────
+// Valeurs EXACTES de l'enum Java StatutSignalement
+// ─────────────────────────────────────────────
+export type StatutSignalementType =
+  | 'EN_ATTENTE'
+  | 'IGNORE'
+  | 'TRAITE_INFO'
+  | 'TRAITE_PAUSE'
+  | 'TRAITE_SUPPRESSION'
+  | 'TRAITE_SUSPENSION'
+  | 'TRAITE_BANNISSEMENT';
 
 export interface AdminDashboardResponse {
   // Aujourd'hui
@@ -35,20 +46,17 @@ export interface TypeBienRanking {
   nombreAnnonces: number;
 }
 
-// ============================================
-// admin.utilisateur.model.ts
-// ============================================
 export interface AdminUtilisateurResponse {
   id: number;
   prenom: string;
   nom: string;
   email: string;
-  telephoneMasque: string;  // ← backend envoie telephoneMasque
+  telephoneMasque: string;
   ville: string;
-  role: string;              // ← backend envoie string, pas RoleUtilisateur enum
-  statut: string;            // ← backend envoie string, pas StatutCompte enum
+  role: string;
+  statut: string;
   dateInscription: string;
-  dernierLogin: string;      // ← backend: dernierLogin
+  dernierLogin: string;
   nombreAnnoncesActives: number;
   nombreAnnoncesTotal: number;
 }
@@ -65,19 +73,37 @@ export interface AdminUtilisateurFilters {
 export interface SignalementResponse {
   id: number;
   annonceId: number;
-  typeBienAnnonce: string;   // ← backend: typeBienAnnonce
-  villeAnnonce: string;       // ← backend: villeAnnonce
+
+  // Annonce
+  typeBienAnnonce: string;
+  villeAnnonce: string;
+  quartierAnnonce?: string;
+  prixAnnonce?: number;
+  statutAnnonce?: string;
+  proprietaireId?: number;
+  proprietaireNom?: string;
+  proprietaireEmail?: string;
+  proprietaireTelephone?: string;
+
+  // Signalement
   motif: string;
-  details: string;            // ← backend: details
-  statut: string;             // ← backend: statut (string, pas enum)
-  auteurEmail: string;        // ← backend: auteurEmail
+  details?: string;
+  statut: StatutSignalementType;  // ← typé strictement
+
+  // Auteur du signalement
+  auteurId?: number;
+  auteurEmail?: string;
+  auteurPrenom?: string;
+  auteurNom?: string;
+  auteurVille?: string;
+  auteurTelephone?: string;
+
   dateSignalement: string;
 }
 
 export interface TraiterSignalementRequest {
-  statut: StatutSignalement;
+  statut: StatutSignalementType;  // ← plus d'import StatutSignalement externe
   note?: string;
-  action?: 'SUPPRIMER_ANNONCE' | 'SUSPENDRE_PROPRIETAIRE' | 'BANNIR_PROPRIETAIRE' | 'IGNORER';
 }
 
 export interface ConfigSystemeResponse {
@@ -112,11 +138,10 @@ export interface AdminAnnonceFilters {
   search?: string;
 }
 
-
 export interface LocalisationResponse {
   id: number;
   ville: string;
-  quartier?: string;  // optionnel selon votre entity
+  quartier?: string;
   active: boolean;
   dateCreation?: string;
 }
@@ -124,6 +149,6 @@ export interface LocalisationResponse {
 export interface TypeBienResponse {
   id: number;
   libelle: string;
-  estActif: boolean;   // ← backend: estActif (pas "actif" ou "active")
+  estActif: boolean;
   dateCreation?: string;
 }

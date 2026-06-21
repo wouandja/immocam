@@ -66,7 +66,9 @@ export const annonceReducer = createReducer(
   })),
 
   // Détail
-  on(annonceActions.loadDetail, (s) => ({ ...s, detailLoading: true, error: null })),
+  // detail: null dès le départ d'un nouveau chargement — évite d'afficher
+  // l'annonce précédente (stale) pendant le chargement ou après un 404
+  on(annonceActions.loadDetail, (s) => ({ ...s, detailLoading: true, error: null, detail: null })),
   on(annonceActions.loadDetailSuccess, (s, { annonce }) => ({
     ...s,
     detailLoading: false,
@@ -75,6 +77,7 @@ export const annonceReducer = createReducer(
   on(annonceActions.loadDetailFailure, (s, { error }) => ({
     ...s,
     detailLoading: false,
+    detail: null,
     error,
   })),
 

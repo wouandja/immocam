@@ -371,7 +371,7 @@ export class SidebarComponent {
   ];
  
   moderationNav: NavItem[] = [
-    { label: 'Signalements', icon: 'signalements', route: '/admin/signalements', badge: 3 },
+    { label: 'Signalements', icon: 'signalements', route: '/admin/signalements' },
     { label: 'Commentaires', icon: 'commentaires', route: '/admin/commentaires' },
   ];
  

@@ -981,6 +981,7 @@ export class MesAnnoncesComponent implements OnInit {
     this.confirmOpen.set(false);
     this.pendingAction?.();
     this.pendingAction = undefined;
-    setTimeout(() => this.store.dispatch(annonceActions.loadMesAnnonces({})), 500);
+    // Pas besoin de recharger ici : annonce.effects.ts (actionSuccess$) recharge
+    // déjà mesAnnonces automatiquement après chaque action réussie.
   }
 }

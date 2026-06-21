@@ -12,6 +12,7 @@ package com.mbem.immocam.shared.enums;
  *   EXPIREE      -> ACTIVE (renouvellement) | SUPPRIMEE_SYSTEME(J+7)
  */
 public enum StatutAnnonce {
+    /** Legacy — plus jamais attribué par le code (publication directe), mais conservé pour les annonces existantes en base avec ce statut. */
     EN_ATTENTE_VALIDATION,
     ACTIVE,
     EN_PAUSE,

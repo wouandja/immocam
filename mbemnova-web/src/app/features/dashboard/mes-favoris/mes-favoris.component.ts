@@ -28,6 +28,9 @@ import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
     }
     .card:hover { border-color: rgba(0,0,0,0.16); transform: translateY(-2px); }
     .card:hover .card-img img { transform: scale(1.05); }
+    .card.opacity-60 { cursor: default; }
+    .card.opacity-60:hover { border-color: rgba(0,0,0,0.08); transform: none; }
+    .card.opacity-60:hover .card-img img { transform: none; }
 
     .card-img {
       position: relative;
@@ -147,9 +150,8 @@ import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
     } @else {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @for (f of favoris(); track f.annonceId) {
-          <!-- APRÈS -->
-<article class="card" [class.opacity-60]="f.statut !== 'ACTIVE'"
-         [routerLink]="['/annonces', f.annonceId]">
+          <article class="card" [class.opacity-60]="f.statutAnnonce !== 'ACTIVE'"
+         [routerLink]="f.statutAnnonce === 'ACTIVE' ? ['/annonces', f.annonceId] : null">
 
             <div class="card-img">
               @if (f.photoUrl) {
@@ -166,11 +168,11 @@ import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
                 </div>
               }
 
-              @if (f.statut === 'ACTIVE') {
+              @if (f.statutAnnonce === 'ACTIVE') {
                 <span class="badge-type">{{ f.typeBien }}</span>
               } @else {
-                <span class="badge-statut">{{ statusLabel(f.statut) }}</span>
-                <div class="overlay"><span>{{ statusLabel(f.statut) }}</span></div>
+                <span class="badge-statut">{{ statusLabel(f.statutAnnonce) }}</span>
+                <div class="overlay"><span>{{ statusLabel(f.statutAnnonce) }}</span></div>
               }
 
               <button class="btn-retirer" (click)="retirer($event, f.annonceId)"
@@ -201,7 +203,7 @@ import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
               <div class="card-sep"></div>
               <div class="card-footer">
                 <span class="card-date">Ajouté {{ f.dateAjout | timeAgo }}</span>
-                @if (f.statut === 'ACTIVE') {
+                @if (f.statutAnnonce === 'ACTIVE') {
                   <a class="btn-detail" [routerLink]="['/annonces', f.annonceId]"
                      (click)="$event.stopPropagation()">Détails</a>
                 }
@@ -220,7 +222,14 @@ export class MesFavorisComponent implements OnInit {
   readonly loading  = this.store.selectSignal(selectFavoriLoading);
   readonly skeletons = Array(6);
 
-  ngOnInit(): void { this.store.dispatch(favoriActions.load()); }
+  ngOnInit(): void {
+    // Si on revient ici via le bouton "Retour" depuis le détail d'une annonce,
+    // les favoris sont déjà en store : on évite un rechargement (flash skeleton)
+    // pour que le retour soit instantané plutôt que de re-fetcher à chaque fois.
+    if (this.favoris().length === 0) {
+      this.store.dispatch(favoriActions.load());
+    }
+  }
 
   retirer(event: Event, annonceId: number): void {
     event.preventDefault();

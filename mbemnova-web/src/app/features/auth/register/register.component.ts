@@ -542,7 +542,7 @@ type StepId = 'identity' | 'contact' | 'password' | 'confirm';
       @if (currentStep() === 0) {
         <p class="login-link">
           Déjà un compte ?
-          <a routerLink="/auth/login">Se connecter</a>
+          <a routerLink="/auth/login" queryParamsHandling="preserve">Se connecter</a>
         </p>
       }
     </div>

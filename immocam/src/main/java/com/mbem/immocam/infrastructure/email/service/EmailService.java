@@ -37,6 +37,11 @@ public interface EmailService {
     void envoyerAnnonceSuspendue(String destinataire, String prenom,
                                  String typeBien, String ville);
 
+    /** Confirmation de renouvellement (manuel ou réactivation auto-prolongée). */
+    void envoyerConfirmationRenouvellement(String destinataire, String prenom,
+                                           String typeBien, String ville,
+                                           String nouvelleDateExpiration);
+
     /**
      * Annonce supprimée par l'administrateur (motif obligatoire).
      * Le propriétaire reçoit le motif de suppression.

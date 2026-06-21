@@ -1,11 +1,13 @@
 package com.mbem.immocam.infrastructure.scheduler;
 
+import com.mbem.immocam.infrastructure.audit.LogActiviteService;
 import com.mbem.immocam.infrastructure.email.service.EmailService;
 import com.mbem.immocam.module.annonce.entity.Annonce;
 import com.mbem.immocam.module.annonce.repository.AnnonceRepository;
 import com.mbem.immocam.module.config.service.ConfigSystemeService;
 import com.mbem.immocam.shared.constants.ImmoCamConstants;
 import com.mbem.immocam.shared.enums.StatutAnnonce;
+import com.mbem.immocam.shared.enums.TypeAction;
 import com.mbem.immocam.shared.utils.DateUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +41,7 @@ public class AnnonceExpirationScheduler {
     private final AnnonceRepository annonceRepository;
     private final EmailService emailService;
     private final ConfigSystemeService configSystemeService;
+    private final LogActiviteService logActiviteService;
 
     @Value("${immocam.annonce.delai-rappel-j5:5}")
     private int delaiRappelJ5;
@@ -132,6 +135,8 @@ public class AnnonceExpirationScheduler {
                     a.getTypeBien().getLibelle(),
                     a.getLocalisation().getVille()
                 );
+                logActiviteService.log(a.getProprietaire().getId(), TypeAction.EXPIRATION_ANNONCE,
+                        "Annonce", a.getId(), null, null);
                 log.info("Annonce id={} passée en EXPIREE", a.getId());
             } catch (Exception e) {
                 log.error("Erreur expiration annonce id={} : {}", a.getId(), e.getMessage());
@@ -149,6 +154,8 @@ public class AnnonceExpirationScheduler {
             try {
                 a.setStatut(StatutAnnonce.SUPPRIMEE_SYSTEME);
                 a.setDeleted(true);
+                logActiviteService.log(a.getProprietaire().getId(), TypeAction.SUPPRESSION_SYSTEME_ANNONCE,
+                        "Annonce", a.getId(), null, null);
                 log.info("Annonce id={} supprimée définitivement par le système", a.getId());
             } catch (Exception e) {
                 log.error("Erreur suppression système annonce id={} : {}", a.getId(), e.getMessage());

@@ -42,7 +42,13 @@ public interface FavoriRepository extends JpaRepository<Favori, Long> {
      * Corrige le bug : l'ancienne méthode dérivée countByAnnonceProprietaireId
      * pouvait compter les entités Favori liées indirectement et donner
      * un résultat incorrect selon le mapping JPA.
+     *
+     * Exclut les favoris pointant vers une annonce supprimée (deleted = true),
+     * pour rester cohérent avec les autres statistiques du dashboard
+     * (vues, contacts) qui excluent déjà ces annonces.
      */
-    @Query("SELECT COUNT(f) FROM Favori f WHERE f.annonce.proprietaire.id = :proprietaireId")
+    @Query("SELECT COUNT(f) FROM Favori f " +
+            "WHERE f.annonce.proprietaire.id = :proprietaireId " +
+            "AND f.annonce.deleted = false")
     long countFavorisRealsByProprietaireId(@Param("proprietaireId") Long proprietaireId);
 }

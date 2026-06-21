@@ -243,43 +243,71 @@ public class AdminServiceImpl implements AdminService {
     // ── Signalements ──────────────────────────────────────────────────────────
 
     @Override
-    @Transactional(readOnly = true)
-    public PageResponse<AdminSignalementResponse> listerSignalements(
-            StatutSignalement statut, Pageable pageable) {
-        Page<Signalement> page = signalementRepository
-                .findByStatutOrderByDateCreationDesc(statut, pageable);
-        return PageResponse.from(page.map(s -> AdminSignalementResponse.builder()
+@Transactional(readOnly = true)
+public PageResponse<AdminSignalementResponse> listerSignalements(
+        StatutSignalement statut, Pageable pageable) {
+    Page<Signalement> page = signalementRepository
+            .findByStatutOrderByDateCreationDesc(statut, pageable);
+    return PageResponse.from(page.map(s -> {
+        Annonce a = s.getAnnonce();
+        Utilisateur auteur = s.getAuteur();
+        return AdminSignalementResponse.builder()
                 .id(s.getId())
-                .annonceId(s.getAnnonce().getId())
-                .typeBienAnnonce(s.getAnnonce().getTypeBien().getLibelle())
-                .villeAnnonce(s.getAnnonce().getLocalisation().getVille())
+                .annonceId(a.getId())
+                // Annonce
+                .typeBienAnnonce(a.getTypeBien().getLibelle())
+                .villeAnnonce(a.getLocalisation().getVille())
+                .quartierAnnonce(a.getQuartier())
+                .prixAnnonce(a.getPrix())
+                .statutAnnonce(a.getStatut().name())
+                .proprietaireId(a.getProprietaire().getId())
+                .proprietaireNom(a.getProprietaire().getNomComplet())
+                .proprietaireEmail(a.getProprietaire().getEmail())
+                .proprietaireTelephone(PhoneUtils.masquer(a.getProprietaire().getTelephone()))
+                // Signalement
                 .motif(s.getMotif())
                 .details(s.getDescription())
                 .statut(s.getStatut().name())
-                .auteurEmail(s.getAuteur().getEmail())
+                // Auteur du signalement
+                .auteurId(auteur.getId())
+                .auteurEmail(auteur.getEmail())
+                .auteurPrenom(auteur.getPrenom())
+                .auteurNom(auteur.getNom())
+                .auteurVille(auteur.getVille())
+                .auteurTelephone(PhoneUtils.masquer(auteur.getTelephone()))
                 .dateSignalement(s.getDateCreation())
-                .build()));
-    }
+                .build();
+    }));
+}
 
-    @Override
-    @Transactional
-    public void traiterSignalement(Long signalementId, Long adminId, StatutSignalement decision) {
-        Signalement s = signalementRepository.findById(signalementId)
-                .orElseThrow(() -> new RessourceNotFoundException("Signalement", signalementId));
-        Utilisateur admin = obtenirUtilisateur(adminId);
-        s.setStatut(decision);
-        s.setTraiteParAdmin(admin);
-        s.setDateTraitement(LocalDateTime.now());
+// traiterSignalement — gérer TRAITE_PAUSE en plus
+@Override
+@Transactional
+public void traiterSignalement(Long signalementId, Long adminId, StatutSignalement decision) {
+    Signalement s = signalementRepository.findById(signalementId)
+            .orElseThrow(() -> new RessourceNotFoundException("Signalement", signalementId));
+    Utilisateur admin = obtenirUtilisateur(adminId);
+    s.setStatut(decision);
+    s.setTraiteParAdmin(admin);
+    s.setDateTraitement(LocalDateTime.now());
 
-        if (StatutSignalement.TRAITE_SUPPRESSION.equals(decision)) {
-            supprimerAnnonce(s.getAnnonce().getId(), adminId, "Signalement validé");
-        } else if (StatutSignalement.TRAITE_SUSPENSION.equals(decision)) {
+    switch (decision) {
+        case TRAITE_SUPPRESSION ->
+            supprimerAnnonce(s.getAnnonce().getId(), adminId, "Signalement validé — suppression");
+        case TRAITE_PAUSE ->
+            mettreEnPauseAnnonce(s.getAnnonce().getId(), adminId);
+        case TRAITE_SUSPENSION ->
             suspendreUtilisateur(s.getAnnonce().getProprietaire().getId(),
-                    adminId, "Signalement validé");
-        }
-        logActiviteService.log(adminId, TypeAction.SIGNALEMENT_TRAITE,
-                "Signalement", signalementId, null, decision.name());
+                    adminId, "Signalement validé — suspension");
+        case TRAITE_BANNISSEMENT ->
+            bannirUtilisateur(s.getAnnonce().getProprietaire().getId(),
+                    adminId, "Signalement validé — bannissement");
+        case TRAITE_INFO, IGNORE -> { /* note ou ignoré, aucune action */ }
+        default -> { }
     }
+    logActiviteService.log(adminId, TypeAction.SIGNALEMENT_TRAITE,
+            "Signalement", signalementId, null, decision.name());
+}
 
 
 

@@ -47,9 +47,11 @@ public class AnnonceSpecification {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // Toujours filtrer sur les annonces actives et non supprimées
+            // Toujours filtrer sur les annonces actives, non supprimées et non expirées
+            // (filet de sécurité en attendant le passage du scheduler de minuit)
             predicates.add(cb.equal(root.get("statut"), StatutAnnonce.ACTIVE));
             predicates.add(cb.equal(root.get("deleted"), false));
+            predicates.add(cb.greaterThan(root.get("dateExpiration"), java.time.LocalDateTime.now()));
 
             if (ville != null && !ville.isBlank()) {
                 predicates.add(cb.like(

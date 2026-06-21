@@ -115,6 +115,14 @@ export const routes: Routes = [
             title: 'Mes contacts — ImmoCam',
           },
           {
+            path: 'notifications',
+            loadComponent: () =>
+              import('./features/dashboard/notifications/notifications.component').then(
+                (m) => m.DashboardNotificationsComponent,
+              ),
+            title: 'Notifications — ImmoCam',
+          },
+          {
             path: 'profil',
             loadComponent: () =>
               import('./features/dashboard/profil/profil.component').then((m) => m.ProfilComponent),

@@ -83,12 +83,27 @@ export class AdminApi {
       { params },
     );
   }
-  traiterSignalement(id: number, req: TraiterSignalementRequest): Observable<ApiResponse<void>> {
-    return this.http.patch<ApiResponse<void>>(
-      `${this.base}/signalements/${id}/traiter?decision=${encodeURIComponent(req.statut)}`,
-      {},
-    );
-  }
+ // Remplacer traiterSignalement() :
+traiterSignalement(id: number, req: TraiterSignalementRequest): Observable<ApiResponse<void>> {
+  // req.statut doit être une valeur exacte de StatutSignalement Java
+  // ex: IGNORE, TRAITE_PAUSE, TRAITE_SUPPRESSION, TRAITE_SUSPENSION, TRAITE_BANNISSEMENT
+  return this.http.patch<ApiResponse<void>>(
+    `${this.base}/signalements/${id}/traiter?decision=${encodeURIComponent(req.statut)}`,
+    {},
+  );
+}
+
+
+ 
+// Ajouter modifierRole() avec le bon nom :
+modifierRole(id: number, role: string): Observable<ApiResponse<void>> {
+  return this.http.patch<ApiResponse<void>>(
+    `${this.base}/utilisateurs/${id}/role`,
+    { role },
+  );
+}
+
+
 getCommentaires(page = 0, taille = 20): Observable<ApiResponse<PageResponse<CommentaireResponse>>> {
   let params = new HttpParams().set('page', page).set('taille', taille);
   return this.http.get<ApiResponse<PageResponse<CommentaireResponse>>>(

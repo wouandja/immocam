@@ -14,7 +14,7 @@ export interface ModifierMotDePasseRequest {
 }
 
 export interface FavoriResponse {
-  id: number;
+  favoriId: number;
   annonceId: number;
   typeBien: string;
   ville: string;
@@ -22,6 +22,7 @@ export interface FavoriResponse {
   prix: number;
   prixFormate: string;
   photoUrl?: string;
-  statut: string;
+  /** Nom du champ aligné sur FavoriResponse.java (statutAnnonce), pas "statut" */
+  statutAnnonce: string;
   dateAjout: string;
 }
