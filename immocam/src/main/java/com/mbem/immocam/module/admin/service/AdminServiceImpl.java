@@ -18,9 +18,11 @@ import com.mbem.immocam.module.commentaire.repository.CommentaireRepository;
 import com.mbem.immocam.module.config.entity.ConfigSysteme;
 import com.mbem.immocam.module.config.repository.ConfigSystemeRepository;
 import com.mbem.immocam.module.config.service.ConfigSystemeService;
+import com.mbem.immocam.shared.constants.ImmoCamConstants;
 import com.mbem.immocam.module.contact.repository.ContactWhatsAppRepository;
 import com.mbem.immocam.module.localisation.entity.Localisation;
 import com.mbem.immocam.module.localisation.repository.LocalisationRepository;
+import com.mbem.immocam.module.photo.repository.PhotoRepository;
 import com.mbem.immocam.module.signalement.entity.Signalement;
 import com.mbem.immocam.module.signalement.repository.SignalementRepository;
 import com.mbem.immocam.module.typebien.entity.TypeBien;
@@ -67,6 +69,11 @@ public class AdminServiceImpl implements AdminService {
     private final LogActiviteService logActiviteService;
     private final PasswordEncoder passwordEncoder;
     private final ConfigSystemeService configSystemeService;
+    private final PhotoRepository photoRepository;
+    private final com.mbem.immocam.module.localisation.service.QuartierService quartierService;
+
+    @org.springframework.beans.factory.annotation.Value("${immocam.storage.base-url:http://localhost:1010/api/uploads/annonces/}")
+    private String storageBaseUrl;
 
     // ── Dashboard ─────────────────────────────────────────────────────────────
 
@@ -99,13 +106,14 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<AdminAnnonceResponse> listerAnnonces(String ville, Long typeBienId,
-            Long proprietaireId, String statut, Pageable pageable) {
+            Long proprietaireId, String statut, String quartier, String recherche, Pageable pageable) {
         StatutAnnonce statutEnum = statut != null ? StatutAnnonce.valueOf(statut) : null;
         Specification<Annonce> spec = AnnonceSpecification.filtrerAdmin(
-                ville, typeBienId, proprietaireId, statutEnum);
+                ville, typeBienId, proprietaireId, statutEnum, quartier, recherche);
         Page<Annonce> page = annonceRepository.findAll(spec, pageable);
 
-        return PageResponse.from(page.map(a -> AdminAnnonceResponse.builder()
+        return PageResponse.from(page.map(a -> {
+            AdminAnnonceResponse.AdminAnnonceResponseBuilder builder = AdminAnnonceResponse.builder()
                 .id(a.getId())
                 .typeBien(a.getTypeBien().getLibelle())
                 .ville(a.getLocalisation().getVille())
@@ -121,7 +129,24 @@ public class AdminServiceImpl implements AdminService {
                 .proprietaireNom(a.getProprietaire().getNomComplet())
                 .proprietaireEmail(a.getProprietaire().getEmail())
                 .nombreSignalements(signalementRepository.countByAnnonceId(a.getId()))
-                .build()));
+                .misEnPauseParAdmin(a.getMisEnPauseParId() != null);
+
+            photoRepository.findFirstByAnnonceIdAndPrincipaleTrue(a.getId()).ifPresent(p -> {
+                String url = p.getUrl() != null ? p.getUrl() : construireUrl(p.getCheminStockage());
+                String urlThumb = p.getUrlThumb() != null ? p.getUrlThumb()
+                        : construireUrl(p.getCheminStockage()) + "?thumb";
+                builder.photoPrincipale(url).photoPrincipaleThumb(urlThumb);
+            });
+
+            return builder.build();
+        }));
+    }
+
+    private String construireUrl(String chemin) {
+        if (chemin == null) return null;
+        if (chemin.startsWith("http")) return chemin;
+        String base = storageBaseUrl.endsWith("/") ? storageBaseUrl : storageBaseUrl + "/";
+        return base + chemin;
     }
 
     @Override
@@ -152,6 +177,8 @@ public class AdminServiceImpl implements AdminService {
         Annonce annonce = annonceRepository.findById(annonceId)
                 .orElseThrow(() -> new RessourceNotFoundException("Annonce", annonceId));
         annonce.setStatut(StatutAnnonce.EN_PAUSE);
+        // Tracé : seul un admin pourra réactiver une annonce mise en pause par un admin.
+        annonce.setMisEnPauseParId(adminId);
         logActiviteService.log(adminId, TypeAction.PAUSE_ANNONCE, "Annonce", annonceId, null, "Par admin");
     }
 
@@ -161,6 +188,7 @@ public class AdminServiceImpl implements AdminService {
         Annonce annonce = annonceRepository.findById(annonceId)
                 .orElseThrow(() -> new RessourceNotFoundException("Annonce", annonceId));
         annonce.setStatut(StatutAnnonce.ACTIVE);
+        annonce.setMisEnPauseParId(null);
         logActiviteService.log(adminId, TypeAction.REACTIVATION_ANNONCE, "Annonce", annonceId, null, "Par admin");
     }
 
@@ -284,24 +312,38 @@ public PageResponse<AdminSignalementResponse> listerSignalements(
 @Override
 @Transactional
 public void traiterSignalement(Long signalementId, Long adminId, StatutSignalement decision) {
+    if (decision == StatutSignalement.EN_ATTENTE) {
+        throw new IllegalArgumentException("EN_ATTENTE n'est pas une décision de traitement valide.");
+    }
     Signalement s = signalementRepository.findById(signalementId)
             .orElseThrow(() -> new RessourceNotFoundException("Signalement", signalementId));
+    if (s.getStatut() != StatutSignalement.EN_ATTENTE) {
+        throw new IllegalArgumentException("Ce signalement a déjà été traité.");
+    }
     Utilisateur admin = obtenirUtilisateur(adminId);
     s.setStatut(decision);
     s.setTraiteParAdmin(admin);
     s.setDateTraitement(LocalDateTime.now());
 
     switch (decision) {
-        case TRAITE_SUPPRESSION ->
+        case TRAITE_SUPPRESSION -> {
             supprimerAnnonce(s.getAnnonce().getId(), adminId, "Signalement validé — suppression");
-        case TRAITE_PAUSE ->
+            resoudreAutresSignalementsAnnonce(s);
+        }
+        case TRAITE_PAUSE -> {
             mettreEnPauseAnnonce(s.getAnnonce().getId(), adminId);
-        case TRAITE_SUSPENSION ->
+            resoudreAutresSignalementsAnnonce(s);
+        }
+        case TRAITE_SUSPENSION -> {
             suspendreUtilisateur(s.getAnnonce().getProprietaire().getId(),
                     adminId, "Signalement validé — suspension");
-        case TRAITE_BANNISSEMENT ->
+            resoudreAutresSignalementsProprietaire(s, admin);
+        }
+        case TRAITE_BANNISSEMENT -> {
             bannirUtilisateur(s.getAnnonce().getProprietaire().getId(),
                     adminId, "Signalement validé — bannissement");
+            resoudreAutresSignalementsProprietaire(s, admin);
+        }
         case TRAITE_INFO, IGNORE -> { /* note ou ignoré, aucune action */ }
         default -> { }
     }
@@ -309,10 +351,54 @@ public void traiterSignalement(Long signalementId, Long adminId, StatutSignaleme
             "Signalement", signalementId, null, decision.name());
 }
 
+/**
+ * Quand une annonce signalée est supprimée/pausée, les autres signalements en attente
+ * sur cette même annonce n'ont plus lieu d'être traités individuellement.
+ */
+private void resoudreAutresSignalementsAnnonce(Signalement traite) {
+    signalementRepository.findByAnnonceIdAndStatutAndIdNot(
+            traite.getAnnonce().getId(), StatutSignalement.EN_ATTENTE, traite.getId())
+            .forEach(autre -> {
+                autre.setStatut(traite.getStatut());
+                autre.setTraiteParAdmin(traite.getTraiteParAdmin());
+                autre.setDateTraitement(traite.getDateTraitement());
+                autre.setAdministrateurNote("Résolu automatiquement avec le signalement #" + traite.getId());
+            });
+}
+
+/**
+ * Quand le propriétaire est suspendu/banni, les autres signalements en attente le
+ * concernant (sur ses autres annonces) sont résolus automatiquement.
+ */
+private void resoudreAutresSignalementsProprietaire(Signalement traite, Utilisateur admin) {
+    signalementRepository.findByAnnonce_Proprietaire_IdAndStatutAndIdNot(
+            traite.getAnnonce().getProprietaire().getId(), StatutSignalement.EN_ATTENTE, traite.getId())
+            .forEach(autre -> {
+                autre.setStatut(traite.getStatut());
+                autre.setTraiteParAdmin(admin);
+                autre.setDateTraitement(traite.getDateTraitement());
+                autre.setAdministrateurNote("Résolu automatiquement avec le signalement #" + traite.getId());
+            });
+}
+
 
 
 
     // ── Configuration ─────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.mbem.immocam.module.admin.dto.response.ConfigSystemeResponse getConfigSysteme() {
+        return com.mbem.immocam.module.admin.dto.response.ConfigSystemeResponse.builder()
+                .dureeVieAnnonce(configSystemeService.getInt(ImmoCamConstants.CONFIG_DUREE_VIE_ANNONCE, 30))
+                .joursRappelExpiration(configSystemeService.getInt(ImmoCamConstants.CONFIG_DELAI_RAPPEL, 5))
+                .joursSuppressionDefinitive(configSystemeService.getInt(ImmoCamConstants.CONFIG_DELAI_SUPPRESSION, 7))
+                .maxPhotosParAnnonce(configSystemeService.getInt(ImmoCamConstants.CONFIG_MAX_PHOTOS, 4))
+                .maxAnnoncesParProprietaire(configSystemeService.getInt(ImmoCamConstants.CONFIG_MAX_ANNONCES, 5))
+                .messageWhatsappDefaut(configSystemeService.getString(ImmoCamConstants.CONFIG_MSG_WHATSAPP,
+                        "Bonjour {proprietaire}, je suis interesse(e) par votre annonce ImmoCam : {type} a {quartier}, {ville} — {prix}. Est-elle toujours disponible ?"))
+                .build();
+    }
 
     @Override
     @Transactional
@@ -493,7 +579,8 @@ public void traiterSignalement(Long signalementId, Long adminId, StatutSignaleme
     }
     
     annonce.setQuartier(quartier);
-    logActiviteService.log(adminId, TypeAction.MODIFICATION_ANNONCE, 
+    quartierService.assurerExistance(annonce.getLocalisation().getId(), quartier);
+    logActiviteService.log(adminId, TypeAction.MODIFICATION_ANNONCE,
             "Admin - Modification quartier annonce", annonceId, null, null);
 }
 }

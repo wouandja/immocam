@@ -43,6 +43,8 @@ export interface AnnonceListResponse {
   nombreVues: number;
   nombreCommentaires: number;
   isFavori?: boolean;
+  /** true si l'annonce a été mise en pause par un admin (vue admin uniquement). */
+  misEnPauseParAdmin?: boolean;
 }
 
 export interface AnnonceDetailResponse extends AnnonceListResponse {
@@ -52,6 +54,7 @@ export interface AnnonceDetailResponse extends AnnonceListResponse {
   dateExpirationFormatee: string;
   proprietairePrenom: string; // ✅ backend: "proprietairePrenom"
   estMienne: boolean;
+  dejaSignalee: boolean;
   photos: PhotoResponse[];
   commentaires: CommentaireResponse[];
   annoncesSimiliaires?: AnnonceListResponse[];
@@ -98,6 +101,8 @@ export interface AnnonceDashboardResponse {
   datePublication: string;
   dateExpiration: string;
   dateExpirationFormatee: string;
+  /** true si l'annonce a été mise en pause par un admin (réactivation réservée à l'admin). */
+  misEnPauseParAdmin?: boolean;
 }
 
 export interface AnnonceStats {

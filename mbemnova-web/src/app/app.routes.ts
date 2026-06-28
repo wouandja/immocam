@@ -266,20 +266,20 @@ export const routes: Routes = [
         title: 'Signalements — ImmoCam',
       },
       {
-        path: 'commentaires',
-        loadComponent: () =>
-          import('./features/admin/commentaires/admin-commentaires.component').then(
-            (m) => m.AdminCommentairesComponent,
-          ),
-        title: 'Modération commentaires — ImmoCam',
-      },
-      {
         path: 'config',
         loadComponent: () =>
           import('./features/admin/config/admin-config.component').then(
             (m) => m.AdminConfigComponent,
           ),
         title: 'Configuration — ImmoCam',
+      },
+      {
+        path: 'notifications',
+        loadComponent: () =>
+          import('./features/admin/notifications/admin-notifications.component').then(
+            (m) => m.AdminNotificationsComponent,
+          ),
+        title: 'Notifications — ImmoCam',
       },
     ],
   },

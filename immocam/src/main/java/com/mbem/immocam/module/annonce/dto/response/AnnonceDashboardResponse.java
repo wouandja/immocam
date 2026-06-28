@@ -33,4 +33,6 @@ public class AnnonceDashboardResponse {
     private LocalDateTime dateExpiration;
     private String dateExpirationFormatee;
     private String prixFormate;
+    /** true si l'annonce a été mise en pause par un admin (le propriétaire ne peut alors pas la réactiver). */
+    private boolean misEnPauseParAdmin;
 }

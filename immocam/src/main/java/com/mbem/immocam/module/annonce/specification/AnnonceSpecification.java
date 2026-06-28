@@ -117,7 +117,9 @@ public class AnnonceSpecification {
             String ville,
             Long typeBienId,
             Long proprietaireId,
-            StatutAnnonce statut) {
+            StatutAnnonce statut,
+            String quartier,
+            String recherche) {
 
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -127,6 +129,11 @@ public class AnnonceSpecification {
                         cb.lower(root.get("localisation").get("ville")),
                         ville.toLowerCase().trim()));
             }
+            if (quartier != null && !quartier.isBlank()) {
+                predicates.add(cb.equal(
+                        cb.lower(root.get("quartier")),
+                        quartier.toLowerCase().trim()));
+            }
             if (typeBienId != null) {
                 predicates.add(cb.equal(root.get("typeBien").get("id"), typeBienId));
             }
@@ -135,6 +142,16 @@ public class AnnonceSpecification {
             }
             if (statut != null) {
                 predicates.add(cb.equal(root.get("statut"), statut));
+            }
+            if (recherche != null && !recherche.isBlank()) {
+                String motif = "%" + recherche.toLowerCase().trim() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("description")), motif),
+                        cb.like(cb.lower(root.get("quartier")), motif),
+                        cb.like(cb.lower(root.get("localisation").get("ville")), motif),
+                        cb.like(cb.lower(root.get("proprietaire").get("nom")), motif),
+                        cb.like(cb.lower(root.get("proprietaire").get("prenom")), motif),
+                        cb.like(cb.lower(root.get("proprietaire").get("email")), motif)));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

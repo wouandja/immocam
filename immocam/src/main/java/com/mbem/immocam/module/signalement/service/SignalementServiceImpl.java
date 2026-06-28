@@ -2,6 +2,7 @@ package com.mbem.immocam.module.signalement.service;
 
 import com.mbem.immocam.infrastructure.audit.LogActiviteService;
 import com.mbem.immocam.infrastructure.exception.custom.DoublonException;
+import com.mbem.immocam.infrastructure.exception.custom.LimiteAtteintException;
 import com.mbem.immocam.infrastructure.exception.custom.RessourceNotFoundException;
 import com.mbem.immocam.module.annonce.entity.Annonce;
 import com.mbem.immocam.module.annonce.repository.AnnonceRepository;
@@ -9,15 +10,19 @@ import com.mbem.immocam.module.signalement.dto.request.SignalerAnnonceRequest;
 import com.mbem.immocam.module.signalement.dto.response.SignalementResponse;
 import com.mbem.immocam.module.signalement.entity.Signalement;
 import com.mbem.immocam.module.signalement.repository.SignalementRepository;
+import com.mbem.immocam.module.notification.service.NotificationService;
 import com.mbem.immocam.module.utilisateur.entity.Utilisateur;
 import com.mbem.immocam.module.utilisateur.repository.UtilisateurRepository;
 import com.mbem.immocam.shared.enums.MotifSignalement;
 import com.mbem.immocam.shared.enums.StatutSignalement;
 import com.mbem.immocam.shared.enums.TypeAction;
+import com.mbem.immocam.shared.enums.TypeNotification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 /**
  * Implémentation du service signalement.
@@ -29,10 +34,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class SignalementServiceImpl implements SignalementService {
 
+    /** Anti-abus : un utilisateur ne peut pas soumettre plus de N signalements par 24h. */
+    private static final int MAX_SIGNALEMENTS_PAR_JOUR = 10;
+
     private final SignalementRepository signalementRepository;
     private final AnnonceRepository annonceRepository;
     private final UtilisateurRepository utilisateurRepository;
     private final LogActiviteService logActiviteService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -43,6 +52,13 @@ public class SignalementServiceImpl implements SignalementService {
                 auteurId, annonceId, StatutSignalement.EN_ATTENTE)) {
             throw new DoublonException(
                 "Vous avez déjà signalé cette annonce. Votre signalement est en cours d'examen.");
+        }
+        // Anti-abus : limite quotidienne de signalements par utilisateur
+        if (signalementRepository.countByAuteurIdAndDateCreationAfter(
+                auteurId, LocalDateTime.now().minusDays(1)) >= MAX_SIGNALEMENTS_PAR_JOUR) {
+            throw new LimiteAtteintException(
+                "Vous avez atteint la limite de " + MAX_SIGNALEMENTS_PAR_JOUR +
+                " signalements par jour. Veuillez réessayer demain.");
         }
         // Motif AUTRE = details obligatoire
         if (MotifSignalement.AUTRE.equals(request.getMotif())
@@ -56,6 +72,10 @@ public class SignalementServiceImpl implements SignalementService {
         Utilisateur auteur = utilisateurRepository.findById(auteurId)
                 .orElseThrow(() -> new RessourceNotFoundException("Utilisateur", auteurId));
 
+        if (annonce.getProprietaire().getId().equals(auteurId)) {
+            throw new IllegalArgumentException("Vous ne pouvez pas signaler votre propre annonce.");
+        }
+
         Signalement s = Signalement.builder()
                 .auteur(auteur)
                 .annonce(annonce)
@@ -67,6 +87,11 @@ public class SignalementServiceImpl implements SignalementService {
 
         logActiviteService.log(auteurId, TypeAction.SIGNALEMENT_SOUMIS, "Annonce", annonceId, null, null);
         log.info("Annonce {} signalée par utilisateur {}", annonceId, auteurId);
+
+        notificationService.notifier(TypeNotification.SIGNALEMENT,
+                "Nouveau signalement",
+                auteur.getPrenom() + " " + auteur.getNom() + " a signalé une annonce (" + request.getMotif().name() + ")",
+                "/admin/signalements", s.getId());
 
         return SignalementResponse.builder()
                 .id(s.getId())

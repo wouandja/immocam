@@ -11,7 +11,7 @@ interface NavItem {
   label:  string;
   route:  string;
   badge?: number;
-  icon:   'dashboard' | 'annonces' | 'utilisateurs' | 'signalements' | 'commentaires' | 'config';
+  icon:   'dashboard' | 'annonces' | 'utilisateurs' | 'signalements' | 'config';
 }
  
 @Component({
@@ -336,11 +336,6 @@ interface NavItem {
             <line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
         }
-        @case ('commentaires') {
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-          </svg>
-        }
         @case ('config') {
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"/>
@@ -372,7 +367,6 @@ export class SidebarComponent {
  
   moderationNav: NavItem[] = [
     { label: 'Signalements', icon: 'signalements', route: '/admin/signalements' },
-    { label: 'Commentaires', icon: 'commentaires', route: '/admin/commentaires' },
   ];
  
   systemNav: NavItem[] = [

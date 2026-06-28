@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminApi } from '@core/services/api/admin.api';
+import { LocalisationApi } from '@core/services/api/localisation.api';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
 import { ConfirmDialogComponent } from '@shared/components/confirm-dialog/confirm-dialog.component';
 import { FcfaPipe } from '@shared/pipes/fcfa.pipe';
@@ -100,7 +101,7 @@ type ViewMode = 'table' | 'card';
       border-radius: 14px;
       padding: 14px 16px;
       display: grid;
-      grid-template-columns: 1fr 1fr 2fr auto;
+      grid-template-columns: 1fr 1fr 1fr 2fr auto;
       gap: 10px;
       align-items: end;
       margin-bottom: 20px;
@@ -433,7 +434,6 @@ type ViewMode = 'table' | 'card';
     /* ── Responsive ── */
     @media (max-width: 768px) {
       .filters { grid-template-columns: 1fr 1fr; }
-      .filter-group:nth-child(3) { grid-column: span 2; }
       .filter-group:nth-child(4) { grid-column: span 2; }
       .cards-grid { grid-template-columns: 1fr 1fr; }
     }
@@ -445,6 +445,19 @@ type ViewMode = 'table' | 'card';
       .filter-group:nth-child(3),
       .filter-group:nth-child(4) { grid-column: span 1; }
       .cards-grid { grid-template-columns: 1fr; }
+    }
+    .admin-pause-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin-left: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #B45309;
+      background: #FEF3C7;
+      border-radius: 6px;
+      padding: 2px 6px;
+      vertical-align: middle;
     }
   `],
   template: `
@@ -485,12 +498,11 @@ type ViewMode = 'table' | 'card';
           </button>
         </div>
 
-        <button class="btn-export" (click)="exportCSV()">
-          <!-- Download icon -->
+        <button class="btn-export" (click)="exportPDF()">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M7 1v8M4 6l3 3 3-3M1 10v1.5A1.5 1.5 0 002.5 13h9A1.5 1.5 0 0013 11.5V10"/>
           </svg>
-          Export CSV
+          Export PDF
         </button>
       </div>
     </div>
@@ -510,10 +522,19 @@ type ViewMode = 'table' | 'card';
       </div>
       <div class="filter-group">
         <label for="f-ville">Ville</label>
-        <select id="f-ville" [(ngModel)]="filters.ville" (change)="onFilterChange()">
+        <select id="f-ville" [(ngModel)]="filters.ville" (change)="onVilleChange()">
           <option value="">Toutes les villes</option>
-          @for (v of villes; track v) {
+          @for (v of villes(); track v) {
             <option [value]="v">{{ v }}</option>
+          }
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="f-quartier">Quartier</label>
+        <select id="f-quartier" [(ngModel)]="filters.quartier" (change)="onFilterChange()">
+          <option value="">Tous les quartiers</option>
+          @for (q of quartiers(); track q) {
+            <option [value]="q">{{ q }}</option>
           }
         </select>
       </div>
@@ -550,6 +571,16 @@ type ViewMode = 'table' | 'card';
           <span class="chip">
             {{ filters.ville }}
             <button class="chip-remove" (click)="removeFilter('ville')" aria-label="Retirer filtre ville">
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5">
+                <line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/>
+              </svg>
+            </button>
+          </span>
+        }
+        @if (filters.quartier) {
+          <span class="chip">
+            {{ filters.quartier }}
+            <button class="chip-remove" (click)="removeFilter('quartier')" aria-label="Retirer filtre quartier">
               <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5">
                 <line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/>
               </svg>
@@ -662,12 +693,17 @@ type ViewMode = 'table' | 'card';
                       </div>
                     </td>
                     <td><span class="prix">{{ a.prix | fcfa }}</span></td>
-                    <td><app-status-badge [statut]="a.statut" /></td>
+                    <td>
+                      <app-status-badge [statut]="a.statut" />
+                      @if (a.misEnPauseParAdmin) {
+                        <span class="admin-pause-tag" title="Mise en pause par un administrateur">🔒 Admin</span>
+                      }
+                    </td>
                     <td><span class="date">{{ a.datePublication | timeAgo }}</span></td>
                     <td><span class="vues">{{ a.nombreVues }}</span></td>
                     <td>
                       <div class="actions">
-                        <a [routerLink]="['/annonces', a.id]" target="_blank" class="btn-act btn-see">
+                        <a [routerLink]="['/annonces', a.id]" class="btn-act btn-see">
                           <!-- Eye icon -->
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -683,6 +719,14 @@ type ViewMode = 'table' | 'card';
                               <rect x="14" y="4" width="4" height="16"/>
                             </svg>
                             Pause
+                          </button>
+                        } @else if (a.statut === 'EN_PAUSE') {
+                          <button class="btn-act btn-pause" (click)="reactiverAnnonce(a.id)">
+                            <!-- Play icon -->
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <polygon points="6 4 20 12 6 20 6 4"/>
+                            </svg>
+                            Réactiver
                           </button>
                         }
                         <button class="btn-act btn-del" (click)="confirmDelete(a)">
@@ -799,6 +843,9 @@ type ViewMode = 'table' | 'card';
                 }
                 <div class="card-badge">
                   <app-status-badge [statut]="a.statut" />
+                  @if (a.misEnPauseParAdmin) {
+                    <span class="admin-pause-tag" title="Mise en pause par un administrateur">🔒 Admin</span>
+                  }
                 </div>
               </div>
               <div class="card-body">
@@ -825,7 +872,7 @@ type ViewMode = 'table' | 'card';
                 </div>
                 <p class="card-date">Publiée {{ a.datePublication | timeAgo }}</p>
                 <div class="card-actions">
-                  <a [routerLink]="['/annonces', a.id]" target="_blank" class="btn-act btn-see">
+                  <a [routerLink]="['/annonces', a.id]" class="btn-act btn-see">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                       <circle cx="12" cy="12" r="3"/>
@@ -839,6 +886,13 @@ type ViewMode = 'table' | 'card';
                         <rect x="14" y="4" width="4" height="16"/>
                       </svg>
                       Pause
+                    </button>
+                  } @else if (a.statut === 'EN_PAUSE') {
+                    <button class="btn-act btn-pause" (click)="reactiverAnnonce(a.id)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="6 4 20 12 6 20 6 4"/>
+                      </svg>
+                      Réactiver
                     </button>
                   }
                   <button class="btn-act btn-del" (click)="confirmDelete(a)">
@@ -888,6 +942,7 @@ type ViewMode = 'table' | 'card';
 })
 export class AdminAnnoncesComponent implements OnInit {
   private readonly adminApi = inject(AdminApi);
+  private readonly locApi = inject(LocalisationApi);
 
   // ── Signals ───────────────────────────────────────────────────────────
   annonces      = signal<AnnonceListResponse[]>([]);
@@ -899,10 +954,12 @@ export class AdminAnnoncesComponent implements OnInit {
   confirmTitle  = signal('');
   confirmMsg    = signal('');
   viewMode      = signal<ViewMode>('table');
+  villes        = signal<string[]>([]);
+  quartiers     = signal<string[]>([]);
   private pendingId?: number;
 
   // ── État local ────────────────────────────────────────────────────────
-  filters    = { statut: '', ville: '' };
+  filters    = { statut: '', ville: '', quartier: '' };
   searchTerm = '';
 
   /** Taille de page : 8 éléments pour un chargement progressif rapide */
@@ -912,11 +969,10 @@ export class AdminAnnoncesComponent implements OnInit {
   readonly skeletonItems = Array(this.PAGE_SIZE).fill(0);
 
   headers = ['Annonce', 'Prix', 'Statut', 'Publiée', 'Vues', 'Actions'];
-  villes  = ['Douala', 'Yaoundé', 'Bafoussam', 'Kribi', 'Limbé', 'Bamenda'];
 
   // ── Computed ──────────────────────────────────────────────────────────
   hasActiveFilters = computed(() =>
-    !!this.filters.statut || !!this.filters.ville || !!this.searchTerm
+    !!this.filters.statut || !!this.filters.ville || !!this.filters.quartier || !!this.searchTerm
   );
 
   pageStart = computed(() => this.currentPage() * this.PAGE_SIZE + 1);
@@ -941,7 +997,11 @@ export class AdminAnnoncesComponent implements OnInit {
   });
 
   // ── Cycle de vie ──────────────────────────────────────────────────────
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.load();
+    this.locApi.getVilles().subscribe({ next: (r) => this.villes.set(r.data ?? []) });
+    this.chargerQuartiers();
+  }
 
   // ── Méthodes ──────────────────────────────────────────────────────────
 
@@ -949,7 +1009,7 @@ export class AdminAnnoncesComponent implements OnInit {
     this.loading.set(true);
     this.adminApi.getAnnonces({
       ...this.filters,
-      search: this.searchTerm || undefined,
+      recherche: this.searchTerm || undefined,
       page,
       size: this.PAGE_SIZE,
     }).subscribe({
@@ -966,6 +1026,19 @@ export class AdminAnnoncesComponent implements OnInit {
 
   onFilterChange(): void { this.load(0); }
 
+  /** Quartiers dépendants de la ville sélectionnée (tous si aucune ville). */
+  private chargerQuartiers(): void {
+    this.locApi.getQuartiers(this.filters.ville).subscribe({
+      next: (r) => this.quartiers.set(r.data ?? []),
+    });
+  }
+
+  onVilleChange(): void {
+    this.filters.quartier = '';
+    this.chargerQuartiers();
+    this.onFilterChange();
+  }
+
   private searchTimeout?: ReturnType<typeof setTimeout>;
   onSearchInput(): void {
     clearTimeout(this.searchTimeout);
@@ -973,13 +1046,15 @@ export class AdminAnnoncesComponent implements OnInit {
   }
 
   resetFilters(): void {
-    this.filters   = { statut: '', ville: '' };
+    this.filters   = { statut: '', ville: '', quartier: '' };
     this.searchTerm = '';
+    this.chargerQuartiers();
     this.load(0);
   }
 
-  removeFilter(key: 'statut' | 'ville' | 'search'): void {
+  removeFilter(key: 'statut' | 'ville' | 'quartier' | 'search'): void {
     if (key === 'search') this.searchTerm = '';
+    else if (key === 'ville') { this.filters.ville = ''; this.filters.quartier = ''; this.chargerQuartiers(); }
     else this.filters[key] = '';
     this.load(0);
   }
@@ -1038,15 +1113,25 @@ export class AdminAnnoncesComponent implements OnInit {
     });
   }
 
-  exportCSV(): void {
-    this.adminApi.exportAnnoncesCSV().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement('a');
-      a.href     = url;
-      a.download = `immocam-annonces-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+  reactiverAnnonce(id: number): void {
+    this.adminApi.reactiverAnnonceAdmin(id).subscribe({
+      next: () => this.load(this.currentPage()),
     });
+  }
+
+  exportPDF(): void {
+    this.adminApi.exportAnnoncesPDF().subscribe((blob) => {
+      this.telechargerFichier(blob, `immocam-annonces-${new Date().toISOString().slice(0, 10)}.pdf`);
+    });
+  }
+
+  private telechargerFichier(blob: Blob, nomFichier: string): void {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = nomFichier;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   goToPage(page: number): void {

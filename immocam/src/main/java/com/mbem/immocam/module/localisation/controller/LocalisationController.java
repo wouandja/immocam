@@ -3,34 +3,47 @@ package com.mbem.immocam.module.localisation.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.mbem.immocam.module.annonce.repository.AnnonceRepository;
+import com.mbem.immocam.infrastructure.security.config.SecurityUtils;
+import com.mbem.immocam.module.localisation.dto.request.AjouterQuartierRequest;
+import com.mbem.immocam.module.localisation.dto.request.RenommerQuartierRequest;
 import com.mbem.immocam.module.localisation.dto.request.VilleDto;
+import com.mbem.immocam.module.localisation.entity.Quartier;
 import com.mbem.immocam.module.localisation.repository.LocalisationRepository;
+import com.mbem.immocam.module.localisation.service.QuartierService;
+import com.mbem.immocam.module.utilisateur.repository.UtilisateurRepository;
 import com.mbem.immocam.shared.response.ApiResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Endpoints publics pour les villes et quartiers.
- * Les quartiers sont extraits directement des annonces publiées.
+ * Endpoints pour les villes et quartiers.
+ * Les quartiers sont gérés dans un référentiel dédié (table quartiers),
+ * synchronisé automatiquement à chaque publication/modification d'annonce.
  *
  * @author MBEMNOVA
  */
 @RestController
 @RequestMapping("/localisations")
 @RequiredArgsConstructor
-@Tag(name = "Localisation", description = "Villes et quartiers du Cameroun (public)")
+@Tag(name = "Localisation", description = "Villes et quartiers du Cameroun")
 public class LocalisationController {
 
     private final LocalisationRepository localisationRepository;
-    private final AnnonceRepository      annonceRepository;
+    private final QuartierService        quartierService;
+    private final UtilisateurRepository  utilisateurRepository;
 
     // ── Villes ────────────────────────────────────────────────────────────────
 
@@ -45,25 +58,64 @@ public class LocalisationController {
         );
     }
 
-    // ── Quartiers (issus des annonces) ────────────────────────────────────────
+    // ── Quartiers (référentiel dédié) ───────────────────────────────────────
 
     @Operation(
-        summary = "Quartiers distincts depuis les annonces",
+        summary = "Quartiers du référentiel",
         description = """
-            Retourne les quartiers uniques présents dans les annonces actives.
-            - Sans paramètre  → tous les quartiers toutes villes confondues
-            - ?ville=Douala   → quartiers des annonces de cette ville uniquement
+            Retourne les quartiers connus, issus du référentiel (table quartiers).
+            - Sans paramètre  → tous les quartiers, toutes villes confondues
+            - ?ville=Douala   → quartiers de cette ville uniquement
             """
     )
     @GetMapping("/quartiers")
     public ResponseEntity<ApiResponse<List<String>>> getQuartiers(
             @RequestParam(required = false) String ville) {
+        return ResponseEntity.ok(ApiResponse.ok(quartierService.lister(ville)));
+    }
 
-        List<String> quartiers = (ville != null && !ville.isBlank())
-            ? annonceRepository.findQuartiersByVille(ville)
-            : annonceRepository.findQuartiersDistincts();
+    @Operation(
+        summary = "Ajouter un quartier au référentiel",
+        description = "Authentifié — utilisé lorsqu'un utilisateur saisit un quartier inconnu " +
+                       "en publiant une annonce, ou par un admin pour pré-charger une ville.",
+        security = @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
+    )
+    @PostMapping("/quartiers")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<com.mbem.immocam.module.localisation.dto.response.QuartierResponse>> ajouterQuartier(
+            @Valid @RequestBody AjouterQuartierRequest request) {
+        Quartier quartier = quartierService.ajouter(request.getVille(), request.getQuartier());
+        var reponse = com.mbem.immocam.module.localisation.dto.response.QuartierResponse.builder()
+                .id(quartier.getId()).nom(quartier.getNom()).ville(request.getVille()).build();
+        return ResponseEntity.ok(ApiResponse.ok("Quartier ajouté.", reponse));
+    }
 
-        return ResponseEntity.ok(ApiResponse.ok(quartiers));
+    @Operation(
+        summary = "Tous les quartiers du référentiel (gestion admin)",
+        description = "ADMIN uniquement — liste complète avec id et ville, pour la page de configuration.",
+        security = @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
+    )
+    @GetMapping("/quartiers/admin")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
+    public ResponseEntity<ApiResponse<List<com.mbem.immocam.module.localisation.dto.response.QuartierResponse>>> listerQuartiersAdmin() {
+        return ResponseEntity.ok(ApiResponse.ok(quartierService.listerTousAvecVille()));
+    }
+
+    @Operation(
+        summary = "Renommer un quartier (corrige l'orthographe partout)",
+        description = "ADMIN uniquement — répercute le changement sur toutes les annonces concernées.",
+        security = @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
+    )
+    @PatchMapping("/quartiers/{id}")
+    @PreAuthorize("hasAuthority('ADMINISTRATEUR')")
+    public ResponseEntity<ApiResponse<Void>> renommerQuartier(
+            @PathVariable Long id, @Valid @RequestBody RenommerQuartierRequest request) {
+        String email = SecurityUtils.getEmailUtilisateurCourant();
+        Long adminId = utilisateurRepository.findByEmail(email).map(u -> u.getId())
+                .orElseThrow(() -> new com.mbem.immocam.infrastructure.exception.custom.RessourceNotFoundException(
+                        "Administrateur non trouvé"));
+        quartierService.renommer(id, request.getNom(), adminId);
+        return ResponseEntity.ok(ApiResponse.message("Quartier renommé."));
     }
 
 

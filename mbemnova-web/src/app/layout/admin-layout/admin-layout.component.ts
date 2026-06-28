@@ -1,12 +1,15 @@
-import { Component, signal, HostListener, OnInit } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, signal, HostListener, OnInit, OnDestroy, inject } from '@angular/core';
+import { Router, RouterOutlet } from '@angular/router';
 import { SidebarComponent } from './sidebar/sidebar.component';
 import { CommonModule } from '@angular/common';
+import { NotificationApi } from '@core/services/api/notification.api';
+import { NotificationResponse } from '@core/services/models/notification.model';
+import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
 
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, CommonModule],
+  imports: [RouterOutlet, SidebarComponent, CommonModule, TimeAgoPipe],
   styles: [`
     :host { display: block; }
  
@@ -86,11 +89,66 @@ import { CommonModule } from '@angular/common';
  
     .notif-dot {
       position: absolute;
-      top: 8px; right: 8px;
-      width: 6px; height: 6px;
+      top: 6px; right: 6px;
+      min-width: 14px; height: 14px;
       background: #e11d48;
       border-radius: 50%;
       border: 1.5px solid #fff;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 2px;
+      line-height: 1;
+    }
+
+    .notif-wrap { position: relative; }
+    .notif-panel {
+      position: absolute;
+      top: 44px; right: 0;
+      width: 340px;
+      max-height: 420px;
+      overflow-y: auto;
+      background: #fff;
+      border: 0.5px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(15,23,42,.12);
+      z-index: 40;
+    }
+    .notif-panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 0.5px solid #f1f5f9;
+      font-size: 13px; font-weight: 700; color: #0f172a;
+    }
+    .notif-panel-header button {
+      background: none; border: none; color: #3245d1;
+      font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+      padding: 0;
+    }
+    .notif-panel-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 14px;
+      border-bottom: 0.5px solid #f8fafc;
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .notif-panel-item:hover { background: #f8fafc; }
+    .notif-panel-item.unread { background: #f5f6ff; }
+    .notif-panel-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .notif-panel-title { font-size: 12.5px; font-weight: 700; color: #0f172a; margin: 0 0 2px; }
+    .notif-panel-msg { font-size: 12px; color: #64748b; margin: 0; line-height: 1.35; }
+    .notif-panel-time { font-size: 10.5px; color: #94a3b8; margin-top: 3px; }
+    .notif-panel-empty { padding: 28px 14px; text-align: center; font-size: 12.5px; color: #94a3b8; }
+    .notif-panel-footer {
+      padding: 10px 14px;
+      text-align: center;
+      border-top: 0.5px solid #f1f5f9;
+    }
+    .notif-panel-footer a {
+      font-size: 12.5px; font-weight: 600; color: #3245d1; text-decoration: none;
     }
  
     .content {
@@ -135,13 +193,45 @@ import { CommonModule } from '@angular/common';
             <span class="breadcrumb">Admin / <strong>{{ currentPage() }}</strong></span>
           </div>
           <div class="topbar-right">
-            <button class="icon-btn" aria-label="Notifications">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 01-3.46 0"/>
-              </svg>
-              <span class="notif-dot"></span>
-            </button>
+            <div class="notif-wrap">
+              <button class="icon-btn" aria-label="Notifications" (click)="toggleNotifPanel()">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                </svg>
+                @if (nonLuesCount() > 0) {
+                  <span class="notif-dot">{{ nonLuesCount() > 9 ? '9+' : nonLuesCount() }}</span>
+                }
+              </button>
+
+              @if (notifPanelOpen()) {
+                <div class="notif-panel">
+                  <div class="notif-panel-header">
+                    <span>Notifications</span>
+                    @if (nonLuesCount() > 0) {
+                      <button (click)="marquerToutesCommeLues()">Tout marquer lu</button>
+                    }
+                  </div>
+                  @if (recentNotifications().length === 0) {
+                    <div class="notif-panel-empty">Aucune notification</div>
+                  } @else {
+                    @for (n of recentNotifications(); track n.id) {
+                      <div class="notif-panel-item" [class.unread]="!n.lu" (click)="ouvrirNotification(n)">
+                        <span class="notif-panel-icon">{{ n.type === 'SIGNALEMENT' ? '🚩' : '👤' }}</span>
+                        <div>
+                          <p class="notif-panel-title">{{ n.titre }}</p>
+                          <p class="notif-panel-msg">{{ n.message }}</p>
+                          <p class="notif-panel-time">{{ n.dateCreation | timeAgo }}</p>
+                        </div>
+                      </div>
+                    }
+                  }
+                  <div class="notif-panel-footer">
+                    <a (click)="voirToutesNotifications()">Voir toutes les notifications</a>
+                  </div>
+                </div>
+              }
+            </div>
           </div>
         </header>
  
@@ -152,20 +242,76 @@ import { CommonModule } from '@angular/common';
     </div>
   `,
 })
-export class AdminLayoutComponent implements OnInit {
+export class AdminLayoutComponent implements OnInit, OnDestroy {
+  private readonly notificationApi = inject(NotificationApi);
+  private readonly router = inject(Router);
+
   collapsed   = signal(false);
   mobileOpen  = signal(false);
   isMobile    = signal(false);
   currentPage = signal('Dashboard');
- 
+
+  notifPanelOpen       = signal(false);
+  nonLuesCount         = signal(0);
+  recentNotifications  = signal<NotificationResponse[]>([]);
+  private pollHandle?: ReturnType<typeof setInterval>;
+
   @HostListener('window:resize')
   onResize(): void { this.isMobile.set(window.innerWidth <= 768); }
- 
-  ngOnInit(): void { this.isMobile.set(window.innerWidth <= 768); }
- 
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.notifPanelOpen() && !(event.target as HTMLElement).closest('.notif-wrap')) {
+      this.notifPanelOpen.set(false);
+    }
+  }
+
+  ngOnInit(): void {
+    this.isMobile.set(window.innerWidth <= 768);
+    this.chargerCompteur();
+    this.pollHandle = setInterval(() => this.chargerCompteur(), 60000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollHandle) clearInterval(this.pollHandle);
+  }
+
   toggleCollapse(): void { this.collapsed.update(v => !v); }
   openMobile():    void  { this.mobileOpen.set(true);       }
   closeMobile():   void  { this.mobileOpen.set(false);      }
+
+  private chargerCompteur(): void {
+    this.notificationApi.compterNonLues().subscribe({ next: (r) => this.nonLuesCount.set(r.data ?? 0) });
+  }
+
+  toggleNotifPanel(): void {
+    this.notifPanelOpen.update(v => !v);
+    if (this.notifPanelOpen()) {
+      this.notificationApi.lister(0, 8).subscribe({ next: (r) => this.recentNotifications.set(r.data.contenu) });
+    }
+  }
+
+  ouvrirNotification(n: NotificationResponse): void {
+    this.notifPanelOpen.set(false);
+    if (!n.lu) {
+      this.notificationApi.marquerCommeLue(n.id).subscribe(() => {
+        this.chargerCompteur();
+      });
+    }
+    if (n.lien) this.router.navigateByUrl(n.lien);
+  }
+
+  voirToutesNotifications(): void {
+    this.notifPanelOpen.set(false);
+    this.router.navigate(['/admin/notifications']);
+  }
+
+  marquerToutesCommeLues(): void {
+    this.notificationApi.marquerToutesCommeLues().subscribe(() => {
+      this.recentNotifications.update(list => list.map(n => ({ ...n, lu: true })));
+      this.nonLuesCount.set(0);
+    });
+  }
 }
  
  

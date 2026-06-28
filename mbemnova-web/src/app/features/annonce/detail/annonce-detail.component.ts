@@ -1,5 +1,5 @@
 import {
-  Component, OnInit, inject, signal, computed, HostListener, DestroyRef
+  Component, OnInit, inject, signal, computed, effect, HostListener, DestroyRef
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -951,6 +951,12 @@ export class AnnonceDetailComponent implements OnInit {
   alreadyReported  = signal(false);
   submittingReport = signal(false);
 
+  /** Synchronise l'état "déjà signalée" depuis le serveur (source de vérité), pas le sessionStorage. */
+  private readonly syncAlreadyReported = effect(() => {
+    const a = this.annonce();
+    if (a) this.alreadyReported.set(a.dejaSignalee);
+  });
+
   newComment      = '';
   selectedMotif   = '';
   signalementDesc = '';
@@ -988,7 +994,6 @@ export class AnnonceDetailComponent implements OnInit {
     this.photoIndex.set(0);
     this.mainImgLoaded.set(false);
     this.newComment = '';
-    this.alreadyReported.set(this.isLoggedIn() && !!sessionStorage.getItem(`reported_${id}`));
     this.store.dispatch(annonceActions.loadDetail({ id }));
   }
 
@@ -1168,14 +1173,13 @@ export class AnnonceDetailComponent implements OnInit {
         this.submittingReport.set(false);
         this.toast.success('Signalement envoyé. Merci !');
         this.alreadyReported.set(true);
-        sessionStorage.setItem(`reported_${a.id}`, '1');
         this.showSignalement.set(false);
         this.selectedMotif   = '';
         this.signalementDesc = '';
       },
-      error: () => {
+      error: (err) => {
         this.submittingReport.set(false);
-        this.toast.error('Erreur lors du signalement. Réessayez.');
+        this.toast.error(err?.error?.message ?? 'Erreur lors du signalement. Réessayez.');
       },
     });
   }

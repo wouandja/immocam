@@ -113,8 +113,6 @@ export interface ConfigSystemeResponse {
   maxPhotosParAnnonce: number;
   maxAnnoncesParProprietaire: number;
   messageWhatsappDefaut: string;
-  rateLimit: number;
-  schedulerEnabled: boolean;
 }
 
 export interface LocalisationRequest {
@@ -128,6 +126,7 @@ export interface TypeBienRequest {
 
 export interface AdminAnnonceFilters {
   ville?: string;
+  quartier?: string;
   typeBienId?: number;
   statut?: string;
   proprietaireId?: number;
@@ -135,7 +134,7 @@ export interface AdminAnnonceFilters {
   dateFin?: string;
   page?: number;
   size?: number;
-  search?: string;
+  recherche?: string;
 }
 
 export interface LocalisationResponse {

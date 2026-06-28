@@ -6,6 +6,7 @@ import com.mbem.immocam.module.admin.dto.request.AdminCreateVilleRequest;
 import com.mbem.immocam.module.admin.dto.response.AdminAnnonceResponse;
 import com.mbem.immocam.module.admin.dto.response.AdminSignalementResponse;
 import com.mbem.immocam.module.admin.dto.response.AdminUtilisateurResponse;
+import com.mbem.immocam.module.admin.dto.response.ConfigSystemeResponse;
 import com.mbem.immocam.module.admin.dto.response.DashboardResponse;
 import com.mbem.immocam.module.localisation.entity.Localisation;
 import com.mbem.immocam.module.typebien.entity.TypeBien;
@@ -20,6 +21,7 @@ public interface AdminService {
 
     PageResponse<AdminAnnonceResponse> listerAnnonces(String ville, Long typeBienId,
                                                        Long proprietaireId, String statut,
+                                                       String quartier, String recherche,
                                                        Pageable pageable);
 
     void supprimerAnnonce(Long annonceId, Long adminId, String motif);
@@ -42,6 +44,8 @@ public interface AdminService {
     void traiterSignalement(Long signalementId, Long adminId, StatutSignalement decision);
 
     void mettreAJourConfig(String cle, String valeur, Long adminId);
+
+    ConfigSystemeResponse getConfigSysteme();
 
     Localisation creerVille(AdminCreateVilleRequest request, Long adminId);
 

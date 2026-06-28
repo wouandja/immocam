@@ -154,6 +154,16 @@ import { AnnonceDashboardResponse } from '@core/services/models';
     .s-pause   { background: var(--amber-l); color: #BF360C; }
     .s-expired { background: var(--red-l); color: #B71C1C; }
     .s-arch    { background: #ECEFF1; color: #37474F; }
+    .badge-admin-lock {
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-left: 6px; font-size: 11px;
+    }
+    .badge-admin-lock-card {
+      position: absolute; top: 14px; right: 50px;
+      background: rgba(15,30,69,.85);
+      border-radius: 8px; padding: 3px 7px;
+      font-size: 11px; line-height: 1; z-index: 1;
+    }
 
     /* PRIX — bas gauche */
     .price-badge {
@@ -613,6 +623,9 @@ import { AnnonceDashboardResponse } from '@core/services/models';
               <span class="badge-statut" [ngClass]="getStatutClass(a.statut)">
                 {{ getStatutLabel(a.statut) }}
               </span>
+              @if (a.misEnPauseParAdmin) {
+                <span class="badge-admin-lock-card" title="Suspendue par un administrateur — seul un admin peut la réactiver">🔒</span>
+              }
               <div class="price-badge">{{ a.prix | fcfa }}</div>
               <button type="button" class="btn-img-menu"
                 (click)="openSheet(a); $event.stopPropagation()" aria-label="Actions">
@@ -719,6 +732,9 @@ import { AnnonceDashboardResponse } from '@core/services/models';
                     <span class="tbl-badge" [ngClass]="getStatutClass(a.statut)">
                       {{ getStatutLabel(a.statut) }}
                     </span>
+                    @if (a.misEnPauseParAdmin) {
+                      <span class="badge-admin-lock" title="Suspendue par un administrateur — seul un admin peut la réactiver">🔒</span>
+                    }
                   </td>
                   <td class="r">
                     <div class="td-stats">
@@ -785,6 +801,9 @@ import { AnnonceDashboardResponse } from '@core/services/models';
                 <span class="badge-statut" [ngClass]="getStatutClass(a.statut)">
                   {{ getStatutLabel(a.statut) }}
                 </span>
+                @if (a.misEnPauseParAdmin) {
+                  <span class="badge-admin-lock-card" title="Suspendue par un administrateur — seul un admin peut la réactiver">🔒</span>
+                }
                 <div class="price-badge">{{ a.prix | fcfa }}</div>
                 <button type="button" class="btn-img-menu"
                   (click)="openSheet(a); $event.stopPropagation()" aria-label="Actions">
@@ -943,7 +962,7 @@ export class MesAnnoncesComponent implements OnInit {
         fn: () => { this.sheetOpen.set(false); this.store.dispatch(annonceActions.renouveler({ id: a.id })); },
       });
     }
-    if (s === 'EN_PAUSE') {
+    if (s === 'EN_PAUSE' && !a.misEnPauseParAdmin) {
       actions.push({
         label: 'Réactiver', desc: 'Rendre visible à nouveau', iconCls: 'ai-green', icon: ICONS.resume,
         fn: () => { this.sheetOpen.set(false); this.store.dispatch(annonceActions.reactiver({ id: a.id })); },

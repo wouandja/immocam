@@ -37,6 +37,7 @@ public class AnnonceDetailResponse {
     private String dateExpirationFormatee;
     private String proprietairePrenom;
     private boolean estMienne;
+    private boolean dejaSignalee;
     private List<PhotoResponse> photos;
     private List<CommentaireResponse> commentaires;
     private List<AnnonceListResponse> annoncesSimiliaires;

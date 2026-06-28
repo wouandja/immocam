@@ -150,6 +150,13 @@ public class Annonce extends BaseEntity {
     @Builder.Default
     private boolean deleted = false;
 
+    /**
+     * ID de l'admin ayant mis l'annonce en pause, sinon null (pause par le propriétaire lui-même).
+     * Tant que ce champ est renseigné, seul un admin peut réactiver l'annonce.
+     */
+    @Column(name = "mis_en_pause_par_id")
+    private Long misEnPauseParId;
+
     // ── Methodes utilitaires ──────────────────────────────────────────────
 
     /** Incremente le compteur de vues a chaque consultation du detail. */

@@ -5,8 +5,6 @@ import { environment } from '@environments/environment';
 import {
   ApiResponse,
   PageResponse,
-
-  CommentaireResponse,
   AnnonceListResponse,
 } from '@core/services/models';
 import { LocalisationResponse,  AdminDashboardResponse,
@@ -17,7 +15,6 @@ import { LocalisationResponse,  AdminDashboardResponse,
   ConfigSystemeResponse,
   LocalisationRequest,
   TypeBienRequest,
- 
   AdminAnnonceFilters, TypeBienResponse } from '../models/admin.model';
 
 @Injectable({ providedIn: 'root' })
@@ -104,14 +101,6 @@ modifierRole(id: number, role: string): Observable<ApiResponse<void>> {
 }
 
 
-getCommentaires(page = 0, taille = 20): Observable<ApiResponse<PageResponse<CommentaireResponse>>> {
-  let params = new HttpParams().set('page', page).set('taille', taille);
-  return this.http.get<ApiResponse<PageResponse<CommentaireResponse>>>(
-    `${this.base}/commentaires`,
-    { params }
-  );
-}
-
 // À ajouter après basculerTypeBienActif()
 modifierQuartierAnnonceAdmin(id: number, quartier: string): Observable<ApiResponse<void>> {
   const params = new HttpParams().set('quartier', quartier);
@@ -121,11 +110,8 @@ modifierQuartierAnnonceAdmin(id: number, quartier: string): Observable<ApiRespon
     { params }
   );
 }
-  supprimerCommentaire(id: number): Observable<ApiResponse<void>> {
-    return this.http.delete<ApiResponse<void>>(`${this.base}/commentaires/${id}`);
-  }
-  getConfig(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.base}/config`);
+  getConfig(): Observable<ApiResponse<ConfigSystemeResponse>> {
+    return this.http.get<ApiResponse<ConfigSystemeResponse>>(`${this.base}/config`);
   }
   updateConfigByKey(cle: string, valeur: string | number | boolean): Observable<ApiResponse<void>> {
     return this.http.patch<ApiResponse<void>>(
@@ -150,11 +136,11 @@ modifierQuartierAnnonceAdmin(id: number, quartier: string): Observable<ApiRespon
   }): Observable<ApiResponse<AdminUtilisateurResponse>> {
     return this.http.post<ApiResponse<AdminUtilisateurResponse>>(`${this.base}/utilisateurs`, req);
   }
-  exportAnnoncesCSV(): Observable<Blob> {
-    return this.http.get(`${this.base}/rapports/export/annonces`, { responseType: 'blob' });
+  exportAnnoncesPDF(): Observable<Blob> {
+    return this.http.get(`${this.base}/rapports/export/annonces/pdf`, { responseType: 'blob' });
   }
-  exportUtilisateursCSV(): Observable<Blob> {
-    return this.http.get(`${this.base}/rapports/export/utilisateurs`, { responseType: 'blob' });
+  exportUtilisateursPDF(): Observable<Blob> {
+    return this.http.get(`${this.base}/rapports/export/utilisateurs/pdf`, { responseType: 'blob' });
   }
 
 

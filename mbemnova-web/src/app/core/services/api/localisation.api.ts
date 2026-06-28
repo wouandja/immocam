@@ -25,8 +25,18 @@ export class LocalisationApi {
   creerQuartier(req: {
     ville: string;
     quartier: string;
-  }): Observable<ApiResponse<LocalisationResponse>> {
-    return this.http.post<ApiResponse<LocalisationResponse>>(`${this.base}/quartiers`, req);
+  }): Observable<ApiResponse<{ id: number; nom: string; ville: string }>> {
+    return this.http.post<ApiResponse<{ id: number; nom: string; ville: string }>>(`${this.base}/quartiers`, req);
+  }
+
+  renommerQuartier(id: number, nom: string): Observable<ApiResponse<void>> {
+    return this.http.patch<ApiResponse<void>>(`${this.base}/quartiers/${id}`, { nom });
+  }
+
+  listerQuartiersAdmin(): Observable<ApiResponse<{ id: number; nom: string; ville: string }[]>> {
+    return this.http.get<ApiResponse<{ id: number; nom: string; ville: string }[]>>(
+      `${this.base}/quartiers/admin`,
+    );
   }
 
   getVillesAvecId(): Observable<ApiResponse<{ id: number; ville: string }[]>> {

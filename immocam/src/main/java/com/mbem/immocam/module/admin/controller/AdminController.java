@@ -12,8 +12,6 @@ import com.mbem.immocam.module.admin.dto.response.AdminUtilisateurResponse;
 import com.mbem.immocam.module.admin.dto.response.DashboardResponse;
 import com.mbem.immocam.module.admin.service.AdminService;
 import com.mbem.immocam.module.commentaire.repository.CommentaireRepository;
-import com.mbem.immocam.module.config.repository.ConfigSystemeRepository;
-import com.mbem.immocam.module.config.entity.ConfigSysteme;
 import com.mbem.immocam.module.localisation.entity.Localisation;
 import com.mbem.immocam.module.typebien.entity.TypeBien;
 import com.mbem.immocam.shared.enums.StatutSignalement;
@@ -35,7 +33,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.List;
 
 @RestController
@@ -48,7 +45,6 @@ public class AdminController {
 
     private final AdminService adminService;
     private final CommentaireRepository commentaireRepository;
-    private final ConfigSystemeRepository configRepository;
     private final UtilisateurRepository utilisateurRepository;
 
     // ── Dashboard ─────────────────────────────────────────────────────────
@@ -68,11 +64,13 @@ public class AdminController {
             @RequestParam(required = false) Long typeBienId,
             @RequestParam(required = false) Long proprietaireId,
             @RequestParam(required = false) String statut,
+            @RequestParam(required = false) String quartier,
+            @RequestParam(required = false) String recherche,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int taille) {
         int safeTaille = normaliserTaille(taille, 20, ImmoCamConstants.ADMIN_PAGE_SIZE_MAX);
         PageResponse<AdminAnnonceResponse> result = adminService.listerAnnonces(
-                ville, typeBienId, proprietaireId, statut,
+                ville, typeBienId, proprietaireId, statut, quartier, recherche,
                 PageRequest.of(page, safeTaille, Sort.by(Sort.Direction.DESC, "dateCreation")));
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
@@ -192,10 +190,10 @@ public ResponseEntity<ApiResponse<Void>> traiterSignalement(
 
     // ── Configuration ─────────────────────────────────────────────────────
 
-    @Operation(summary = "Liste des parametres de configuration")
+    @Operation(summary = "Parametres de configuration (vue a plat)")
     @GetMapping("/config")
-    public ResponseEntity<ApiResponse<List<ConfigSysteme>>> getConfig() {
-        return ResponseEntity.ok(ApiResponse.ok(configRepository.findAll()));
+    public ResponseEntity<ApiResponse<com.mbem.immocam.module.admin.dto.response.ConfigSystemeResponse>> getConfig() {
+        return ResponseEntity.ok(ApiResponse.ok(adminService.getConfigSysteme()));
     }
 
     @Operation(summary = "Modifier un parametre de configuration")
@@ -274,40 +272,96 @@ public ResponseEntity<ApiResponse<Void>> modifierQuartierAnnonce(
         return ResponseEntity.ok(ApiResponse.message("Role utilisateur modifie."));
     }
 
-    // ── Exports CSV ───────────────────────────────────────────────────────
+    // ── Exports PDF ───────────────────────────────────────────────────────
 
-    @Operation(summary = "Export CSV des annonces")
-    @GetMapping("/rapports/export/annonces")
-    public void exportAnnonces(HttpServletResponse response) throws IOException {
-        response.setContentType("text/csv; charset=UTF-8");
-        response.setHeader("Content-Disposition", "attachment; filename=annonces.csv");
-        response.getOutputStream().write(0xEF);
-        response.getOutputStream().write(0xBB);
-        response.getOutputStream().write(0xBF);
-        PrintWriter writer = response.getWriter();
-        writer.println("ID,Type,Ville,Quartier,Prix,Statut,Vues,DatePublication,Proprietaire");
-        adminService.listerAnnonces(null, null, null, null, PageRequest.of(0, Integer.MAX_VALUE))
-                .getContenu().forEach(a -> writer.printf("%d,%s,%s,%s,%.0f,%s,%d,%s,%s%n",
-                        a.getId(), a.getTypeBien(), a.getVille(),
-                        a.getQuartier() != null ? a.getQuartier() : "",
-                        a.getPrix(), a.getStatut(), a.getNombreVues(),
-                        a.getDatePublication(), a.getProprietaireEmail()));
+    @Operation(summary = "Export PDF des annonces")
+    @GetMapping("/rapports/export/annonces/pdf")
+    public void exportAnnoncesPdf(HttpServletResponse response) throws IOException {
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition", "attachment; filename=annonces.pdf");
+
+        List<AdminAnnonceResponse> annonces = adminService
+                .listerAnnonces(null, null, null, null, null, null, PageRequest.of(0, Integer.MAX_VALUE))
+                .getContenu();
+
+        String[] entetes = {"ID", "Type", "Ville", "Quartier", "Prix (FCFA)", "Statut", "Vues",
+                "Contacts", "Signalements", "Publication", "Proprietaire"};
+        java.util.List<String[]> lignes = new java.util.ArrayList<>();
+        for (AdminAnnonceResponse a : annonces) {
+            lignes.add(new String[]{
+                    String.valueOf(a.getId()), a.getTypeBien(), a.getVille(),
+                    a.getQuartier() != null ? a.getQuartier() : "",
+                    String.format("%.0f", a.getPrix()), a.getStatut(),
+                    String.valueOf(a.getNombreVues()), String.valueOf(a.getNombreContacts()),
+                    String.valueOf(a.getNombreSignalements()),
+                    a.getDatePublication() != null ? a.getDatePublication().toLocalDate().toString() : "",
+                    a.getProprietaireNom() + " (" + a.getProprietaireEmail() + ")"
+            });
+        }
+        genererPdf(response.getOutputStream(), "Export des annonces — ImmoCam", entetes, lignes);
     }
 
-    @Operation(summary = "Export CSV des utilisateurs")
-    @GetMapping("/rapports/export/utilisateurs")
-    public void exportUtilisateurs(HttpServletResponse response) throws IOException {
-        response.setContentType("text/csv; charset=UTF-8");
-        response.setHeader("Content-Disposition", "attachment; filename=utilisateurs.csv");
-        response.getOutputStream().write(0xEF);
-        response.getOutputStream().write(0xBB);
-        response.getOutputStream().write(0xBF);
-        PrintWriter writer = response.getWriter();
-        writer.println("ID,Prenom,Nom,Email,Ville,Role,Statut,DateInscription");
-        adminService.listerUtilisateurs(null, PageRequest.of(0, Integer.MAX_VALUE))
-                .getContenu().forEach(u -> writer.printf("%d,%s,%s,%s,%s,%s,%s,%s%n",
-                        u.getId(), u.getPrenom(), u.getNom(), u.getEmail(),
-                        u.getVille(), u.getRole(), u.getStatut(), u.getDateInscription()));
+    @Operation(summary = "Export PDF des utilisateurs")
+    @GetMapping("/rapports/export/utilisateurs/pdf")
+    public void exportUtilisateursPdf(HttpServletResponse response) throws IOException {
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition", "attachment; filename=utilisateurs.pdf");
+
+        List<AdminUtilisateurResponse> utilisateurs = adminService
+                .listerUtilisateurs(null, PageRequest.of(0, Integer.MAX_VALUE))
+                .getContenu();
+
+        String[] entetes = {"ID", "Prenom", "Nom", "Email", "Ville", "Role", "Statut",
+                "Inscription", "Annonces actives", "Annonces total"};
+        java.util.List<String[]> lignes = new java.util.ArrayList<>();
+        for (AdminUtilisateurResponse u : utilisateurs) {
+            lignes.add(new String[]{
+                    String.valueOf(u.getId()), u.getPrenom(), u.getNom(), u.getEmail(),
+                    u.getVille(), u.getRole(), u.getStatut(),
+                    u.getDateInscription() != null ? u.getDateInscription().toLocalDate().toString() : "",
+                    String.valueOf(u.getNombreAnnoncesActives()), String.valueOf(u.getNombreAnnoncesTotal())
+            });
+        }
+        genererPdf(response.getOutputStream(), "Export des utilisateurs — ImmoCam", entetes, lignes);
+    }
+
+    private void genererPdf(java.io.OutputStream out, String titre, String[] entetes, java.util.List<String[]> lignes) {
+        com.lowagie.text.Document document = new com.lowagie.text.Document(com.lowagie.text.PageSize.A4.rotate());
+        try {
+            com.lowagie.text.pdf.PdfWriter.getInstance(document, out);
+            document.open();
+            com.lowagie.text.Font titreFont = com.lowagie.text.FontFactory.getFont(
+                    com.lowagie.text.FontFactory.HELVETICA_BOLD, 16);
+            document.add(new com.lowagie.text.Paragraph(titre, titreFont));
+            document.add(new com.lowagie.text.Paragraph(" "));
+
+            com.lowagie.text.pdf.PdfPTable table = new com.lowagie.text.pdf.PdfPTable(entetes.length);
+            table.setWidthPercentage(100);
+            com.lowagie.text.Font enteteFont = com.lowagie.text.FontFactory.getFont(
+                    com.lowagie.text.FontFactory.HELVETICA_BOLD, 9, java.awt.Color.WHITE);
+            for (String entete : entetes) {
+                com.lowagie.text.pdf.PdfPCell cell = new com.lowagie.text.pdf.PdfPCell(
+                        new com.lowagie.text.Paragraph(entete, enteteFont));
+                cell.setBackgroundColor(new java.awt.Color(30, 80, 150));
+                cell.setPadding(5);
+                table.addCell(cell);
+            }
+            com.lowagie.text.Font ligneFont = com.lowagie.text.FontFactory.getFont(
+                    com.lowagie.text.FontFactory.HELVETICA, 8);
+            for (String[] ligne : lignes) {
+                for (String valeur : ligne) {
+                    com.lowagie.text.pdf.PdfPCell cell = new com.lowagie.text.pdf.PdfPCell(
+                            new com.lowagie.text.Paragraph(valeur != null ? valeur : "", ligneFont));
+                    cell.setPadding(4);
+                    table.addCell(cell);
+                }
+            }
+            document.add(table);
+        } catch (com.lowagie.text.DocumentException e) {
+            throw new RuntimeException("Erreur lors de la generation du PDF", e);
+        } finally {
+            document.close();
+        }
     }
 
     // ── Helper privé ──────────────────────────────────────────────────────

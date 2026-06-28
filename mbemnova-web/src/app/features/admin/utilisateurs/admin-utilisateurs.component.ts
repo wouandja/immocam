@@ -696,11 +696,11 @@ function telephoneValide(raw: string): boolean {
             Cartes
           </button>
         </div>
-        <button class="btn-secondary" (click)="exportCSV()">
+        <button class="btn-secondary" (click)="exportPDF()">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
           </svg>
-          Export CSV
+          Export PDF
         </button>
         <button class="btn-primary" (click)="openModal()">
           <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -1346,15 +1346,19 @@ export class AdminUtilisateursComponent implements OnInit {
   }
 
   // ── Export ─────────────────────────────────────────────────────────────
-  exportCSV(): void {
-    this.adminApi.exportUtilisateursCSV().subscribe(blob => {
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement('a');
-      a.href     = url;
-      a.download = `immocam-utilisateurs-${new Date().toISOString().slice(0,10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+  exportPDF(): void {
+    this.adminApi.exportUtilisateursPDF().subscribe(blob => {
+      this.telechargerFichier(blob, `immocam-utilisateurs-${new Date().toISOString().slice(0,10)}.pdf`);
     });
+  }
+
+  private telechargerFichier(blob: Blob, nomFichier: string): void {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = nomFichier;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ── Helpers UI ─────────────────────────────────────────────────────────

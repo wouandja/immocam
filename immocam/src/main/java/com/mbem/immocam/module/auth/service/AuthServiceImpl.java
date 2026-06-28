@@ -33,12 +33,14 @@ import com.mbem.immocam.module.auth.entity.TokenReinitialisation;
 import com.mbem.immocam.module.auth.repository.CodeValidationRepository;
 import com.mbem.immocam.module.auth.repository.TokenReinitialisationRepository;
 import com.mbem.immocam.module.config.service.ConfigSystemeService;
+import com.mbem.immocam.module.notification.service.NotificationService;
 import com.mbem.immocam.module.utilisateur.entity.Utilisateur;
 import com.mbem.immocam.module.utilisateur.repository.UtilisateurRepository;
 import com.mbem.immocam.shared.constants.ImmoCamConstants;
 import com.mbem.immocam.shared.enums.RoleUtilisateur;
 import com.mbem.immocam.shared.enums.StatutCompte;
 import com.mbem.immocam.shared.enums.TypeAction;
+import com.mbem.immocam.shared.enums.TypeNotification;
 import com.mbem.immocam.shared.utils.PhoneUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,7 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final LogActiviteService logActiviteService;
     private final ConfigSystemeService configSystemeService;
+    private final NotificationService notificationService;
 
     @Value("${immocam.otp.expiration-minutes:10}")
     private int otpExpirationMinutes;
@@ -146,6 +149,11 @@ public class AuthServiceImpl implements AuthService {
         utilisateur.setTentativesConnexionEchouees(0);
         logActiviteService.log(utilisateur.getId(), TypeAction.VALIDATION_EMAIL, null);
         log.info("Email valide : {}", utilisateur.getEmail());
+
+        notificationService.notifier(TypeNotification.INSCRIPTION,
+                "Nouvel utilisateur inscrit",
+                utilisateur.getPrenom() + " " + utilisateur.getNom() + " (" + utilisateur.getEmail() + ") vient de rejoindre ImmoCam",
+                "/admin/utilisateurs", utilisateur.getId());
 
         // role sans prefixe ROLE_ — correspond a hasAuthority('ADMINISTRATEUR')
         String accessToken  = jwtService.genererAccessToken(

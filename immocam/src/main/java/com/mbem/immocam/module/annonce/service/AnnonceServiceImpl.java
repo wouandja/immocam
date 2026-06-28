@@ -2,6 +2,7 @@ package com.mbem.immocam.module.annonce.service;
 
 import com.mbem.immocam.infrastructure.audit.LogActiviteService;
 import com.mbem.immocam.infrastructure.email.service.EmailService;
+import com.mbem.immocam.infrastructure.security.config.SecurityUtils;
 import com.mbem.immocam.infrastructure.exception.custom.AccesRefuseException;
 import com.mbem.immocam.infrastructure.exception.custom.DoublonException;
 import com.mbem.immocam.infrastructure.exception.custom.LimiteAtteintException;
@@ -70,10 +71,12 @@ public class AnnonceServiceImpl implements AnnonceService {
     private final UtilisateurRepository utilisateurRepository;
     private final TypeBienRepository typeBienRepository;
     private final LocalisationRepository localisationRepository;
+    private final com.mbem.immocam.module.localisation.service.QuartierService quartierService;
     private final PhotoRepository photoRepository;
     private final CommentaireRepository commentaireRepository;
     private final ContactWhatsAppRepository contactRepository;
     private final FavoriRepository favoriRepository;
+    private final com.mbem.immocam.module.signalement.repository.SignalementRepository signalementRepository;
     private final AnnonceMapper annonceMapper;
     private final EmailService emailService;
     private final LogActiviteService logActiviteService;
@@ -113,15 +116,18 @@ public class AnnonceServiceImpl implements AnnonceService {
     @Override
     @Transactional
     public AnnonceDetailResponse obtenirDetail(Long id, Long utilisateurConnecteId) {
+        // Un admin doit pouvoir consulter le détail de n'importe quelle annonce
+        // (en pause, expirée, supprimée...) depuis l'interface de modération.
+        boolean estAdmin = SecurityUtils.estAdmin();
         Annonce annonce = annonceRepository.findById(id)
-                .filter(a -> !a.isDeleted())
+                .filter(a -> !a.isDeleted() || estAdmin)
                 .orElseThrow(() -> new RessourceNotFoundException("Annonce", id));
 
         boolean estProprietaire = utilisateurConnecteId != null
                 && utilisateurConnecteId.equals(annonce.getProprietaire().getId());
         // Un visiteur (ou un autre utilisateur) ne doit jamais accéder au détail
         // d'une annonce en pause, archivée ou expirée via son URL directe.
-        if (!estProprietaire && !annonce.estVisible()) {
+        if (!estProprietaire && !estAdmin && !annonce.estVisible()) {
             throw new RessourceNotFoundException("Annonce", id);
         }
 
@@ -148,7 +154,8 @@ public class AnnonceServiceImpl implements AnnonceService {
                     .replace("{type}", annonce.getTypeBien().getLibelle())
                     .replace("{quartier}", annonce.getQuartier() != null ? annonce.getQuartier() : "")
                     .replace("{ville}", annonce.getLocalisation().getVille())
-                    .replace("{prix}", annonce.getPrix().toPlainString());
+                    .replace("{prix}", formatterPrix(annonce.getPrix()))
+                    .replace("{proprietaire}", annonce.getProprietaire().getPrenom());
             dto.setLienWhatsApp(PhoneUtils.construireLienWhatsApp(annonce.getNumeroWhatsApp(), msgFinal));
         }
 
@@ -162,6 +169,9 @@ public class AnnonceServiceImpl implements AnnonceService {
         dto.setIsFavori(utilisateurConnecteId == null
                 ? null
                 : favoriRepository.existsByUtilisateurIdAndAnnonceId(utilisateurConnecteId, id));
+        dto.setDejaSignalee(utilisateurConnecteId != null
+                && signalementRepository.existsByAuteurIdAndAnnonceIdAndStatut(
+                        utilisateurConnecteId, id, com.mbem.immocam.shared.enums.StatutSignalement.EN_ATTENTE));
 
         // Photos
         List<PhotoResponse> photos = photoRepository.findByAnnonceIdOrderByOrdreAsc(id)
@@ -261,6 +271,7 @@ public class AnnonceServiceImpl implements AnnonceService {
                 .dateExpiration(DateUtils.calculerExpiration(maintenant, dureeJours))
                 .build();
         annonceRepository.save(annonce);
+        quartierService.assurerExistance(localisation.getId(), request.getQuartier());
 
         emailService.envoyerConfirmationPublication(
                 proprietaire.getEmail(), proprietaire.getPrenom(),
@@ -287,8 +298,10 @@ public class AnnonceServiceImpl implements AnnonceService {
         if (request.getLocalisationId() != null)
             annonce.setLocalisation(localisationRepository.findById(request.getLocalisationId())
                     .orElseThrow(() -> new RessourceNotFoundException("Localisation", request.getLocalisationId())));
-        if (request.getQuartier() != null)
+        if (request.getQuartier() != null) {
             annonce.setQuartier(request.getQuartier());
+            quartierService.assurerExistance(annonce.getLocalisation().getId(), request.getQuartier());
+        }
         if (request.getDescription() != null)
             annonce.setDescription(request.getDescription());
         if (request.getPrix() != null)
@@ -318,6 +331,10 @@ public class AnnonceServiceImpl implements AnnonceService {
         Annonce annonce = obtenirAnnonceProprietaire(id, proprietaireId);
         if (!StatutAnnonce.EN_PAUSE.equals(annonce.getStatut()))
             throw new IllegalArgumentException("Seules les annonces en pause peuvent être réactivées.");
+        if (annonce.getMisEnPauseParId() != null)
+            throw new AccesRefuseException(
+                    "Cette annonce a été mise en pause par un administrateur. "
+                    + "Seul un administrateur peut la réactiver. Contactez le support si besoin.");
         // Une annonce restée en pause longtemps peut avoir une date d'expiration
         // déjà dépassée : on la prolonge pour éviter de réactiver une annonce
         // "fantôme" (statut ACTIVE mais invisible car expirée).
@@ -429,6 +446,7 @@ public void desarchiver(Long id, Long proprietaireId) {
         AnnonceDashboardResponse dto = annonceMapper.toDashboardResponse(annonce);
         dto.setDateExpirationFormatee(DateUtils.formatEmail(annonce.getDateExpiration()));
         dto.setPrixFormate(formatterPrix(annonce.getPrix()));
+        dto.setMisEnPauseParAdmin(annonce.getMisEnPauseParId() != null);
         // ✅ countByAnnonceId filtre déjà le proprio en base
         dto.setNombreContacts(contactRepository.countByAnnonceId(annonce.getId()));
         dto.setNombreCommentaires(

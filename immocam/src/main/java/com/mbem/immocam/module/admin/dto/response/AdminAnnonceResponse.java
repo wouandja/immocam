@@ -29,6 +29,10 @@ public class AdminAnnonceResponse {
     private long nombreSignalements;
     private LocalDateTime datePublication;
     private LocalDateTime dateExpiration;
+    private String photoPrincipale;
+    private String photoPrincipaleThumb;
+    /** true si l'annonce a été mise en pause par un admin (le propriétaire ne peut alors pas la réactiver lui-même). */
+    private boolean misEnPauseParAdmin;
     // Infos propriétaire
     private Long proprietaireId;
     private String proprietaireNom;

@@ -11,9 +11,8 @@ import { AdminApi } from '@core/services/api/admin.api';
 import { LocalisationApi } from '@core/services/api/localisation.api';
 import { TypeBienApi } from '@core/services/api/typebien.api';
 import { ToastService } from '@core/services/toast.service';
+import { ConfirmDialogComponent } from '@shared/components/confirm-dialog/confirm-dialog.component';
 import {
-  
-  LocalisationResponse,
   TypeBienResponse,
 } from '@core/services/models';
 import { ConfigSystemeResponse } from '@core/services/models/admin.model';
@@ -21,11 +20,12 @@ import { ConfigSystemeResponse } from '@core/services/models/admin.model';
 type Section = 'parametres' | 'localisations' | 'typesbiens';
 
 interface VilleAvecId { id: number; ville: string; active?: boolean; }
+interface QuartierAvecId { id: number; nom: string; }
 
 @Component({
   selector: 'app-admin-config',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ConfirmDialogComponent],
   styles: [`
     :host { display: block; }
 
@@ -142,6 +142,19 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
       border-color: #3245D1; box-shadow: 0 0 0 3px rgba(50,69,209,.1); background: #fff;
     }
     .field-hint { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+    .field-hint code, .param-hint code {
+      background: #EEF2FF; color: #1E2875; border-radius: 5px;
+      padding: 1px 5px; font-size: 11px; margin: 0 2px; font-family: monospace;
+    }
+
+    .wa-variables { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .btn-wa-var {
+      height: 26px; padding: 0 10px; border-radius: 14px;
+      background: #EEF2FF; color: #1E2875; border: 0.5px solid #C7D2FE;
+      font-size: 11.5px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: background .12s;
+    }
+    .btn-wa-var:hover { background: #C7D2FE; }
 
     /* ── Section footer ── */
     .section-footer {
@@ -192,15 +205,28 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
     .btn-add:disabled { opacity: .45; cursor: not-allowed; }
 
     .btn-toggle {
-      display: inline-flex; align-items: center;
-      height: 22px; padding: 0 8px; border-radius: 20px;
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 24px; padding: 0; border-radius: 20px;
       font-size: 11px; font-weight: 600; cursor: pointer;
       border: none; font-family: inherit; transition: all .12s; flex-shrink: 0;
+      background: transparent; color: #94A3B8;
     }
-    .btn-toggle.active { background: #ECFDF5; color: #059669; border: 0.5px solid #A7F3D0; }
-    .btn-toggle.active:hover { background: #FEF2F2; color: #DC2626; border-color: #FECACA; }
-    .btn-toggle.inactive { background: #FEF2F2; color: #DC2626; border: 0.5px solid #FECACA; }
-    .btn-toggle.inactive:hover { background: #ECFDF5; color: #059669; border-color: #A7F3D0; }
+    .switch-track {
+      position: relative; width: 34px; height: 19px; border-radius: 20px;
+      background: #E2E8F0; transition: background .15s; flex-shrink: 0;
+    }
+    .switch-track::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 15px; height: 15px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25);
+      transition: transform .15s;
+    }
+    .btn-toggle.active .switch-track { background: #10B981; }
+    .btn-toggle.active .switch-track::after { transform: translateX(15px); }
+    .btn-toggle.inactive .switch-track { background: #CBD5E1; }
+    .btn-toggle.active .switch-label { color: #059669; }
+    .btn-toggle.inactive .switch-label { color: #94A3B8; }
+    .btn-toggle:hover .switch-track { box-shadow: 0 0 0 3px rgba(50,69,209,.08); }
 
     /* ── Add form row ── */
     .add-row {
@@ -213,7 +239,7 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
     /* ════ LOCALISATIONS ════ */
 
     /* -- Villes list -- */
-    .villes-list { padding: 8px 12px; }
+    .villes-list { padding: 8px 12px; max-height: 360px; overflow-y: auto; }
     .ville-item {
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 12px; border-radius: 10px; transition: background .1s; gap: 10px;
@@ -283,7 +309,7 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
     .btn-add-sm:hover:not(:disabled) { background: #3245D1; }
     .btn-add-sm:disabled { opacity: .45; cursor: not-allowed; }
 
-    .quartiers-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .quartiers-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 280px; overflow-y: auto; }
     .quartier-chip {
       display: inline-flex; align-items: center; gap: 5px;
       padding: 5px 10px 5px 12px;
@@ -313,7 +339,7 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
     }
 
     /* ════ TYPES DE BIENS ════ */
-    .types-list { padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+    .types-list { padding: 12px; display: flex; flex-direction: column; gap: 4px; max-height: 360px; overflow-y: auto; }
     .type-item {
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 12px; border-radius: 10px; transition: background .1s; gap: 10px;
@@ -505,7 +531,12 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
                   <div class="param-row full">
                     <span class="param-label">Message WhatsApp par défaut</span>
                     <span class="param-value message">{{ config()!.messageWhatsappDefaut }}</span>
-                    <span class="param-hint">Variables : &#123;type&#125; &#123;quartier&#125; &#123;ville&#125; &#123;prix&#125;</span>
+                    <span class="param-hint">
+                      Variables disponibles :
+                      @for (v of whatsappVariables; track v.key) {
+                        <code>{{ v.token }}</code>
+                      }
+                    </span>
                   </div>
                 </div>
               </div>
@@ -526,13 +557,23 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
                 }
                 <div class="field-group field-full">
                   <label for="cfg-wa">Message WhatsApp par défaut</label>
-                  <textarea id="cfg-wa" [(ngModel)]="configEdit!.messageWhatsappDefaut" rows="3"></textarea>
-                  <span class="field-hint">Variables : &#123;type&#125; &#123;quartier&#125; &#123;ville&#125; &#123;prix&#125;</span>
+                  <div class="wa-variables">
+                    @for (v of whatsappVariables; track v.key) {
+                      <button type="button" class="btn-wa-var" (click)="insertVariable(v.key, waTextarea)">
+                        + {{ v.label }}
+                      </button>
+                    }
+                  </div>
+                  <textarea #waTextarea id="cfg-wa" [(ngModel)]="configEdit!.messageWhatsappDefaut" rows="3"></textarea>
+                  <span class="field-hint">
+                    Cliquez sur une variable ci-dessus pour l'insérer — elle sera automatiquement
+                    remplacée par l'information réelle de chaque annonce (ex : &#123;prix&#125; → 50 000 FCFA).
+                  </span>
                 </div>
               </div>
               <div class="section-footer">
                 <button class="btn-secondary" (click)="cancelEditConfig()">Annuler</button>
-                <button class="btn-primary" (click)="saveConfig()" [disabled]="saving()">
+                <button class="btn-primary" (click)="confirmSaveOpen.set(true)" [disabled]="saving()">
                   @if (saving()) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83
@@ -599,8 +640,10 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
                         [class.active]="v.active !== false"
                         [class.inactive]="v.active === false"
                         (click)="toggleVilleActive(v)"
+                        [title]="v.active !== false ? 'Cliquer pour désactiver' : 'Cliquer pour activer'"
                       >
-                        {{ v.active !== false ? 'Actif' : 'Inactif' }}
+                        <span class="switch-track"></span>
+                        <span class="switch-label">{{ v.active !== false ? 'Actif' : 'Inactif' }}</span>
                       </button>
                       <button class="btn-edit" (click)="openEditVille(v)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -669,9 +712,9 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
                     <div class="quartiers-empty">Aucun quartier pour cette ville.</div>
                   } @else {
                     <div class="quartiers-chips">
-                      @for (q of quartiersParVille()[selectedVilleQuartier]; track q) {
+                      @for (q of quartiersParVille()[selectedVilleQuartier]; track q.id) {
                         <span class="quartier-chip">
-                          {{ q }}
+                          {{ q.nom }}
                           <button class="quartier-chip-edit" (click)="openEditQuartier(q)" title="Modifier">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                               <path stroke-linecap="round" stroke-linejoin="round"
@@ -733,8 +776,10 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
                         [class.active]="t.estActif !== false"
                         [class.inactive]="t.estActif === false"
                         (click)="toggleTypeBienActif(t)"
+                        [title]="t.estActif !== false ? 'Cliquer pour désactiver' : 'Cliquer pour activer'"
                       >
-                        {{ t.estActif !== false ? 'Actif' : 'Inactif' }}
+                        <span class="switch-track"></span>
+                        <span class="switch-label">{{ t.estActif !== false ? 'Actif' : 'Inactif' }}</span>
                       </button>
                       <button class="btn-edit" (click)="openEditTypeBien(t)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -838,6 +883,16 @@ interface VilleAvecId { id: number; ville: string; active?: boolean; }
         </div>
       </div>
     }
+
+    <!-- ════ CONFIRMATION : Sauvegarde des paramètres ════ -->
+    <app-confirm-dialog
+      [open]="confirmSaveOpen()"
+      title="Enregistrer ces paramètres ?"
+      message="Les nouvelles valeurs s'appliqueront immédiatement à toutes les annonces de la plateforme."
+      confirmLabel="Enregistrer"
+      (confirmed)="saveConfig()"
+      (cancelled)="confirmSaveOpen.set(false)"
+    />
   `,
 })
 export class AdminConfigComponent implements OnInit {
@@ -850,9 +905,10 @@ export class AdminConfigComponent implements OnInit {
   config            = signal<ConfigSystemeResponse | null>(null);
   typesBiens        = signal<TypeBienResponse[]>([]);
   villesAvecId      = signal<VilleAvecId[]>([]);
-  quartiersParVille = signal<Record<string, string[]>>({});
+  quartiersParVille = signal<Record<string, QuartierAvecId[]>>({});
   saving            = signal(false);
   editingConfig     = signal(false);
+  confirmSaveOpen   = signal(false);
 
   configEdit: ConfigSystemeResponse | null = null;
 
@@ -874,7 +930,7 @@ export class AdminConfigComponent implements OnInit {
 
   editVilleId: number | null = null;
   editVilleNom    = '';
-  editQuartierOld = '';
+  editQuartierId: number | null = null;
   editQuartierNom = '';
   editTypeBienId: number | null = null;
   editTypeBienLibelle = '';
@@ -892,7 +948,14 @@ export class AdminConfigComponent implements OnInit {
     { key: 'maxPhotosParAnnonce',        label: 'Max photos par annonce',            min: 1 },
     { key: 'joursRappelExpiration',      label: 'Rappel avant expiration (jours)',   hint: 'Envoi de la notification J−X avant expiration', min: 0 },
     { key: 'joursSuppressionDefinitive', label: 'Suppression définitive (jours)',    hint: 'Délai après expiration avant suppression définitive', min: 0 },
-    { key: 'rateLimit',                  label: 'Rate limit (requêtes / minute)',     min: 1 },
+  ];
+
+  readonly whatsappVariables: { key: string; label: string; token: string }[] = [
+    { key: 'proprietaire', label: 'Propriétaire', token: '{proprietaire}' },
+    { key: 'type',         label: 'Type de bien',  token: '{type}' },
+    { key: 'quartier',     label: 'Quartier',      token: '{quartier}' },
+    { key: 'ville',        label: 'Ville',         token: '{ville}' },
+    { key: 'prix',         label: 'Prix',          token: '{prix}' },
   ];
 
   // ── Cycle de vie ──────────────────────────────────────────────────────
@@ -922,19 +985,15 @@ export class AdminConfigComponent implements OnInit {
   }
 
   private loadQuartiersParVille(): void {
-    this.adminApi.getAnnonces({ page: 0, size: 500 }).subscribe({
+    this.locApi.listerQuartiersAdmin().subscribe({
       next: (r) => {
-        const map: Record<string, Set<string>> = {};
-        for (const a of r.data.contenu ?? []) {
-          if (!a.ville || !a.quartier) continue;
-          if (!map[a.ville]) map[a.ville] = new Set<string>();
-          map[a.ville].add(a.quartier);
+        const map: Record<string, QuartierAvecId[]> = {};
+        for (const q of r.data ?? []) {
+          if (!map[q.ville]) map[q.ville] = [];
+          map[q.ville].push({ id: q.id, nom: q.nom });
         }
-        const out: Record<string, string[]> = {};
-        Object.keys(map).sort().forEach((ville) => {
-          out[ville] = Array.from(map[ville]).sort((x, y) => x.localeCompare(y));
-        });
-        this.quartiersParVille.set(out);
+        Object.values(map).forEach(list => list.sort((a, b) => a.nom.localeCompare(b.nom)));
+        this.quartiersParVille.set(map);
       },
     });
   }
@@ -949,11 +1008,28 @@ export class AdminConfigComponent implements OnInit {
 
   cancelEditConfig(): void {
     this.editingConfig.set(false);
+    this.confirmSaveOpen.set(false);
     this.configEdit = null;
+  }
+
+  /** Insère une variable dans le textarea du message WhatsApp, à la position du curseur. */
+  insertVariable(key: string, textarea: HTMLTextAreaElement): void {
+    if (!this.configEdit) return;
+    const valeur = this.configEdit.messageWhatsappDefaut ?? '';
+    const debut = textarea.selectionStart ?? valeur.length;
+    const fin   = textarea.selectionEnd ?? valeur.length;
+    const jeton = `{${key}}`;
+    this.configEdit.messageWhatsappDefaut = valeur.slice(0, debut) + jeton + valeur.slice(fin);
+    const nouvellePosition = debut + jeton.length;
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nouvellePosition, nouvellePosition);
+    });
   }
 
   saveConfig(): void {
     if (!this.configEdit) return;
+    this.confirmSaveOpen.set(false);
     this.saving.set(true);
     const c = this.configEdit;
     const entries: Array<[string, string | number | boolean]> = [
@@ -962,7 +1038,6 @@ export class AdminConfigComponent implements OnInit {
       ['joursSuppressionDefinitive', c.joursSuppressionDefinitive],
       ['maxPhotosParAnnonce',        c.maxPhotosParAnnonce],
       ['maxAnnoncesParProprietaire', c.maxAnnoncesParProprietaire],
-      ['rateLimit',                  c.rateLimit],
       ['messageWhatsappDefaut',      c.messageWhatsappDefaut],
     ];
     let pending = entries.length;
@@ -1049,48 +1124,50 @@ export class AdminConfigComponent implements OnInit {
     const ville    = this.selectedVilleQuartier;
     if (!quartier || !ville) return;
     this.locApi.creerQuartier({ ville, quartier }).subscribe({
-      next: () => {
+      next: (r) => {
         this.toast.success('Quartier ajouté');
         this.newQuartier = '';
-        // Mise à jour locale immédiate
         const current = this.quartiersParVille();
-        const list = [...(current[ville] ?? []), quartier].sort((a, b) => a.localeCompare(b));
+        const list = [...(current[ville] ?? []), { id: r.data.id, nom: r.data.nom }]
+          .sort((a, b) => a.nom.localeCompare(b.nom));
         this.quartiersParVille.set({ ...current, [ville]: list });
       },
+      error: () => { this.toast.error('Impossible d\'ajouter ce quartier'); },
     });
   }
 
-  openEditQuartier(quartier: string): void {
-    this.editQuartierOld = quartier;
-    this.editQuartierNom = quartier;
+  openEditQuartier(quartier: QuartierAvecId): void {
+    this.editQuartierId  = quartier.id;
+    this.editQuartierNom = quartier.nom;
     this.modalQuartierOpen = true;
   }
 
   closeModalQuartier(): void {
     this.modalQuartierOpen = false;
-    this.editQuartierOld   = '';
-    this.editQuartierNom   = '';
+    this.editQuartierId   = null;
+    this.editQuartierNom  = '';
   }
 
   saveEditQuartier(): void {
     const ville = this.selectedVilleQuartier;
-    if (!ville || !this.editQuartierNom.trim()) return;
+    if (!ville || !this.editQuartierId || !this.editQuartierNom.trim()) return;
     this.modalSaving = true;
-    // Utilise creerQuartier pour ajouter le nouveau nom
-    // Note : si l'API dispose d'un endpoint PATCH quartier, remplacer ici
-    this.locApi.creerQuartier({ ville, quartier: this.editQuartierNom.trim() }).subscribe({
+    const nouveauNom = this.editQuartierNom.trim();
+    this.locApi.renommerQuartier(this.editQuartierId, nouveauNom).subscribe({
       next: () => {
         this.modalSaving = false;
-        this.toast.success('Quartier modifié');
-        // Mise à jour locale : remplace l'ancien par le nouveau
+        this.toast.success('Quartier renommé — mis à jour sur toutes les annonces concernées');
         const current = this.quartiersParVille();
         const list = (current[ville] ?? [])
-          .map(q => q === this.editQuartierOld ? this.editQuartierNom.trim() : q)
-          .sort((a, b) => a.localeCompare(b));
+          .map(q => q.id === this.editQuartierId ? { ...q, nom: nouveauNom } : q)
+          .sort((a, b) => a.nom.localeCompare(b.nom));
         this.quartiersParVille.set({ ...current, [ville]: list });
         this.closeModalQuartier();
       },
-      error: () => { this.modalSaving = false; },
+      error: (err) => {
+        this.modalSaving = false;
+        this.toast.error(err?.error?.message ?? 'Impossible de renommer ce quartier');
+      },
     });
   }
 

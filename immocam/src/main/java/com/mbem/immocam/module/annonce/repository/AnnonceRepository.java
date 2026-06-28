@@ -156,22 +156,22 @@ public interface AnnonceRepository
 
     // ── Filtres géographiques ──────────────────────────────────────────────
 
-    /** Tous les quartiers distincts non nuls des annonces actives. */
-    @Query("SELECT DISTINCT a.quartier FROM Annonce a " +
-            "WHERE a.statut = 'ACTIVE' AND a.deleted = false " +
-            "AND a.quartier IS NOT NULL AND a.quartier <> '' " +
-            "ORDER BY a.quartier ASC")
-    List<String> findQuartiersDistincts();
 
 
 /** Compter toutes les annonces par statut (usage admin global, sans filtre propriétaire). */
 long countByStatutAndDeletedFalse(StatutAnnonce statut);
 
-    /** Quartiers distincts des annonces actives pour une ville donnée. */
-    @Query("SELECT DISTINCT a.quartier FROM Annonce a " +
-            "WHERE a.statut = 'ACTIVE' AND a.deleted = false " +
-            "AND a.localisation.ville = :ville " +
-            "AND a.quartier IS NOT NULL AND a.quartier <> '' " +
-            "ORDER BY a.quartier ASC")
-    List<String> findQuartiersByVille(@Param("ville") String ville);
+
+    /** Renomme un quartier (orthographe) sur toutes les annonces concernées d'une ville. */
+    @Modifying
+    @Query("UPDATE Annonce a SET a.quartier = :nouveauNom " +
+            "WHERE a.localisation.id = :localisationId AND LOWER(a.quartier) = LOWER(:ancienNom)")
+    int renommerQuartier(@Param("localisationId") Long localisationId,
+                         @Param("ancienNom") String ancienNom,
+                         @Param("nouveauNom") String nouveauNom);
+
+    /** Quartiers distincts (toutes villes) utilisés dans les annonces — pour le backfill initial. */
+    @Query("SELECT DISTINCT a.localisation.id, a.quartier FROM Annonce a " +
+            "WHERE a.quartier IS NOT NULL AND a.quartier <> '' AND a.quartier <> 'Non spécifié'")
+    List<Object[]> findCouplesLocalisationQuartierDistincts();
 }
