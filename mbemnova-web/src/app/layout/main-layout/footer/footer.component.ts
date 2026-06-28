@@ -12,8 +12,8 @@ import { RouterLink } from '@angular/router';
           <!-- Brand -->
           <div class="col-span-2 md:col-span-1">
             <div class="flex items-center gap-2 mb-4">
-              <div class="w-8 h-8 bg-white rounded-xl flex items-center justify-center">
-                <span class="text-blue-900 font-bold text-sm">IC</span>
+              <div class="w-8 h-8 bg-white rounded-xl flex items-center justify-center overflow-hidden">
+                <img src="/logo.jpeg" alt="ImmoCam" class="w-full h-full object-cover" />
               </div>
               <span class="text-white font-bold text-lg">ImmoCam</span>
             </div>

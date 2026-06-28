@@ -59,14 +59,14 @@ import { RouterOutlet, RouterLink } from '@angular/router';
       z-index: 2;
     }
     .logo-icon {
-      width: 38px; height: 38px;
-      background: rgba(255,255,255,.15);
-      backdrop-filter: blur(8px);
+      width: 44px; height: 44px;
+      background: #fff;
       border: 1px solid rgba(255,255,255,.25);
       border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
     }
-    .logo-icon svg { width: 20px; height: 20px; color: #fff; }
+    .logo-icon img { width: 100%; height: 100%; object-fit: cover; }
     .logo-name {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 20px;
@@ -193,11 +193,7 @@ import { RouterOutlet, RouterLink } from '@angular/router';
 
       <a routerLink="/" class="logo">
         <div class="logo-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M3 9.75L12 3l9 6.75V21a1 1 0 01-1 1H4a1 1 0 01-1-1V9.75z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 22V12h6v10"/>
-          </svg>
+          <img src="/logo.jpeg" alt="ImmoCam" />
         </div>
         <span class="logo-name">ImmoCam</span>
       </a>

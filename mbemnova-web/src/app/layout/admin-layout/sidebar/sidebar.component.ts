@@ -44,19 +44,21 @@ interface NavItem {
       display: flex;
       align-items: center;
       gap: 11px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      border-bottom: 2px solid transparent;
+      border-image: linear-gradient(90deg, #3245D1, #16A34A) 1;
       min-height: 60px;
       flex-shrink: 0;
       position: relative;
     }
     .logo-mark {
-      width: 34px; height: 34px;
+      width: 38px; height: 38px;
       border-radius: 9px;
-      background: rgba(255,255,255,0.15);
+      background: #fff;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
+      overflow: hidden;
     }
-    .logo-mark svg { width: 18px; height: 18px; }
+    .logo-mark img { width: 100%; height: 100%; object-fit: cover; }
     .logo-text { overflow: hidden; white-space: nowrap; flex: 1; }
     .logo-text strong { display: block; font-size: 14px; font-weight: 700; color: #fff; letter-spacing: -.2px; }
     .logo-text span   { display: block; font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 1px; }
@@ -227,14 +229,10 @@ interface NavItem {
       <!-- Logo -->
       <div class="logo">
         <div class="logo-mark">
-          <svg viewBox="0 0 18 18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 14 L9 3 L16 14 Z"/>
-            <line x1="5" y1="10" x2="13" y2="10"/>
-          </svg>
+          <img src="/logo.jpeg" alt="ImmoCam" />
         </div>
         <div class="logo-text">
-          <strong>ImmoCam</strong>
-          <span>Administration</span>
+          <strong>Administration</strong>
         </div>
         <button class="toggle-btn" (click)="collapseToggled.emit()" [title]="collapsed ? 'Développer' : 'Réduire'">
           <svg viewBox="0 0 10 10" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
