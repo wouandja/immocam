@@ -150,8 +150,8 @@ import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
     } @else {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @for (f of favoris(); track f.annonceId) {
-          <article class="card" [class.opacity-60]="f.statutAnnonce !== 'ACTIVE'"
-         [routerLink]="f.statutAnnonce === 'ACTIVE' ? ['/annonces', f.annonceId] : null">
+          <article class="card" [class.opacity-60]="estSupprimee(f.statutAnnonce)"
+         [routerLink]="estSupprimee(f.statutAnnonce) ? null : ['/annonces', f.annonceId]">
 
             <div class="card-img">
               @if (f.photoUrl) {
@@ -170,9 +170,11 @@ import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
 
               @if (f.statutAnnonce === 'ACTIVE') {
                 <span class="badge-type">{{ f.typeBien }}</span>
-              } @else {
+              } @else if (estSupprimee(f.statutAnnonce)) {
                 <span class="badge-statut">{{ statusLabel(f.statutAnnonce) }}</span>
                 <div class="overlay"><span>{{ statusLabel(f.statutAnnonce) }}</span></div>
+              } @else {
+                <span class="badge-statut">{{ statusLabel(f.statutAnnonce) }}</span>
               }
 
               <button class="btn-retirer" (click)="retirer($event, f.annonceId)"
@@ -203,7 +205,7 @@ import { TimeAgoPipe } from '@shared/pipes/time-ago.pipe';
               <div class="card-sep"></div>
               <div class="card-footer">
                 <span class="card-date">Ajouté {{ f.dateAjout | timeAgo }}</span>
-                @if (f.statutAnnonce === 'ACTIVE') {
+                @if (!estSupprimee(f.statutAnnonce)) {
                   <a class="btn-detail" [routerLink]="['/annonces', f.annonceId]"
                      (click)="$event.stopPropagation()">Détails</a>
                 }
@@ -239,10 +241,18 @@ export class MesFavorisComponent implements OnInit {
 
   statusLabel(s: string): string {
     const m: Record<string, string> = {
-      EN_PAUSE:  'En pause',
-      EXPIREE:   'Expirée',
-      SUPPRIMEE: 'Supprimée',
+      EN_PAUSE:          'En pause',
+      EXPIREE:           'Expirée',
+      ARCHIVEE:          'Archivée',
+      SUPPRIMEE:         'Supprimée',
+      SUPPRIMEE_ADMIN:   'Supprimée',
+      SUPPRIMEE_SYSTEME: 'Supprimée',
     };
     return m[s] ?? s;
+  }
+
+  /** Annonce définitivement supprimée — sa page de détail n'existe plus. */
+  estSupprimee(s: string): boolean {
+    return s === 'SUPPRIMEE' || s === 'SUPPRIMEE_ADMIN' || s === 'SUPPRIMEE_SYSTEME';
   }
 }

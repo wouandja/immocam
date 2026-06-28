@@ -125,11 +125,9 @@ public class AnnonceServiceImpl implements AnnonceService {
 
         boolean estProprietaire = utilisateurConnecteId != null
                 && utilisateurConnecteId.equals(annonce.getProprietaire().getId());
-        // Un visiteur (ou un autre utilisateur) ne doit jamais accéder au détail
-        // d'une annonce en pause, archivée ou expirée via son URL directe.
-        if (!estProprietaire && !estAdmin && !annonce.estVisible()) {
-            throw new RessourceNotFoundException("Annonce", id);
-        }
+        // Une annonce non supprimée reste consultable même si elle n'est plus active
+        // (en pause, expirée, archivée) — notamment pour revoir un favori plus tard.
+        // Le filtre ci-dessus exclut déjà les annonces réellement supprimées pour les tiers.
 
         // ✅ Incrémenter les vues en excluant le propriétaire
         if (utilisateurConnecteId != null) {
@@ -145,8 +143,7 @@ public class AnnonceServiceImpl implements AnnonceService {
                         .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
 
         // Lien WhatsApp — uniquement si connecté et pas le proprio
-        if (utilisateurConnecteId != null
-                && !utilisateurConnecteId.equals(annonce.getProprietaire().getId())) {
+        if (utilisateurConnecteId != null && !estProprietaire) {
             String msgTemplate = obtenirConfigValeur(
                     ImmoCamConstants.CONFIG_MSG_WHATSAPP,
                     "Bonjour, je vous contacte depuis ImmoCam concernant votre annonce.");
@@ -164,8 +161,7 @@ public class AnnonceServiceImpl implements AnnonceService {
                 (int) commentaireRepository.countByAnnonceIdAndEstSupprimeFalse(id));
         dto.setNombreContacts((int) contactRepository.countByAnnonceId(id));
 
-        dto.setEstMienne(utilisateurConnecteId != null
-                && utilisateurConnecteId.equals(annonce.getProprietaire().getId()));
+        dto.setEstMienne(estProprietaire);
         dto.setIsFavori(utilisateurConnecteId == null
                 ? null
                 : favoriRepository.existsByUtilisateurIdAndAnnonceId(utilisateurConnecteId, id));

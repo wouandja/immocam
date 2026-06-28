@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140" width="200" height="140">
+  <rect width="200" height="140" fill="#f3f4f6"/>
+  <path d="M84 56h32v32a4 4 0 0 1-4 4H88a4 4 0 0 1-4-4V56z" fill="#e5e7eb"/>
+  <polyline points="76,100 95,82 116,100" stroke="#d1d5db" stroke-width="2" fill="none"/>
+  <circle cx="93" cy="66" r="5" fill="#f9fafb"/>
+</svg>
