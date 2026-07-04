@@ -17,9 +17,9 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
           <div>
             <h2 class="font-bold text-slate-800 mb-2">1. Éditeur du site</h2>
             <p>
-              Le site et l'application ImmoCam sont édités par <strong>ImmoCam</strong>,
+              Le site et l'application Bailocam sont édités par <strong>Bailocam</strong>,
               plateforme de mise en relation immobilière opérant au Cameroun.<br/>
-              Contact : <a href="mailto:contact@immocam.cm" class="text-blue-700 hover:underline">contact@immocam.cm</a>
+              Contact : <a href="mailto:contact@bailocam.cm" class="text-blue-700 hover:underline">contact@bailocam.cm</a>
             </p>
           </div>
 
@@ -31,9 +31,9 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
           <div>
             <h2 class="font-bold text-slate-800 mb-2">3. Activité du site</h2>
             <p>
-              ImmoCam est une plateforme de mise en relation entre propriétaires et locataires au
+              Bailocam est une plateforme de mise en relation entre propriétaires et locataires au
               Cameroun. Les annonces sont publiées directement par les propriétaires, sans
-              intermédiaire ni modération préalable systématique. ImmoCam n'est ni agence
+              intermédiaire ni modération préalable systématique. Bailocam n'est ni agence
               immobilière, ni partie aux transactions ou baux conclus entre utilisateurs.
             </p>
           </div>
@@ -41,8 +41,8 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
           <div>
             <h2 class="font-bold text-slate-800 mb-2">4. Responsabilité</h2>
             <p>
-              Les annonces publiées sur ImmoCam sont sous la responsabilité exclusive de leurs
-              auteurs. ImmoCam ne saurait être tenu responsable de l'exactitude, de la disponibilité
+              Les annonces publiées sur Bailocam sont sous la responsabilité exclusive de leurs
+              auteurs. Bailocam ne saurait être tenu responsable de l'exactitude, de la disponibilité
               réelle des biens, ou des échanges entre utilisateurs. Tout contenu signalé comme
               frauduleux ou inapproprié peut être retiré à tout moment, voir nos
               <a routerLink="/conditions-utilisation" class="text-blue-700 hover:underline">conditions d'utilisation</a>.
@@ -52,8 +52,8 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
           <div>
             <h2 class="font-bold text-slate-800 mb-2">5. Propriété intellectuelle</h2>
             <p>
-              Le nom ImmoCam, son logo et l'ensemble des éléments graphiques et fonctionnels de
-              l'interface sont la propriété exclusive d'ImmoCam. Toute reproduction, totale ou
+              Le nom Bailocam, son logo et l'ensemble des éléments graphiques et fonctionnels de
+              l'interface sont la propriété exclusive d'Bailocam. Toute reproduction, totale ou
               partielle, sans autorisation préalable est interdite.
             </p>
           </div>

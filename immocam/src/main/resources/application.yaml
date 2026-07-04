@@ -5,7 +5,7 @@
 
 spring:
   application:
-    name: immocam
+    name: bailocam
   profiles:
     active: dev # ← profil par défaut au lancement local
 
@@ -17,7 +17,7 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
-      pool-name: ImmoCamHikariPool
+      pool-name: BailocamHikariPool
 
   jpa:
     hibernate:
@@ -107,8 +107,8 @@ springdoc:
 
 immocam:
   email:
-    from: ${EMAIL_FROM:noreply@immocam.cm}
-    from-name: ${EMAIL_FROM_NAME:ImmoCam}
+    from: ${EMAIL_FROM:noreply@bailocam.cm}
+    from-name: ${EMAIL_FROM_NAME:Bailocam}
   storage:
     upload-dir: ${UPLOAD_DIR:./uploads/annonces}
     temp-dir: ${UPLOAD_TEMP_DIR:./uploads/temp}

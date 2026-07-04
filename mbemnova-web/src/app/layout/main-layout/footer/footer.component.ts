@@ -13,20 +13,20 @@ import { RouterLink } from '@angular/router';
           <div class="col-span-2 md:col-span-1">
             <div class="flex items-center gap-2 mb-4">
               <div class="w-9 h-9 bg-white rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0">
-                <img src="/logo.jpeg" alt="ImmoCam" class="w-full h-full object-cover" />
+                <img src="/logo.jpeg" alt="Bailocam" class="w-full h-full object-cover" />
               </div>
-              <span class="text-white font-bold text-lg">ImmoCam</span>
+              <span class="text-white font-bold text-lg">Bailocam</span>
             </div>
             <p class="text-sm text-blue-300 leading-relaxed mb-4">
               Connecter pour mieux louer. La plateforme qui met en relation locataires
               et bailleurs partout au Cameroun, sans intermédiaire.
             </p>
-            <a href="mailto:contact@immocam.cm"
+            <a href="mailto:contact@bailocam.cm"
                class="inline-flex items-center gap-2 text-sm text-blue-200 hover:text-white transition-colors">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
-              contact@immocam.cm
+              contact@bailocam.cm
             </a>
           </div>
           <!-- Navigation -->
@@ -61,7 +61,7 @@ import { RouterLink } from '@angular/router';
         </div>
         <!-- Bas de page -->
         <div class="border-t border-blue-900 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p class="text-xs text-blue-400">© 2026 ImmoCam. Tous droits réservés.</p>
+          <p class="text-xs text-blue-400">© 2026 Bailocam. Tous droits réservés.</p>
           <p class="text-xs text-blue-400 text-center">Les annonces sont publiées directement par les propriétaires.</p>
           <a href="https://mbemnova.com" target="_blank" rel="noopener"
              class="text-xs text-blue-500 hover:text-blue-300 transition-colors whitespace-nowrap">

@@ -134,7 +134,7 @@ export const appConfig: ApplicationConfig = {
       autoPause:     true,
       trace:         false,
       traceLimit:    75,
-      name:          'ImmoCam NgRx',
+      name:          'Bailocam NgRx',
     }),
 
     // ── Initialisation app ─────────────────────────────────────────────────

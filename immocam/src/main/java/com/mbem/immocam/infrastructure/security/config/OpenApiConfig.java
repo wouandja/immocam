@@ -42,11 +42,11 @@ public class OpenApiConfig {
                                         .description("Entrer le token JWT. " +
                                                 "Exemple : eyJhbGciOiJIUzI1NiJ9...")))
                 .info(new Info()
-                        .title("ImmoCam API")
+                        .title("Bailocam API")
                         .version("1.0.0")
-                        .description("API REST immobilière ImmoCam — Cameroun")
+                        .description("API REST immobilière Bailocam — Cameroun")
                         .contact(new Contact()
                                 .name("MBEMNOVA")
-                                .email("contact@immocam.cm")));
+                                .email("contact@bailocam.cm")));
     }
 }

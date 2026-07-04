@@ -1,5 +1,5 @@
 # =============================================================================
-# ImmoCam — Configuration PRODUCTION
+# Bailocam — Configuration PRODUCTION
 # Les valeurs sensibles sont injectées via variables d'environnement
 # =============================================================================
 
@@ -55,8 +55,8 @@ springdoc:
 
 immocam:
   email:
-    from: ${EMAIL_FROM:noreply@immocam.cm}
-    from-name: ${EMAIL_FROM_NAME:ImmoCam}
+    from: ${EMAIL_FROM:noreply@bailocam.cm}
+    from-name: ${EMAIL_FROM_NAME:Bailocam}
   storage:
     upload-dir: ${UPLOAD_DIR:/app/uploads/annonces}
     temp-dir: ${UPLOAD_TEMP_DIR:/app/uploads/temp}

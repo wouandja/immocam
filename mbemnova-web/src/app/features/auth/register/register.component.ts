@@ -479,7 +479,7 @@ type StepId = 'identity' | 'contact' | 'password' | 'confirm';
                   <a routerLink="/politique-confidentialite" target="_blank">Politique de confidentialité</a>
                   et les
                   <a routerLink="/conditions-utilisation" target="_blank">Conditions d'utilisation</a>
-                  d'ImmoCam.
+                  de Bailocam.
                 </span>
               </label>
             </div>

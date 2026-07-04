@@ -9,7 +9,7 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
       <app-back-button/>
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 mt-4 text-center">
         <div class="text-4xl mb-4">👋</div>
-        <h1 class="text-xl font-bold text-blue-900 mb-2">Contacter ImmoCam</h1>
+        <h1 class="text-xl font-bold text-blue-900 mb-2">Contacter Bailocam</h1>
         <p class="text-slate-500 text-sm mb-6">Support disponible du lundi au samedi, 8h-18h</p>
         <div class="space-y-3">
           <a href="https://wa.me/237697847396" target="_blank"
@@ -17,10 +17,10 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
                     text-white font-semibold rounded-2xl hover:bg-green-600 transition-all">
             📱 WhatsApp: +237 697 847 396
           </a>
-          <a href="mailto:contact@immocam.cm"
+          <a href="mailto:contact@bailocam.cm"
              class="flex items-center justify-center gap-3 w-full py-3.5 border border-slate-200
                     text-slate-700 font-medium rounded-2xl hover:bg-slate-50 transition-all">
-            ✉️ contact@immocam.cm
+            ✉️ contact@bailocam.cm
           </a>
         </div>
         <a href="https://mbemnova.com" target="_blank" rel="noopener"

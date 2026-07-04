@@ -1,7 +1,7 @@
 package com.mbem.immocam.shared.constants;
 
 /**
- * Constantes globales de la plateforme ImmoCam.
+ * Constantes globales de la plateforme Bailocam.
  * Centralise toutes les constantes pour eviter magic strings et magic numbers.
  *
  * @author MBEMNOVA

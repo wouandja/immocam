@@ -193,9 +193,9 @@ import { RouterOutlet, RouterLink } from '@angular/router';
 
       <a routerLink="/" class="logo">
         <div class="logo-icon">
-          <img src="/logo.jpeg" alt="ImmoCam" />
+          <img src="/logo.jpeg" alt="Bailocam" />
         </div>
-        <span class="logo-name">ImmoCam</span>
+        <span class="logo-name">Bailocam</span>
       </a>
 
       <div class="col-left-content">

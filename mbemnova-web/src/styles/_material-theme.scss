@@ -1,6 +1,6 @@
 // =============================================================================
 // IMMOCAM — Angular Material Custom Theme
-// Blue foncé ImmoCam palette
+// Blue foncé Bailocam palette
 // =============================================================================
 @use '@angular/material' as mat;
 
@@ -25,7 +25,7 @@ $immocam-theme: mat.define-light-theme((
 
 @include mat.all-component-themes($immocam-theme);
 
-// Overrides ImmoCam
+// Overrides Bailocam
 .mat-mdc-button.mat-primary,
 .mat-mdc-raised-button.mat-primary {
   background-color: #0F2A5E !important;

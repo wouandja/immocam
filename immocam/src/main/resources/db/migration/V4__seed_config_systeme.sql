@@ -16,7 +16,7 @@ INSERT INTO config_systeme (cle, valeur, description, date_creation) VALUES
     ('MAX_ANNONCES_PAR_PROPRIO', '5',
      'Annonces actives simultanees max par proprietaire (V2: lie a l''abonnement)', NOW()),
     ('MSG_WHATSAPP',
-     'Bonjour, je vous contacte depuis ImmoCam concernant votre annonce : {type} a {quartier}, {ville} — {prix} FCFA. Est-il toujours disponible ?',
+     'Bonjour, je vous contacte depuis Bailocam concernant votre annonce : {type} a {quartier}, {ville} — {prix} FCFA. Est-il toujours disponible ?',
      'Message pre-rempli WhatsApp (placeholders: {type}, {quartier}, {ville}, {prix})', NOW()),
     ('MAX_CONNEXIONS_ECHOUEES', '5',
      'Tentatives de connexion echouees avant blocage du compte', NOW()),

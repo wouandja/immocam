@@ -143,7 +143,7 @@ import { selectAuthLoading, selectAuthError } from '@store/auth/auth.selectors';
     <div class="fade-in">
 
       <p class="form-title">Se connecter</p>
-      <p class="form-sub">Accédez à votre espace ImmoCam</p>
+      <p class="form-sub">Accédez à votre espace Bailocam</p>
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
 

@@ -250,8 +250,8 @@ export const MOCK_ADMIN_USER = {
   ...MOCK_USER,
   id: 99,
   prenom: 'Admin',
-  nom: 'ImmoCam',
-  nomComplet: 'Admin ImmoCam',
+  nom: 'Bailocam',
+  nomComplet: 'Admin Bailocam',
   email: 'admin@immocam.cm',
   role: 'ADMINISTRATEUR' as const,
 };

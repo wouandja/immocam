@@ -433,7 +433,7 @@ export const mockInterceptor: HttpInterceptorFn = (req, next) => {
       });
       const phone = '237691877527';
       const msg = encodeURIComponent(
-        `Bonjour, je vous contacte depuis ImmoCam concernant votre annonce : ` +
+        `Bonjour, je vous contacte depuis Bailocam concernant votre annonce : ` +
         `${annonce.typeBien} à ${annonce.quartier}, ${annonce.ville} — ` +
         `${annonce.prixFormate}. Est-il toujours disponible ?`
       );
@@ -644,7 +644,7 @@ export const mockInterceptor: HttpInterceptorFn = (req, next) => {
     response = ok({
       dureeVieAnnonce: 30, joursRappelExpiration: 5, joursSuppressionDefinitive: 7,
       maxPhotosParAnnonce: 4, maxAnnoncesParProprietaire: 5,
-      messageWhatsappDefaut: 'Bonjour, je vous contacte depuis ImmoCam concernant votre annonce : {type} à {quartier}, {ville} — {prix} FCFA. Est-il toujours disponible ?',
+      messageWhatsappDefaut: 'Bonjour, je vous contacte depuis Bailocam concernant votre annonce : {type} à {quartier}, {ville} — {prix} FCFA. Est-il toujours disponible ?',
       rateLimit: 100, schedulerEnabled: true,
     });
   }

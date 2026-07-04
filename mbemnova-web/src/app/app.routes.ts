@@ -22,7 +22,7 @@ export const routes: Routes = [
       {
         path: '',
         loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
-        title: 'ImmoCam — Immobilier camerounais',
+        title: 'Bailocam — Immobilier camerounais',
         data: { animation: 'home' },
       },
 
@@ -36,7 +36,7 @@ export const routes: Routes = [
               import('./features/annonce/list/annonce-list.component').then(
                 (m) => m.AnnonceListComponent,
               ),
-            title: 'Annonces immobilières — ImmoCam',
+            title: 'Annonces immobilières — Bailocam',
           },
           {
             path: 'creer',
@@ -45,7 +45,7 @@ export const routes: Routes = [
                 (m) => m.AnnonceCreateComponent,
               ),
             canActivate: [authGuard, verifiedGuard],
-            title: 'Publier une annonce — ImmoCam',
+            title: 'Publier une annonce — Bailocam',
           },
           {
             path: ':id',
@@ -53,7 +53,7 @@ export const routes: Routes = [
               import('./features/annonce/detail/annonce-detail.component').then(
                 (m) => m.AnnonceDetailComponent,
               ),
-            title: 'Détail annonce — ImmoCam',
+            title: 'Détail annonce — Bailocam',
           },
           {
             path: ':id/modifier',
@@ -62,7 +62,7 @@ export const routes: Routes = [
                 (m) => m.AnnonceEditComponent,
               ),
             canActivate: [authGuard, verifiedGuard],
-            title: "Modifier l'annonce — ImmoCam",
+            title: "Modifier l'annonce — Bailocam",
           },
         ],
       },
@@ -75,7 +75,7 @@ export const routes: Routes = [
           import('./features/dashboard/dashboard-shell.component').then(
             (m) => m.DashboardShellComponent,
           ),
-        title: 'Mon espace — ImmoCam',
+        title: 'Mon espace — Bailocam',
         children: [
           {
             path: '',
@@ -88,7 +88,7 @@ export const routes: Routes = [
               import('./features/dashboard/overview/overview.component').then(
                 (m) => m.DashboardOverviewComponent,
               ),
-            title: 'Tableau de bord — ImmoCam',
+            title: 'Tableau de bord — Bailocam',
           },
           {
             path: 'mes-annonces',
@@ -96,7 +96,7 @@ export const routes: Routes = [
               import('./features/dashboard/mes-annonces/mes-annonces.component').then(
                 (m) => m.MesAnnoncesComponent,
               ),
-            title: 'Mes annonces — ImmoCam',
+            title: 'Mes annonces — Bailocam',
           },
           {
             path: 'mes-favoris',
@@ -104,7 +104,7 @@ export const routes: Routes = [
               import('./features/dashboard/mes-favoris/mes-favoris.component').then(
                 (m) => m.MesFavorisComponent,
               ),
-            title: 'Mes favoris — ImmoCam',
+            title: 'Mes favoris — Bailocam',
           },
           {
             path: 'mes-contacts',
@@ -112,7 +112,7 @@ export const routes: Routes = [
               import('./features/dashboard/mes-contacts/mes-contacts.component').then(
                 (m) => m.MesContactsComponent,
               ),
-            title: 'Mes contacts — ImmoCam',
+            title: 'Mes contacts — Bailocam',
           },
           {
             path: 'notifications',
@@ -120,13 +120,13 @@ export const routes: Routes = [
               import('./features/dashboard/notifications/notifications.component').then(
                 (m) => m.DashboardNotificationsComponent,
               ),
-            title: 'Notifications — ImmoCam',
+            title: 'Notifications — Bailocam',
           },
           {
             path: 'profil',
             loadComponent: () =>
               import('./features/dashboard/profil/profil.component').then((m) => m.ProfilComponent),
-            title: 'Mon profil — ImmoCam',
+            title: 'Mon profil — Bailocam',
           },
         ],
       },
@@ -138,7 +138,7 @@ export const routes: Routes = [
           import('./features/politique-confidentialite/politique.component').then(
             (m) => m.PolitiqueComponent,
           ),
-        title: 'Politique de confidentialité — ImmoCam',
+        title: 'Politique de confidentialité — Bailocam',
       },
       {
         path: 'conditions-utilisation',
@@ -146,19 +146,19 @@ export const routes: Routes = [
           import('./features/conditions-utilisation/conditions.component').then(
             (m) => m.ConditionsComponent,
           ),
-        title: "Conditions d'utilisation — ImmoCam",
+        title: "Conditions d'utilisation — Bailocam",
       },
       {
         path: 'mentions-legales',
         loadComponent: () =>
           import('../../mentions-legales/mentions.component').then((m) => m.MentionsComponent),
-        title: 'Mentions légales — ImmoCam',
+        title: 'Mentions légales — Bailocam',
       },
       {
         path: 'contact',
         loadComponent: () =>
           import('./features/contact/contact.component').then((m) => m.ContactComponent),
-        title: 'Contact — ImmoCam',
+        title: 'Contact — Bailocam',
       },
     ],
   },
@@ -181,14 +181,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/auth/login/login.component').then((m) => m.LoginComponent),
         canActivate: [guestGuard],
-        title: 'Connexion — ImmoCam',
+        title: 'Connexion — Bailocam',
       },
       {
         path: 'register',
         loadComponent: () =>
           import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
         canActivate: [guestGuard],
-        title: 'Inscription — ImmoCam',
+        title: 'Inscription — Bailocam',
       },
       {
         path: 'verify-email',
@@ -196,7 +196,7 @@ export const routes: Routes = [
           import('./features/auth/verify-email/verify-email.component').then(
             (m) => m.VerifyEmailComponent,
           ),
-        title: 'Vérification email — ImmoCam',
+        title: 'Vérification email — Bailocam',
       },
       {
         path: 'forgot-password',
@@ -205,7 +205,7 @@ export const routes: Routes = [
             (m) => m.ForgotPasswordComponent,
           ),
         canActivate: [guestGuard],
-        title: 'Mot de passe oublié — ImmoCam',
+        title: 'Mot de passe oublié — Bailocam',
       },
       {
         path: 'reset-password',
@@ -213,7 +213,7 @@ export const routes: Routes = [
           import('./features/auth/reset-password/reset-password.component').then(
             (m) => m.ResetPasswordComponent,
           ),
-        title: 'Réinitialiser le mot de passe — ImmoCam',
+        title: 'Réinitialiser le mot de passe — Bailocam',
       },
     ],
   },
@@ -226,7 +226,7 @@ export const routes: Routes = [
     canActivate: [roleAdminGuard],
     loadComponent: () =>
       import('./layout/admin-layout/admin-layout.component').then((m) => m.AdminLayoutComponent),
-    title: 'Administration — ImmoCam',
+    title: 'Administration — Bailocam',
     children: [
       {
         path: '',
@@ -239,7 +239,7 @@ export const routes: Routes = [
           import('./features/admin/dashboard/admin-dashboard.component').then(
             (m) => m.AdminDashboardComponent,
           ),
-        title: 'Dashboard Admin — ImmoCam',
+        title: 'Dashboard Admin — Bailocam',
       },
       {
         path: 'annonces',
@@ -247,7 +247,7 @@ export const routes: Routes = [
           import('./features/admin/annonces/admin-annonces.component').then(
             (m) => m.AdminAnnoncesComponent,
           ),
-        title: 'Gestion annonces — ImmoCam',
+        title: 'Gestion annonces — Bailocam',
       },
       {
         path: 'utilisateurs',
@@ -255,7 +255,7 @@ export const routes: Routes = [
           import('./features/admin/utilisateurs/admin-utilisateurs.component').then(
             (m) => m.AdminUtilisateursComponent,
           ),
-        title: 'Gestion utilisateurs — ImmoCam',
+        title: 'Gestion utilisateurs — Bailocam',
       },
       {
         path: 'signalements',
@@ -263,7 +263,7 @@ export const routes: Routes = [
           import('./features/admin/signalements/admin-signalements.component').then(
             (m) => m.AdminSignalementsComponent,
           ),
-        title: 'Signalements — ImmoCam',
+        title: 'Signalements — Bailocam',
       },
       {
         path: 'config',
@@ -271,7 +271,7 @@ export const routes: Routes = [
           import('./features/admin/config/admin-config.component').then(
             (m) => m.AdminConfigComponent,
           ),
-        title: 'Configuration — ImmoCam',
+        title: 'Configuration — Bailocam',
       },
       {
         path: 'notifications',
@@ -279,7 +279,7 @@ export const routes: Routes = [
           import('./features/admin/notifications/admin-notifications.component').then(
             (m) => m.AdminNotificationsComponent,
           ),
-        title: 'Notifications — ImmoCam',
+        title: 'Notifications — Bailocam',
       },
     ],
   },
@@ -291,6 +291,6 @@ export const routes: Routes = [
     path: '**',
     loadComponent: () =>
       import('./features/not-found/not-found.component').then((m) => m.NotFoundComponent),
-    title: 'Page introuvable — ImmoCam',
+    title: 'Page introuvable — Bailocam',
   },
 ];

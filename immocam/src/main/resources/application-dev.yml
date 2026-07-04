@@ -52,7 +52,7 @@ server:
 immocam:
   email:
     from: dev@immocam.local
-    from-name: ImmoCam DEV
+    from-name: Bailocam DEV
   storage:
     upload-dir: ./uploads/annonces
     temp-dir: ./uploads/temp

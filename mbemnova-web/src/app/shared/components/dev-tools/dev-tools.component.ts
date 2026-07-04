@@ -31,7 +31,7 @@ import { MockStateService } from '@core/mock/mock-state.service';
         <div class="fixed bottom-32 right-3 sm:bottom-14 z-50 w-64 bg-slate-900 text-white
                     rounded-2xl shadow-2xl p-4 text-xs fade-in">
           <div class="flex items-center justify-between mb-3">
-            <span class="font-bold text-slate-200">🛠 ImmoCam DevTools</span>
+            <span class="font-bold text-slate-200">🛠 Bailocam DevTools</span>
             <button (click)="toggleExpanded()" class="text-slate-400 hover:text-white">✕</button>
           </div>
 

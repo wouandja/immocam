@@ -16,7 +16,7 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
           <div>
             <h2 class="font-bold text-slate-800 mb-2">1. Objet</h2>
             <p>
-              ImmoCam est une plateforme camerounaise de mise en relation directe entre
+              Bailocam est une plateforme camerounaise de mise en relation directe entre
               propriétaires et locataires. En créant un compte ou en utilisant le site, vous
               acceptez sans réserve les présentes conditions d'utilisation.
             </p>
@@ -64,8 +64,8 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
           <div>
             <h2 class="font-bold text-slate-800 mb-2">6. Gratuité du service</h2>
             <p>
-              L'utilisation d'ImmoCam (consultation, publication, mise en relation) est gratuite.
-              ImmoCam n'intervient à aucun moment dans les transactions financières entre
+              L'utilisation d'Bailocam (consultation, publication, mise en relation) est gratuite.
+              Bailocam n'intervient à aucun moment dans les transactions financières entre
               propriétaires et locataires.
             </p>
           </div>
@@ -73,7 +73,7 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
           <div>
             <h2 class="font-bold text-slate-800 mb-2">7. Limitation de responsabilité</h2>
             <p>
-              ImmoCam agit uniquement comme intermédiaire technique de mise en relation. ImmoCam ne
+              Bailocam agit uniquement comme intermédiaire technique de mise en relation. Bailocam ne
               peut être tenu responsable des litiges, désaccords ou préjudices résultant des
               échanges ou transactions entre utilisateurs.
             </p>
@@ -82,7 +82,7 @@ import { BackButtonComponent } from '@shared/components/back-button/back-button.
           <div>
             <h2 class="font-bold text-slate-800 mb-2">8. Modification des conditions</h2>
             <p>
-              ImmoCam peut modifier les présentes conditions à tout moment. Les utilisateurs seront
+              Bailocam peut modifier les présentes conditions à tout moment. Les utilisateurs seront
               informés de tout changement substantiel. La poursuite de l'utilisation du service vaut
               acceptation des conditions mises à jour.
             </p>
