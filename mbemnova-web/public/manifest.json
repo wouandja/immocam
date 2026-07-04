@@ -1,6 +1,6 @@
 {
-  "name": "ImmoCam — Immobilier Cameroun",
-  "short_name": "ImmoCam",
+  "name": "Bailocam — Immobilier Cameroun",
+  "short_name": "Bailocam",
   "description": "Trouvez votre bien immobilier au Cameroun",
   "start_url": "/",
   "display": "standalone",

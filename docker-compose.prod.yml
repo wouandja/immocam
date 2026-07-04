@@ -1,25 +1,17 @@
 # =============================================================================
-# ImmoCam — Docker Compose PRODUCTION
+# Bailocam — Docker Compose PRODUCTION
 #
-# Ports exposés sur le VPS (choisis pour ne pas conflicuer avec TontinePro) :
-#   - 1011  → API Spring Boot  (interne : 1010)
-#   - 4202  → Frontend Angular (interne : 80)
-#   - 5433  → PostgreSQL       (interne : 5432) — accès admin uniquement
+# Domaine : https://bailocam.com
+# Architecture :
+#   Nginx (host, 80/443) ──→ frontend:4200 (localhost only)
+#                       └──→ /api → api:1010 (localhost only)
+#   postgres → accès interne uniquement (127.0.0.1:5433)
 #
-# TontinePro utilise : 8080, 4201, 3306, 9090, 3100 → AUCUN CONFLIT
+# Le reverse proxy Nginx est installé sur le HOST (pas dans Docker).
+# Voir /etc/nginx/sites-available/bailocam pour la config host.
 #
-# Accès sans domaine :
-#   Frontend : http://VPS_IP:4202
-#   API      : http://VPS_IP:1011/api
-#   Swagger  : http://VPS_IP:1011/api/swagger-ui.html  (désactivé en prod)
-#
-# ╔══════════════════════════════════════════════════════════════╗
-# ║  QUAND VOUS AUREZ UN NOM DE DOMAINE :                        ║
-# ║  Décommentez le bloc "# ── NGINX REVERSE PROXY (domaine) ──" ║
-# ║  et commentez les ports exposés directement (4202, 1011)     ║
-# ║  Puis relancez : docker compose -f docker-compose.prod.yml   ║
-# ║    --env-file .env.prod up -d                                ║
-# ╚══════════════════════════════════════════════════════════════╝
+# Secrets : /opt/bailocam/.env.prod  (jamais commité sur Git)
+# Deploy  : GitHub Actions → ssh → docker compose up -d
 # =============================================================================
 
 services:
@@ -37,8 +29,6 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # Port exposé uniquement sur localhost (admin/backup uniquement)
-    # Pas accessible depuis l'extérieur grâce au firewall
     ports:
       - "127.0.0.1:5433:5432"
     networks:
@@ -75,27 +65,23 @@ services:
       DB_USERNAME: ${DB_USERNAME:-immocam_user}
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
-      EMAIL_FROM: ${EMAIL_FROM:-noreply@immocam.cm}
-      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-ImmoCam}
+      EMAIL_FROM: ${EMAIL_FROM}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Bailocam}
       UPLOAD_DIR: /app/uploads/annonces
       UPLOAD_TEMP_DIR: /app/uploads/temp
-      # ── Sans domaine : URL publique avec IP et port exposé ──
-      # TODO domaine : remplacer par https://VOTRE_DOMAINE/uploads
-      STORAGE_BASE_URL: ${STORAGE_BASE_URL:-http://VPS_IP_ADDRESS:1011/api/uploads/}
+      STORAGE_BASE_URL: ${STORAGE_BASE_URL:-https://bailocam.com/uploads/}
       JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport"
       APP_TEST_DATA_ENABLED: "false"
       TZ: Africa/Douala
     volumes:
       - uploads_data:/app/uploads
       - api_logs:/app/logs
-    # Exposé directement sur le VPS (sans domaine)
-    # TODO domaine : commenter ces ports et utiliser le bloc nginx ci-dessous
     ports:
-      - "0.0.0.0:1011:1010"
+      - "127.0.0.1:1010:1010"
     networks:
       - immocam_backend
     healthcheck:
@@ -117,13 +103,10 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    # Exposé directement sur le VPS (sans domaine)
-    # TODO domaine : commenter ces ports et utiliser le bloc nginx ci-dessous
     ports:
-      - "0.0.0.0:4202:80"
+      - "127.0.0.1:4200:80"
     networks:
       - immocam_backend
-      - immocam_proxy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:80 || exit 1"]
       interval: 30s
@@ -135,39 +118,6 @@ services:
       options:
         max-size: "5m"
         max-file: "3"
-
-  # ════════════════════════════════════════════════════════════════════════════
-  # BLOC NGINX REVERSE PROXY — À DÉCOMMENTER QUAND VOUS AVEZ UN NOM DE DOMAINE
-  # ════════════════════════════════════════════════════════════════════════════
-  # Ce bloc nginx gère SSL Let's Encrypt + routing domaine
-  # Quand vous décommentez ceci :
-  #   1. Commentez les "ports:" dans les services api et frontend ci-dessus
-  #   2. Remplacez VOTRE_DOMAINE dans nginx-prod.conf
-  #   3. Obtenez le certificat SSL : sudo certbot certonly --standalone -d VOTRE_DOMAINE
-  #   4. Relancez : docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-  #
-  # nginx-reverse-proxy:
-  #   image: nginx:1.27-alpine
-  #   container_name: immocam_nginx
-  #   restart: unless-stopped
-  #   ports:
-  #     - "0.0.0.0:NGINX_HTTP_PORT:80"    # Port HTTP libre sur VPS (ex: 8090)
-  #     - "0.0.0.0:NGINX_HTTPS_PORT:443"  # Port HTTPS libre sur VPS (ex: 8443)
-  #   volumes:
-  #     - ./nginx-prod.conf:/etc/nginx/conf.d/default.conf:ro
-  #     - /etc/letsencrypt:/etc/letsencrypt:ro
-  #     - /var/www/certbot:/var/www/certbot:ro
-  #   depends_on:
-  #     - api
-  #     - frontend
-  #   networks:
-  #     - immocam_proxy
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "10m"
-  #       max-file: "3"
-  # ════════════════════════════════════════════════════════════════════════════
 
 # ── Volumes persistants ───────────────────────────────────────────────────────
 volumes:
@@ -186,6 +136,3 @@ networks:
   immocam_backend:
     driver: bridge
     name: immocam_backend_net
-  immocam_proxy:
-    driver: bridge
-    name: immocam_proxy_net
