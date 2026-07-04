@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /profil/
+Disallow: /favoris/
+Disallow: /mes-annonces/
+
+# Sitemaps
+Sitemap: https://bailocam.com/sitemap.xml
