@@ -925,7 +925,7 @@ export class AnnonceDetailComponent implements OnInit, OnDestroy {
     const desc  = a.description
       ? a.description.substring(0, 155).replace(/\s+/g, ' ').trim() + '…'
       : `${a.typeBien} à louer ou à vendre à ${loc} pour ${prix}. Trouvez votre logement sur Bailocam.`;
-    const img   = a.photoPrincipale ?? 'https://bailocam.com/logo.jpeg';
+    const img   = a.photoPrincipale ?? 'https://bailocam.com/logo.jpeg?v=2';
     const url   = `https://bailocam.com/annonces/${a.id}`;
 
     this.titleSvc.setTitle(title);

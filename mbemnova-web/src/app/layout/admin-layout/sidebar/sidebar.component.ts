@@ -229,7 +229,7 @@ interface NavItem {
       <!-- Logo -->
       <div class="logo">
         <div class="logo-mark">
-          <img src="/logo.jpeg" alt="Bailocam" />
+          <img src="/logo.jpeg?v=2" alt="Bailocam" />
         </div>
         <div class="logo-text">
           <strong>Administration</strong>

@@ -13,7 +13,7 @@ import { RouterLink } from '@angular/router';
           <div class="col-span-2 md:col-span-1">
             <div class="flex items-center gap-2 mb-4">
               <div class="w-9 h-9 bg-white rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0">
-                <img src="/logo.jpeg" alt="Bailocam" class="w-full h-full object-cover" />
+                <img src="/logo.jpeg?v=2" alt="Bailocam" class="w-full h-full object-cover" />
               </div>
               <span class="text-white font-bold text-lg">Bailocam</span>
             </div>
