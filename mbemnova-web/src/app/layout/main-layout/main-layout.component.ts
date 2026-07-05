@@ -5,13 +5,14 @@ import { HeaderComponent } from './header/header.component';
 import { FooterComponent } from './footer/footer.component';
 import { LoadingSpinnerComponent } from '@shared/components/loading-spinner/loading-spinner.component';
 import { MobileNavComponent } from '../mobile-nav/mobile-nav.component';
+import { WhatsappSupportComponent } from '@shared/components/whatsapp-support/whatsapp-support.component';
 import { selectLoading } from '@store/ui/ui.selectors';
 import { uiActions } from '@store/ui/ui.actions';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, HeaderComponent, FooterComponent, LoadingSpinnerComponent, MobileNavComponent],
+  imports: [RouterOutlet, HeaderComponent, FooterComponent, LoadingSpinnerComponent, MobileNavComponent, WhatsappSupportComponent],
   template: `
     <div class="min-h-screen flex flex-col bg-slate-50">
       <app-header/>
@@ -28,6 +29,9 @@ import { uiActions } from '@store/ui/ui.actions';
 
       <!-- Navigation bottom mobile -->
       <app-mobile-nav/>
+
+      <!-- Bouton support WhatsApp — visible sur toutes les pages pour tous les utilisateurs -->
+      <app-whatsapp-support/>
     </div>
   `,
 })
