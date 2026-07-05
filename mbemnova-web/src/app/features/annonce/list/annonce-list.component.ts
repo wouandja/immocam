@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, takeUntil } from 'rxjs';
+import { Title, Meta } from '@angular/platform-browser';
 
 import { AnnonceCardComponent } from '@shared/components/annonce-card/annonce-card.component';
 import { AnnonceCardSkeletonComponent } from '@shared/components/annonce-card-skeleton/annonce-card-skeleton.component';
@@ -386,6 +387,8 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
   private readonly locApi      = inject(LocalisationApi);
   private readonly annonceApi  = inject(AnnonceApi);
   private readonly typeBienApi = inject(TypeBienApi);
+  private readonly titleSvc    = inject(Title);
+  private readonly metaSvc     = inject(Meta);
   private readonly destroy$    = new Subject<void>();
 
   // Subject dédié au debounce des sliders prix
@@ -512,6 +515,21 @@ export class AnnonceListComponent implements OnInit, OnDestroy {
 
       this.currentPage = 0;
       this._loadPage(false);
+
+      // SEO dynamique : titre adapté aux filtres actifs
+      const parts: string[] = [];
+      if (this.filterVille) parts.push(this.filterVille);
+      const typeName = this.typesBiens().find(t => t.id === this.filterTypeBienId)?.libelle;
+      if (typeName) parts.push(typeName);
+      const titlePart = parts.length ? parts.join(' — ') : 'Toutes les annonces';
+      const seoTitle = `${titlePart} | Immobilier au Cameroun — Bailocam`;
+      const seoDesc  = parts.length
+        ? `Annonces immobilières : ${parts.join(', ')} au Cameroun. Trouvez votre bien sur Bailocam.`
+        : 'Toutes les annonces immobilières au Cameroun — appartements, maisons, studios, bureaux à Douala, Yaoundé et partout au Cameroun.';
+      this.titleSvc.setTitle(seoTitle);
+      this.metaSvc.updateTag({ name: 'description',        content: seoDesc });
+      this.metaSvc.updateTag({ property: 'og:title',       content: seoTitle });
+      this.metaSvc.updateTag({ property: 'og:description', content: seoDesc });
     });
   }
 

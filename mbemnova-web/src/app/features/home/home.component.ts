@@ -4,6 +4,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
+import { Title, Meta } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { Subject, debounceTime, takeUntil } from 'rxjs';
@@ -377,6 +378,8 @@ export class HomeComponent implements OnInit, OnDestroy {
   private readonly locApi      = inject(LocalisationApi);
   private readonly typeBienApi = inject(TypeBienApi);
   private readonly router      = inject(Router);
+  private readonly titleSvc    = inject(Title);
+  private readonly metaSvc     = inject(Meta);
   private readonly destroy$    = new Subject<void>();
 
   // ── Store signals ──────────────────────────────────────────────────────────
@@ -500,6 +503,10 @@ private _lastItemCount = 0;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   ngOnInit(): void {
+    this.titleSvc.setTitle('Bailocam — Immobilier camerounais | Annonces à Douala, Yaoundé et partout au Cameroun');
+    this.metaSvc.updateTag({ name: 'description', content: 'Trouvez votre logement, bureau ou boutique au Cameroun. Annonces immobilières vérifiées à Douala, Yaoundé, Bafoussam et 17 autres villes.' });
+    this.metaSvc.updateTag({ property: 'og:title', content: 'Bailocam — Immobilier camerounais' });
+    this.metaSvc.updateTag({ property: 'og:description', content: 'Annonces immobilières v��rifiées à Douala, Yaoundé et partout au Cameroun.' });
     this._loadReferentiel();
     this.activeFilters = { page: 0, taille: PAGE_SIZE };
     this._loadAnnonces(this.activeFilters);

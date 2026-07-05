@@ -70,6 +70,9 @@ public class SecurityConfig {
                         // ── Auth ────────────────────────────────────────────────────────
                         .requestMatchers("/auth/**").permitAll()
 
+                        // ── SEO ──────────────────────────────────────��──────────────────
+                        .requestMatchers(HttpMethod.GET, "/sitemap.xml").permitAll()
+
                         // ── Documentation ───────────────────────────────────────────────
                         .requestMatchers(
                                 "/swagger-ui/**", "/v3/api-docs/**",

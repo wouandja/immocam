@@ -1,10 +1,11 @@
 import {
-  Component, OnInit, inject, signal, computed, effect, HostListener, DestroyRef
+  Component, OnInit, OnDestroy, inject, signal, computed, effect, HostListener, DestroyRef
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Title, Meta } from '@angular/platform-browser';
 import { Store } from '@ngrx/store';
 import { annonceActions } from '@store/annonce/annonce.actions';
 import { favoriActions } from '@store/favori/favori.actions';
@@ -897,7 +898,7 @@ import { AuthService } from '@core/services/auth.service';
     </div>
   `,
 })
-export class AnnonceDetailComponent implements OnInit {
+export class AnnonceDetailComponent implements OnInit, OnDestroy {
   private readonly store      = inject(Store);
   private readonly route      = inject(ActivatedRoute);
   private readonly router     = inject(Router);
@@ -907,10 +908,72 @@ export class AnnonceDetailComponent implements OnInit {
   private readonly toast      = inject(ToastService);
   private readonly auth       = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly titleSvc   = inject(Title);
+  private readonly metaSvc    = inject(Meta);
 
   readonly annonce    = this.store.selectSignal(selectAnnonceDetail);
   readonly loading    = this.store.selectSignal(selectDetailLoading);
   readonly isLoggedIn = this.auth.isLoggedIn;
+
+  // SEO dynamique : titre + meta + JSON-LD mis à jour à chaque annonce chargée
+  private readonly seoEffect = effect(() => {
+    const a = this.annonce();
+    if (!a) return;
+    const prix = new Intl.NumberFormat('fr-CM').format(a.prix) + ' FCFA';
+    const loc  = [a.quartier, a.ville].filter(Boolean).join(', ');
+    const title = `${a.typeBien} à ${loc} — ${prix} | Bailocam`;
+    const desc  = a.description
+      ? a.description.substring(0, 155).replace(/\s+/g, ' ').trim() + '…'
+      : `${a.typeBien} à louer ou à vendre à ${loc} pour ${prix}. Trouvez votre logement sur Bailocam.`;
+    const img   = a.photoPrincipale ?? 'https://bailocam.com/logo.jpeg';
+    const url   = `https://bailocam.com/annonces/${a.id}`;
+
+    this.titleSvc.setTitle(title);
+    this.metaSvc.updateTag({ name: 'description',        content: desc });
+    this.metaSvc.updateTag({ property: 'og:title',       content: title });
+    this.metaSvc.updateTag({ property: 'og:description', content: desc });
+    this.metaSvc.updateTag({ property: 'og:url',         content: url });
+    this.metaSvc.updateTag({ property: 'og:image',       content: img });
+    this.metaSvc.updateTag({ property: 'og:type',        content: 'product' });
+    this.metaSvc.updateTag({ name: 'twitter:title',       content: title });
+    this.metaSvc.updateTag({ name: 'twitter:description', content: desc });
+    this.metaSvc.updateTag({ name: 'twitter:image',       content: img });
+
+    // JSON-LD structured data pour Google Rich Results
+    const existing = document.getElementById('annonce-jsonld');
+    if (existing) existing.remove();
+    const script = document.createElement('script');
+    script.id   = 'annonce-jsonld';
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type':    'RealEstateListing',
+      name:        title,
+      description: desc,
+      url:         url,
+      image:       img,
+      offers: {
+        '@type':       'Offer',
+        price:          a.prix,
+        priceCurrency: 'XAF',
+        availability:  a.statut === 'ACTIVE'
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+      },
+      address: {
+        '@type':           'PostalAddress',
+        addressLocality:    a.ville,
+        streetAddress:      a.quartier ?? '',
+        addressCountry:    'CM',
+      },
+      provider: {
+        '@type': 'Organization',
+        name:    'Bailocam',
+        url:     'https://bailocam.com',
+      },
+    });
+    document.head.appendChild(script);
+  });
 
   // Photos avec fallback
   readonly photos = computed(() => {
@@ -986,6 +1049,13 @@ export class AnnonceDetailComponent implements OnInit {
     this.route.paramMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(params => this.loadAnnonce(+params.get('id')!));
+  }
+
+  ngOnDestroy(): void {
+    // Nettoyage SEO : restaure le titre générique et supprime le JSON-LD de l'annonce
+    this.titleSvc.setTitle('Bailocam — Immobilier camerounais');
+    this.metaSvc.updateTag({ name: 'description', content: 'Trouvez votre logement, bureau ou boutique au Cameroun. Annonces immobilières de Douala, Yaoundé et 18 autres villes.' });
+    document.getElementById('annonce-jsonld')?.remove();
   }
 
   private loadAnnonce(id: number): void {
