@@ -1348,7 +1348,7 @@ export class AdminUtilisateursComponent implements OnInit {
   // ── Export ─────────────────────────────────────────────────────────────
   exportPDF(): void {
     this.adminApi.exportUtilisateursPDF().subscribe(blob => {
-      this.telechargerFichier(blob, `immocam-utilisateurs-${new Date().toISOString().slice(0,10)}.pdf`);
+      this.telechargerFichier(blob, `bailocam-utilisateurs-${new Date().toISOString().slice(0,10)}.pdf`);
     });
   }
 

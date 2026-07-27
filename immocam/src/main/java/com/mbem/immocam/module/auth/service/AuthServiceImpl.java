@@ -152,7 +152,7 @@ public class AuthServiceImpl implements AuthService {
 
         notificationService.notifier(TypeNotification.INSCRIPTION,
                 "Nouvel utilisateur inscrit",
-                utilisateur.getPrenom() + " " + utilisateur.getNom() + " (" + utilisateur.getEmail() + ") vient de rejoindre ImmoCam",
+                utilisateur.getPrenom() + " " + utilisateur.getNom() + " (" + utilisateur.getEmail() + ") vient de rejoindre Bailocam",
                 "/admin/utilisateurs", utilisateur.getId());
 
         // role sans prefixe ROLE_ — correspond a hasAuthority('ADMINISTRATEUR')
@@ -310,7 +310,7 @@ public class AuthServiceImpl implements AuthService {
                     .build();
             tokenReinitialisationRepository.save(tokenEntity);
 
-            String lien = "https://immocam.cm/reset-password?token=" + token;
+            String lien = "https://bailocam.com/reset-password?token=" + token;
             emailService.envoyerLienReinitialisation(
                 utilisateur.getEmail(), utilisateur.getPrenom(), lien);
 

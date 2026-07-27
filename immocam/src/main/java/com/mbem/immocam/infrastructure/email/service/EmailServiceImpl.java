@@ -44,7 +44,7 @@ public class EmailServiceImpl implements EmailService {
             ctx.setVariable("code", code);
             ctx.setVariable("expiration", "10 minutes");
             String html = templateEngine.process("email/code-validation", ctx);
-            envoyer(destinataire, "Validez votre compte ImmoCam", html);
+            envoyer(destinataire, "Validez votre compte Bailocam", html);
         } catch (Exception e) {
             log.error("Erreur envoi code validation à {} : {}", destinataire, e.getMessage());
         }
@@ -58,7 +58,7 @@ public class EmailServiceImpl implements EmailService {
             ctx.setVariable("prenom", prenom);
             ctx.setVariable("lien", lien);
             String html = templateEngine.process("email/reinitialisation", ctx);
-            envoyer(destinataire, "Réinitialisez votre mot de passe ImmoCam", html);
+            envoyer(destinataire, "Réinitialisez votre mot de passe Bailocam", html);
         } catch (Exception e) {
             log.error("Erreur envoi lien réinitialisation à {} : {}", destinataire, e.getMessage());
         }
@@ -75,7 +75,7 @@ public class EmailServiceImpl implements EmailService {
             ctx.setVariable("ville", ville);
             ctx.setVariable("quartier", quartier);
             String html = templateEngine.process("email/confirmation-publication", ctx);
-            envoyer(destinataire, "Votre annonce est en ligne sur ImmoCam", html);
+            envoyer(destinataire, "Votre annonce est en ligne sur Bailocam", html);
         } catch (Exception e) {
             log.error("Erreur envoi confirmation publication à {} : {}", destinataire, e.getMessage());
         }
@@ -95,8 +95,8 @@ public class EmailServiceImpl implements EmailService {
             ctx.setVariable("joursRestants", joursRestants);
             String html = templateEngine.process("email/rappel-expiration", ctx);
             String sujet = joursRestants == 1
-                ? "Votre annonce ImmoCam expire demain"
-                : "Votre annonce ImmoCam expire dans " + joursRestants + " jours";
+                ? "Votre annonce Bailocam expire demain"
+                : "Votre annonce Bailocam expire dans " + joursRestants + " jours";
             envoyer(destinataire, sujet, html);
         } catch (Exception e) {
             log.error("Erreur envoi rappel expiration à {} : {}", destinataire, e.getMessage());
@@ -113,7 +113,7 @@ public class EmailServiceImpl implements EmailService {
             ctx.setVariable("typeBien", typeBien);
             ctx.setVariable("ville", ville);
             String html = templateEngine.process("email/annonce-suspendue", ctx);
-            envoyer(destinataire, "Votre annonce ImmoCam a expiré", html);
+            envoyer(destinataire, "Votre annonce Bailocam a expiré", html);
         } catch (Exception e) {
             log.error("Erreur envoi annonce suspendue à {} : {}", destinataire, e.getMessage());
         }
@@ -131,7 +131,7 @@ public class EmailServiceImpl implements EmailService {
             ctx.setVariable("ville", ville);
             ctx.setVariable("nouvelleDateExpiration", nouvelleDateExpiration);
             String html = templateEngine.process("email/confirmation-renouvellement", ctx);
-            envoyer(destinataire, "Votre annonce ImmoCam a été renouvelée", html);
+            envoyer(destinataire, "Votre annonce Bailocam a été renouvelée", html);
         } catch (Exception e) {
             log.error("Erreur envoi confirmation renouvellement à {} : {}", destinataire, e.getMessage());
         }
@@ -148,7 +148,7 @@ public class EmailServiceImpl implements EmailService {
             ctx.setVariable("ville", ville);
             ctx.setVariable("motif", motif);
             String html = templateEngine.process("email/annonce-supprimee-admin", ctx);
-            envoyer(destinataire, "Votre annonce ImmoCam a été supprimée", html);
+            envoyer(destinataire, "Votre annonce Bailocam a été supprimée", html);
         } catch (Exception e) {
             log.error("Erreur envoi annonce supprimée admin à {} : {}", destinataire, e.getMessage());
         }
@@ -178,7 +178,7 @@ public class EmailServiceImpl implements EmailService {
             ctx.setVariable("prenom", prenom);
             ctx.setVariable("motif", motif);
             String html = templateEngine.process("email/compte-suspendu", ctx);
-            envoyer(destinataire, "Votre compte ImmoCam a été suspendu", html);
+            envoyer(destinataire, "Votre compte Bailocam a été suspendu", html);
         } catch (Exception e) {
             log.error("Erreur envoi compte suspendu à {} : {}", destinataire, e.getMessage());
         }
@@ -191,7 +191,7 @@ public class EmailServiceImpl implements EmailService {
             Context ctx = new Context();
             ctx.setVariable("prenom", prenom);
             String html = templateEngine.process("email/compte-reactive", ctx);
-            envoyer(destinataire, "Votre compte ImmoCam a été réactivé", html);
+            envoyer(destinataire, "Votre compte Bailocam a été réactivé", html);
         } catch (Exception e) {
             log.error("Erreur envoi compte réactivé à {} : {}", destinataire, e.getMessage());
         }

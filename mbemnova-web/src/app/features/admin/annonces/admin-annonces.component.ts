@@ -1121,7 +1121,7 @@ export class AdminAnnoncesComponent implements OnInit {
 
   exportPDF(): void {
     this.adminApi.exportAnnoncesPDF().subscribe((blob) => {
-      this.telechargerFichier(blob, `immocam-annonces-${new Date().toISOString().slice(0, 10)}.pdf`);
+      this.telechargerFichier(blob, `bailocam-annonces-${new Date().toISOString().slice(0, 10)}.pdf`);
     });
   }
 
