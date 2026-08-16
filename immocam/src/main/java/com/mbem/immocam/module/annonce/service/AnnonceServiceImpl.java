@@ -146,7 +146,7 @@ public class AnnonceServiceImpl implements AnnonceService {
         if (utilisateurConnecteId != null && !estProprietaire) {
             String msgTemplate = obtenirConfigValeur(
                     ImmoCamConstants.CONFIG_MSG_WHATSAPP,
-                    "Bonjour, je vous contacte depuis ImmoCam concernant votre annonce.");
+                    "Bonjour, je vous contacte depuis Bailocam concernant votre annonce.");
             String msgFinal = msgTemplate
                     .replace("{type}", annonce.getTypeBien().getLibelle())
                     .replace("{quartier}", annonce.getQuartier() != null ? annonce.getQuartier() : "")

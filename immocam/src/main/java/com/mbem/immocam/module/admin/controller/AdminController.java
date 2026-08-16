@@ -298,7 +298,7 @@ public ResponseEntity<ApiResponse<Void>> modifierQuartierAnnonce(
                     a.getProprietaireNom() + " (" + a.getProprietaireEmail() + ")"
             });
         }
-        genererPdf(response.getOutputStream(), "Export des annonces — ImmoCam", entetes, lignes);
+        genererPdf(response.getOutputStream(), "Export des annonces — Bailocam", entetes, lignes);
     }
 
     @Operation(summary = "Export PDF des utilisateurs")
@@ -322,7 +322,7 @@ public ResponseEntity<ApiResponse<Void>> modifierQuartierAnnonce(
                     String.valueOf(u.getNombreAnnoncesActives()), String.valueOf(u.getNombreAnnoncesTotal())
             });
         }
-        genererPdf(response.getOutputStream(), "Export des utilisateurs — ImmoCam", entetes, lignes);
+        genererPdf(response.getOutputStream(), "Export des utilisateurs — Bailocam", entetes, lignes);
     }
 
     private void genererPdf(java.io.OutputStream out, String titre, String[] entetes, java.util.List<String[]> lignes) {

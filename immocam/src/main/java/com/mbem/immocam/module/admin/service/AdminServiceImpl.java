@@ -396,7 +396,7 @@ private void resoudreAutresSignalementsProprietaire(Signalement traite, Utilisat
                 .maxPhotosParAnnonce(configSystemeService.getInt(ImmoCamConstants.CONFIG_MAX_PHOTOS, 4))
                 .maxAnnoncesParProprietaire(configSystemeService.getInt(ImmoCamConstants.CONFIG_MAX_ANNONCES, 5))
                 .messageWhatsappDefaut(configSystemeService.getString(ImmoCamConstants.CONFIG_MSG_WHATSAPP,
-                        "Bonjour {proprietaire}, je suis interesse(e) par votre annonce ImmoCam : {type} a {quartier}, {ville} — {prix}. Est-elle toujours disponible ?"))
+                        "Bonjour {proprietaire}, je suis interesse(e) par votre annonce Bailocam : {type} a {quartier}, {ville} — {prix}. Est-elle toujours disponible ?"))
                 .build();
     }
 

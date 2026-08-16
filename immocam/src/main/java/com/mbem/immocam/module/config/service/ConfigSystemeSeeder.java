@@ -48,7 +48,7 @@ public class ConfigSystemeSeeder implements ApplicationRunner {
                 new String[]{"5", "Annonces actives simultanees max par proprietaire"});
         defauts.put(ImmoCamConstants.CONFIG_MSG_WHATSAPP,
                 new String[]{
-                        "Bonjour {proprietaire}, je suis interesse(e) par votre annonce ImmoCam : {type} a {quartier}, {ville} — {prix}. Est-elle toujours disponible ?",
+                        "Bonjour {proprietaire}, je suis interesse(e) par votre annonce Bailocam : {type} a {quartier}, {ville} — {prix}. Est-elle toujours disponible ?",
                         "Message pre-rempli WhatsApp (placeholders: {proprietaire}, {type}, {quartier}, {ville}, {prix})"});
         defauts.put(ImmoCamConstants.CONFIG_MAX_CONNEXIONS_ECHOUEES,
                 new String[]{"5", "Tentatives de connexion echouees avant blocage du compte"});

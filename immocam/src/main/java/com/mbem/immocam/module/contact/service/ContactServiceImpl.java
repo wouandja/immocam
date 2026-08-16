@@ -85,7 +85,7 @@ public class ContactServiceImpl implements ContactService {
      *
      * Rendu dans WhatsApp (exemple) :
      * ─────────────────────────────────────
-     * Bonjour 👋, je vous contacte via *ImmoCam* au sujet de votre annonce :
+     * Bonjour 👋, je vous contacte via *Bailocam* au sujet de votre annonce :
      *
      * 🏠 *Appartement – Bonapriso, Douala*
      * 💰 150 000 FCFA
@@ -144,20 +144,20 @@ public class ContactServiceImpl implements ContactService {
         // ── Message propriétaire (aperçu / test) ─────────────────────────
         if (estProprietaire) {
             StringBuilder msg = new StringBuilder();
-            msg.append("🔍 *Aperçu de votre annonce ImmoCam*\n\n");
+            msg.append("🔍 *Aperçu de votre annonce Bailocam*\n\n");
             msg.append(icone).append(" *").append(type);
             if (!localisation.isBlank()) msg.append(" – ").append(localisation);
             msg.append("*\n");
             if (!prix.isBlank())            msg.append("💰 ").append(prix).append("\n");
             if (!datePublication.isBlank()) msg.append("🗓 Publié le ").append(datePublication).append("\n");
             if (!description.isBlank())     msg.append("\n📝 ").append(description).append("\n");
-            msg.append("\n👆 _Voici ce que vos contacts verront en vous écrivant via ImmoCam._");
+            msg.append("\n👆 _Voici ce que vos contacts verront en vous écrivant via Bailocam._");
             return msg.toString();
         }
 
         // ── Message contact standard ──────────────────────────────────────
         StringBuilder msg = new StringBuilder();
-        msg.append("Bonjour 👋, je vous contacte via *ImmoCam* au sujet de votre annonce :\n\n");
+        msg.append("Bonjour 👋, je vous contacte via *Bailocam* au sujet de votre annonce :\n\n");
         msg.append(icone).append(" *").append(type);
         if (!localisation.isBlank()) msg.append(" – ").append(localisation);
         msg.append("*\n");
@@ -203,7 +203,7 @@ public class ContactServiceImpl implements ContactService {
                 .telephoneMasque(PhoneUtils.masquer(c.getTelephoneContact()))
                 .lienWhatsApp(PhoneUtils.construireLienWhatsApp(
                         c.getTelephoneContact(),
-                        "Bonjour, je suis disponible pour votre annonce sur ImmoCam."))
+                        "Bonjour, je suis disponible pour votre annonce sur Bailocam."))
                 .annonceTitre(c.getAnnonce().getTypeBien().getLibelle()
                         + " – " + c.getAnnonce().getLocalisation().getVille())
                 .dateContact(c.getDateContact())
